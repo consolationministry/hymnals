@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f8f6fa">
+  <meta name="description" content="A simple bilingual digital hymnal for Consolation Evangelical and Revival Church.">
+  <meta name="color-scheme" content="light dark">
+  <title>Consolation Hymnal</title>
+  <link rel="icon" type="image/svg+xml" href="./assets/demo-church-mark.svg">
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <section class="splash" id="splash" aria-label="Opening Consolation Hymnal" aria-live="polite">
+    <img src="./assets/demo-church-mark.svg" width="88" height="88" alt="">
+    <p class="splash-kicker">WELCOME TO</p>
+    <h1>Consolation Evangelical<br>and Revival Church</h1>
+    <p class="splash-motto">Faith · Hope · Worship</p>
+    <span class="splash-loader" aria-label="Loading"></span>
+  </section>
+
+  <div class="app-shell" id="app-shell" hidden>
+    <header class="brand-header" id="brand-header"></header>
+    <main class="main-content" id="main-content" tabindex="-1"></main>
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Main navigation"></nav>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
