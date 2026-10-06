@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -90,8 +91,35 @@ jobs:
         run: |
           set -euo pipefail
           : "${ANDROID_KEYSTORE_BASE64:?Missing ANDROID_KEYSTORE_BASE64 secret}"
+          encoded="$(printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]')"
+          if [[ "$encoded" == data:*base64,* ]]; then
+            encoded="${encoded#*,}"
+          fi
+          encoded="$(printf '%s' "$encoded" | tr '_-' '/+')"
+          case $((${#encoded} % 4)) in
+            0) ;;
+            2) encoded="${encoded}==" ;;
+            3) encoded="${encoded}=" ;;
+            *)
+              echo "ANDROID_KEYSTORE_BASE64 is not valid Base64." >&2
+              exit 1
+              ;;
+          esac
+          case "$encoded" in
+            *[!A-Za-z0-9+/=]*)
+              echo "ANDROID_KEYSTORE_BASE64 contains invalid characters." >&2
+              exit 1
+              ;;
+          esac
           keystore_path="$RUNNER_TEMP/consolation-hymnal-release.jks"
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          if ! printf '%s' "$encoded" | base64 --decode > "$keystore_path"; then
+            echo "ANDROID_KEYSTORE_BASE64 could not be decoded; replace it with the keystore's Base64 contents." >&2
+            exit 1
+          fi
+          if [[ ! -s "$keystore_path" ]]; then
+            echo "Decoded Android keystore is empty." >&2
+            exit 1
+          fi
           chmod 600 "$keystore_path"
           echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
 
