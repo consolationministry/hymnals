@@ -39,7 +39,7 @@ jobs:
 
       - name: Install, test, and build shared web app
         run: |
-          npm ci --no-audit --no-fund
+          npm ci --registry=https://registry.npmjs.org --replace-registry-host=always --no-audit --no-fund
           npm test
           npm run build
 
