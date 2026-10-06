@@ -1,14 +1,14 @@
 import { App } from "@capacitor/app";
-import { FileTransfer } from "@capacitor/file-transfer";
-import { Directory, Filesystem } from "@capacitor/filesystem";
-import { FileOpener } from "@capawesome-team/capacitor-file-opener";
-import { APP_VERSION, ANDROID_RELEASES_API, isNewerVersion } from "./version.js";
+import { CapacitorUpdater } from "@capgo/capacitor-updater";
+import { ANDROID_RELEASES_API, APP_VERSION, getAndroidWebBundle, isNewerVersion } from "./version.js";
 
 let availableUpdate = null;
 let onUpdateAvailable = null;
+let checkInProgress = false;
 
 async function checkAndroidRelease() {
-  if (!navigator.onLine) return;
+  if (!navigator.onLine || checkInProgress) return;
+  checkInProgress = true;
   try {
     const response = await fetch(ANDROID_RELEASES_API, {
       headers: { Accept: "application/vnd.github+json" },
@@ -16,64 +16,63 @@ async function checkAndroidRelease() {
     });
     if (!response.ok) return;
     const release = await response.json();
-    if (release.draft || release.prerelease || !isNewerVersion(release.tag_name, APP_VERSION)) return;
-
-    const apk = (release.assets || []).find(function (asset) {
-      return asset.name === "consolation-hymnal-android.apk" &&
-        /^https:\/\/github\.com\/consolationministry\/hymnals\/releases\/download\//.test(asset.browser_download_url || "");
-    });
-    if (!apk) return;
-
     const appInfo = await App.getInfo();
-    if (!isNewerVersion(release.tag_name, appInfo.version || APP_VERSION)) return;
-    availableUpdate = {
-      version: release.tag_name.replace(/^v/, ""),
-      apkUrl: apk.browser_download_url,
-      releaseUrl: release.html_url
-    };
+    const active = await CapacitorUpdater.current();
+    const activeVersion = active.bundle.id !== "builtin" && active.bundle.version
+      ? active.bundle.version
+      : active.native || appInfo.version || APP_VERSION;
+    const update = getAndroidWebBundle(release);
+    if (!update || !isNewerVersion(update.version, activeVersion)) return;
+    availableUpdate = update;
     if (onUpdateAvailable) {
       onUpdateAvailable({ kind: "android", version: availableUpdate.version, releaseUrl: availableUpdate.releaseUrl });
     }
   } catch (error) {
-    // Offline launches are expected. A later online event retries the check.
+    // Offline launches are expected. A later online or foreground event retries.
+  } finally {
+    checkInProgress = false;
   }
+}
+
+export function confirmNativeAppReady() {
+  return CapacitorUpdater.notifyAppReady();
 }
 
 export async function initializeNativeUpdates(onAvailable) {
   onUpdateAvailable = onAvailable;
-  checkAndroidRelease();
+  await checkAndroidRelease();
   window.addEventListener("online", checkAndroidRelease);
+  App.addListener("appStateChange", function (state) {
+    if (state.isActive) checkAndroidRelease();
+  }).catch(function () {});
 }
 
 export async function applyNativeUpdate(onProgress) {
   if (!availableUpdate) throw new Error("There is no update ready to install.");
-  const filename = "consolation-hymnal-update-" + availableUpdate.version + ".apk";
-  const destination = await Filesystem.getUri({ directory: Directory.Cache, path: filename });
-  const progressListener = await FileTransfer.addListener("progress", function (progress) {
-    if (onProgress && progress.contentLength > 0) {
-      const percent = Math.min(100, Math.round((progress.bytes / progress.contentLength) * 100));
-      onProgress("Downloading update… " + percent + "%");
-    } else if (onProgress) {
-      onProgress("Downloading the update…");
-    }
-  });
+  const update = availableUpdate;
+  availableUpdate = null;
+  let progressListener;
 
   try {
-    await FileTransfer.downloadFile({
-      url: availableUpdate.apkUrl,
-      path: destination.uri,
-      progress: true,
-      connectTimeout: 30000,
-      readTimeout: 120000
+    progressListener = await CapacitorUpdater.addListener("download", function (progress) {
+      if (onProgress) {
+        onProgress("Downloading the in-app update… " + Math.round(progress.percent) + "%");
+      }
     });
+    const bundle = await CapacitorUpdater.download({
+      url: update.bundleUrl,
+      version: update.version
+    });
+    await CapacitorUpdater.next({ id: bundle.id });
+    if (onProgress) onProgress("Applying the update inside the app…");
+    await CapacitorUpdater.reload();
+    return { reload: true };
+  } catch (error) {
+    availableUpdate = update;
+    throw error;
   } finally {
-    await progressListener.remove();
+    if (progressListener) {
+      await progressListener.remove().catch(function () {});
+    }
   }
-
-  if (onProgress) onProgress("Opening Android's installer…");
-  await FileOpener.openFile({
-    path: destination.uri,
-    mimeType: "application/vnd.android.package-archive"
-  });
-  return { installerOpened: true };
 }

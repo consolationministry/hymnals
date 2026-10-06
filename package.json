@@ -11,9 +11,7 @@
   "dependencies": {
     "@capacitor/app": "^7.1.0",
     "@capacitor/core": "^7.4.3",
-    "@capacitor/file-transfer": "^1.0.12",
-    "@capacitor/filesystem": "^7.1.9",
-    "@capawesome-team/capacitor-file-opener": "^7.0.1"
+    "@capgo/capacitor-updater": "^7.51.23"
   },
   "devDependencies": {
     "@capacitor/android": "^7.4.3",

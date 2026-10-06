@@ -4,12 +4,15 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: github.event_name != 'release'
     name: Build debug APK
     runs-on: ubuntu-latest
 
@@ -82,3 +85,46 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+  publish-live-update:
+    name: Attach live-update bundle to release
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Verify release version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const expected = JSON.parse(readFileSync("package.json", "utf8")).version;
+          const actual = process.env.RELEASE_TAG.replace(/^v/, "");
+          if (actual !== expected) {
+            throw new Error(`Release tag ${actual} does not match package version ${expected}.`);
+          }
+          NODE
+
+      - name: Build and package the live-update bundle
+        run: |
+          npm ci --registry=https://registry.npmjs.org --no-audit --no-fund
+          npm test
+          npm run build
+          cd dist
+          zip -qr ../consolation-hymnal-android-web.zip .
+
+      - name: Attach live-update bundle to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" consolation-hymnal-android-web.zip --clobber

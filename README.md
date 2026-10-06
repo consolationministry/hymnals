@@ -45,15 +45,15 @@ The debug APK is for testing and sideloading, not a Play Store release.
 
 ## In-app Android updates
 
-The Android app checks the latest non-draft GitHub Release when online. If its tag is newer than the installed version and the release includes `consolation-hymnal-android.apk`, the app shows an update prompt, downloads the APK into app-private cache, then opens Android's package installer. Android—not the app—asks the user to confirm the install. The app cannot silently bypass that system prompt.
+The Android app checks the latest non-draft GitHub Release when online. When a release is published, GitHub Actions builds and attaches `consolation-hymnal-android-web.zip`. The app downloads that web bundle and applies it inside the app; changes to app screens, code, or bundled hymn texts do not require downloading or reinstalling the APK. The updater confirms a bundle after it starts and can roll back a bundle that fails to start.
+
+To publish a live update, make sure the release tag matches `package.json` and `js/version.js` (for example, `v1.2.0` for version `1.2.0`), then publish the GitHub Release. The workflow adds the required ZIP asset automatically. Native Android changes still require a newly built and signed APK, installed through Android or the app store.
 
 Signed updates must use the same private keystore for every release. Create and securely back up a keystore once; never commit it. Set `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD` in your local build environment, then run `npm ci`, `npm run build`, `npx cap add android`, `npx cap sync android`, and `node scripts/prepare-android.mjs`. Build with `cd android && ./gradlew assembleRelease`, then upload `android/app/build/outputs/apk/release/app-release.apk` to a GitHub Release as `consolation-hymnal-android.apk`.
 
-The release tag must match `package.json` (currently `v1.1.0`). For each later release, update `package.json`, `js/version.js`, and the cache version in `service-worker.js` together. The first official release may not install over earlier debug APKs if their signatures differ; uninstalling a mismatched test build can erase device-local favorites and settings.
+For each release, update `package.json`, `js/version.js`, and the cache version in `service-worker.js` together. The release tag must match the app version. A native APK update must keep the same signing key as the installed release; Android may reject an APK signed with a different key.
 
-Older test APKs were produced by a separate debug workflow and may not share the release signing key. If Android rejects the first signed update because the signatures differ, install the signed release once from its GitHub Release; uninstalling a mismatched test build can erase its device-local favorites and settings.
-
-Updates require an internet connection. The web app updates its cached files through the service worker; Android app updates replace the installed APK through the Android installer. Neither update path removes local Favorites or preferences when the Android package signature remains the same.
+Live updates require an internet connection to download the bundle. Applying a live update keeps local Favorites and preferences. Native Android code changes are outside the live bundle and require an APK update.
 
 ## GitHub Pages
 
