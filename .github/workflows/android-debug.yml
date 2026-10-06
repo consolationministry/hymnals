@@ -37,9 +37,33 @@ jobs:
       - name: Install Android SDK packages
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Prepare npm lockfile for GitHub
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const lockfilePath = "package-lock.json";
+          const privatePrefix = "http://package-firewall.replit.internal/npm/";
+          const publicPrefix = "https://registry.npmjs.org/";
+          const original = readFileSync(lockfilePath, "utf8");
+          const count = original.split(privatePrefix).length - 1;
+          const normalized = original.replaceAll(privatePrefix, publicPrefix);
+
+          if (normalized.includes("package-firewall.replit.internal")) {
+            throw new Error("The npm lockfile still contains a Replit-only registry URL.");
+          }
+          if (count === 0 && !original.includes(publicPrefix)) {
+            throw new Error("No recognized npm registry URLs were found in package-lock.json.");
+          }
+          if (count > 0) {
+            writeFileSync(lockfilePath, normalized);
+            console.log(`Normalized ${count} package URLs for GitHub Actions.`);
+          }
+          NODE
+
       - name: Install, test, and build shared web app
         run: |
-          npm ci --registry=https://registry.npmjs.org --replace-registry-host=always --no-audit --no-fund
+          npm ci --registry=https://registry.npmjs.org --no-audit --no-fund
           npm test
           npm run build
 
