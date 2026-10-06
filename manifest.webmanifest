@@ -1,0 +1,18 @@
+{
+  "name": "Consolation Evangelical and Revival Church Hymnal",
+  "short_name": "Consolation Hymnal",
+  "description": "Read and search the church hymnal, even without an internet connection.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8f6fa",
+  "theme_color": "#f8f6fa",
+  "icons": [
+    {
+      "src": "./assets/demo-church-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

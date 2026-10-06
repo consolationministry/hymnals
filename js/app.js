@@ -4,6 +4,8 @@ import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 import { addRecent } from "./recent.js";
 import { ACCENT_THEMES, getSettings, saveSettings } from "./settings.js";
 import { shareHymn } from "./sharing.js";
+import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
+import { APP_VERSION } from "./version.js";
 
 const header = document.getElementById("brand-header");
 const main = document.getElementById("main-content");
@@ -11,6 +13,11 @@ const nav = document.getElementById("bottom-nav");
 const shell = document.getElementById("app-shell");
 const splash = document.getElementById("splash");
 const toast = document.getElementById("toast");
+const updateDialog = document.getElementById("update-dialog");
+const updateMessage = document.getElementById("update-message");
+const updateVersion = document.getElementById("update-version");
+const updateStatus = document.getElementById("update-status");
+const updateInstallButton = document.getElementById("update-install");
 const categories = ["Praise", "Worship", "Thanksgiving", "Prayer", "Faith", "Hope", "Service", "Community", "Family", "Evangelism"];
 const state = { hymns: [], view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, settings: getSettings(), toastTimer: null };
 
@@ -246,7 +253,7 @@ function renderSettings() {
   };
   return '<section class="page">' + pageHeading("Settings", "Make the hymn book comfortable for you.") + '<section class="settings-group"><h2>Appearance</h2><p class="settings-description">Choose how the app looks on this device.</p><div class="preference-choices">' + themeChoice("light", "Light", "sun") + themeChoice("dark", "Dark", "moon") + themeChoice("system", "System", "settings") + '</div></section><section class="settings-group"><h2>Accent colour</h2><p class="settings-description">Choose from 15 colours. Your choice works with light and dark mode.</p><div class="accent-grid">' + ACCENT_THEMES.map(function (accent) {
     return '<button class="preference-choice accent-choice" type="button" data-action="accent" data-accent="' + accent + '" aria-pressed="' + (state.settings.accent === accent) + '" data-testid="button-accent-' + accent + '"><span class="color-dot" aria-hidden="true"></span><span>' + accentLabels[accent] + '</span></button>';
-  }).join("") + '</div></section><section class="settings-group"><h2>Reading</h2><p class="settings-description">Set your preferred hymn language and text size. Yorùbá text is still being sourced.</p><div class="setting-row"><span><strong>Language</strong><small>Choose which hymn text to show.</small></span>' + languageToggle() + '</div><div class="setting-row"><span><strong>Text size</strong><small id="settings-font-value">' + size + ' px</small></span><input class="setting-range" id="settings-font-size" type="range" min="17" max="32" step="1" value="' + size + '" aria-label="Hymn text size" data-testid="input-font-size"></div><p class="verse-text setting-preview" style="--hymn-size:' + size + 'px">The hymn text will use this size.</p></section><section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal · Version 1.0.0</small></span></div><p class="about-copy">The current collection contains 197 English texts associated with <em>Pentecostal Hymns No. 1</em> (1894). Each included text is marked Public Domain on its Hymnary text authority page. Yorùbá versions are pending sourcing and review.</p><div class="setting-note" style="margin-top:14px"><strong>Rights scope</strong><br>The source’s Public Domain designation and the 1894 publication date do not establish status in every country. Verify local rights before use outside the United States.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
+    }).join("") + '</div></section><section class="settings-group"><h2>Reading</h2><p class="settings-description">Set your preferred hymn language and text size. Yorùbá text is still being sourced.</p><div class="setting-row"><span><strong>Language</strong><small>Choose which hymn text to show.</small></span>' + languageToggle() + '</div><div class="setting-row"><span><strong>Text size</strong><small id="settings-font-value">' + size + ' px</small></span><input class="setting-range" id="settings-font-size" type="range" min="17" max="32" step="1" value="' + size + '" aria-label="Hymn text size" data-testid="input-font-size"></div><p class="verse-text setting-preview" style="--hymn-size:' + size + 'px">The hymn text will use this size.</p></section><section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal · Version ' + APP_VERSION + '</small></span></div><p class="about-copy">The current collection contains 197 English texts associated with <em>Pentecostal Hymns No. 1</em> (1894). Each included text is marked Public Domain on its Hymnary text authority page. Yorùbá versions are pending sourcing and review.</p><div class="setting-note" style="margin-top:14px"><strong>Rights scope</strong><br>The source’s Public Domain designation and the 1894 publication date do not establish status in every country. Verify local rights before use outside the United States.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
 }
 
 function showToast(message) {
@@ -332,11 +339,51 @@ async function performShare(number) {
   }
 }
 
+function showUpdateNotice(update) {
+  updateDialog.dataset.updateKind = update.kind;
+  updateDialog.dataset.releaseUrl = update.releaseUrl || "";
+  updateVersion.textContent = update.version ? "Version " + update.version : "";
+  updateMessage.textContent = update.kind === "android"
+    ? "Download the Android update now. Android will ask you to confirm installation before replacing this app."
+    : "A newer offline-ready version of the hymnal is ready to install.";
+  updateInstallButton.textContent = update.kind === "android" ? "Download & install" : "Install update";
+  updateInstallButton.disabled = false;
+  updateStatus.hidden = true;
+  updateStatus.textContent = "";
+  if (!updateDialog.open) updateDialog.showModal();
+}
+
+async function installAvailableUpdate() {
+  updateInstallButton.disabled = true;
+  updateStatus.hidden = false;
+  updateStatus.textContent = "Preparing the update…";
+  try {
+    const result = await applyAvailableUpdate(function (message) {
+      updateStatus.textContent = message;
+    });
+    if (result && result.releaseUrl) {
+      window.open(result.releaseUrl, "_blank", "noopener,noreferrer");
+      updateDialog.close();
+    } else if (result && result.reload) {
+      updateStatus.textContent = "Restarting with the new version…";
+    } else {
+      updateStatus.textContent = "The installer is ready. Follow the Android prompts to finish.";
+    }
+  } catch (error) {
+    updateInstallButton.disabled = false;
+    updateStatus.textContent = error && error.message
+      ? error.message
+      : "The update could not be downloaded. Check your connection and try again.";
+  }
+}
+
 document.addEventListener("click", function (event) {
   const target = event.target.closest("[data-action]");
   if (!target) return;
   const action = target.dataset.action;
-  if (action === "navigate") navigate(target.dataset.view);
+  if (action === "dismiss-update") updateDialog.close();
+  else if (action === "install-update") installAvailableUpdate();
+  else if (action === "navigate") navigate(target.dataset.view);
   else if (action === "open-search") {
     state.searchOpen = true;
     render();
@@ -418,6 +465,7 @@ async function boot() {
       splash.classList.add("is-leaving");
       window.setTimeout(function () { splash.hidden = true; }, 370);
     }, 950);
+    initializeUpdates({ onAvailable: showUpdateNotice });
   } catch (error) {
     shell.hidden = false;
     header.innerHTML = "";

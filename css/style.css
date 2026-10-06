@@ -139,6 +139,20 @@ button { -webkit-tap-highlight-color: transparent; }
 .toast { position: fixed; z-index: 30; right: 16px; bottom: calc(93px + env(safe-area-inset-bottom)); left: 16px; width: max-content; max-width: min(480px, calc(100vw - 32px)); margin: 0 auto; padding: 12px 17px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--surface); box-shadow: var(--shadow); font-size: .9rem; font-weight: 650; text-align: center; }
 .toast.is-visible { animation: toast-in .18s ease both; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+.update-dialog { width: min(440px, calc(100% - 32px)); padding: 0; border: 1px solid var(--line); border-radius: 24px; color: var(--ink); background: var(--surface); box-shadow: 0 24px 80px rgb(29 17 42 / 28%); }
+.update-dialog::backdrop { background: rgb(22 13 31 / 55%); backdrop-filter: blur(4px); }
+.update-dialog-content { padding: 30px 26px 24px; }
+.update-dialog-icon { display: grid; width: 48px; height: 48px; place-items: center; border-radius: 16px; color: var(--accent); background: var(--surface-soft); font-size: 1.7rem; font-weight: 800; }
+.update-kicker { margin: 22px 0 7px; color: var(--accent); font-size: .72rem; font-weight: 850; letter-spacing: .15em; }
+.update-dialog h2 { margin: 0; font-family: var(--font-reading); font-size: 1.45rem; line-height: 1.25; }
+.update-dialog p { color: var(--muted); line-height: 1.55; }
+.update-version { margin: 9px 0 0; font-size: .88rem; font-weight: 750; }
+.update-status { margin: 14px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--surface-soft); font-size: .88rem; }
+.update-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.update-dialog-actions button { min-height: 44px; padding: 0 16px; border-radius: 13px; font: inherit; font-weight: 750; cursor: pointer; }
+.update-dialog-actions .button-secondary { border: 1px solid var(--line); color: var(--ink); background: var(--surface); }
+.update-dialog-actions .button-primary { border: 1px solid var(--accent); color: #fff; background: var(--accent); }
+.update-dialog-actions .button-primary:disabled { opacity: .65; cursor: progress; }
 @media (min-width: 720px) {
   .main-content { padding: 34px 34px 44px; }
   .brand-header { padding-right: 34px; padding-left: 34px; }
