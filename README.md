@@ -23,6 +23,25 @@ The target collection is 250 hymns. Only the 197 entries with a clean transcript
 
 Serve the repository root with any static web server. For example, run python3 -m http.server 8000, then open localhost port 8000 in a browser. Opening index.html directly with file:// may prevent JavaScript modules from loading; use a local server or GitHub Pages instead.
 
+## Android app (Capacitor)
+
+The Android app loads the same bundled hymnal files as the website, so the library works offline and does not depend on GitHub Pages being reachable.
+
+To build a debug APK locally, install Node.js 22 or newer and Java 21, then run:
+
+```sh
+npm install
+npm run build
+npx cap add android
+npx cap sync android
+cd android
+./gradlew assembleDebug
+```
+
+The APK is created at `android/app/build/outputs/apk/debug/app-debug.apk`. This is a debug-signed APK for testing and sideloading, not a Play Store release.
+
+GitHub Actions builds the APK on every push, pull request, and manual workflow run. Open the workflow run in the repository's Actions tab and download the `consolation-hymnal-android-apk-<commit>` artifact. The Android project is generated during CI and is intentionally not committed; edit `capacitor.config.json` or the workflow if the native build needs customization.
+
 ## GitHub Pages
 
 The paths are relative to the repository root, so the app is compatible with a project Pages URL. Enable Pages for the main branch root in the repository's Pages settings when the church is ready to host it there. This repository does not configure or activate hosting.
