@@ -152,7 +152,6 @@ function renderHome() {
   const favoriteCount = getFavorites().length;
   const hymnCountLabel = state.hymns.length + (state.hymns.length === 1 ? " hymn" : " hymns");
   return '<section class="page home-page">' +
-    '<section class="home-cover" aria-label="Welcome to the hymnal"><img class="home-cover-art" src="./assets/home-hymnal-reference.webp" alt="Find your next hymn: browse English and Yorùbá hymns and mark your favourites."></section>' +
     '<div class="home-intro"><p class="eyebrow">Pentecostal Hymns No. 1</p><h1>Find a hymn for this moment.</h1><p>Search by number, title, or the first line you remember.</p></div>' +
     renderSearchBar() +
     '<div class="home-language-row"><span>Read in</span>' + languageToggle() + '</div>' +
