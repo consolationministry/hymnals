@@ -344,9 +344,9 @@ function showUpdateNotice(update) {
   updateDialog.dataset.releaseUrl = update.releaseUrl || "";
   updateVersion.textContent = update.version ? "Version " + update.version : "";
   updateMessage.textContent = update.kind === "android"
-    ? "Download the Android update now. Android will ask you to confirm installation before replacing this app."
+    ? "Get the latest screens and hymns inside the app. No APK installer or reinstall is needed."
     : "A newer offline-ready version of the hymnal is ready to install.";
-  updateInstallButton.textContent = update.kind === "android" ? "Download & install" : "Install update";
+  updateInstallButton.textContent = update.kind === "android" ? "Update in app" : "Install update";
   updateInstallButton.disabled = false;
   updateStatus.hidden = true;
   updateStatus.textContent = "";
@@ -367,7 +367,7 @@ async function installAvailableUpdate() {
     } else if (result && result.reload) {
       updateStatus.textContent = "Restarting with the new version…";
     } else {
-      updateStatus.textContent = "The installer is ready. Follow the Android prompts to finish.";
+      updateStatus.textContent = "The update is ready.";
     }
   } catch (error) {
     updateInstallButton.disabled = false;
@@ -457,6 +457,13 @@ if (window.matchMedia) {
 }
 
 async function boot() {
+  const bridge = window.Capacitor;
+  if (bridge && typeof bridge.isNativePlatform === "function" && bridge.isNativePlatform() &&
+      typeof bridge.getPlatform === "function" && bridge.getPlatform() === "android") {
+    import("./native-updates.js").then(function (updates) {
+      return updates.confirmNativeAppReady();
+    }).catch(function () {});
+  }
   try {
     state.hymns = await getAllHymns();
     render();
