@@ -10,7 +10,7 @@ export const ACCENT_THEMES = Object.freeze([
 export function getSettings() {
   const stored = readLocal(SETTINGS_KEY, {});
   const settings = Object.assign({}, DEFAULT_SETTINGS, stored && typeof stored === "object" ? stored : {});
-  if (!["english", "yoruba", "both"].includes(settings.language)) settings.language = DEFAULT_SETTINGS.language;
+  if (!["english", "yoruba"].includes(settings.language)) settings.language = DEFAULT_SETTINGS.language;
   if (!["light", "dark", "system"].includes(settings.theme)) settings.theme = DEFAULT_SETTINGS.theme;
   if (settings.accent === "violet") settings.accent = "purple";
   if (!ACCENT_THEMES.includes(settings.accent)) settings.accent = DEFAULT_SETTINGS.accent;

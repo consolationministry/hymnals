@@ -324,3 +324,111 @@ html[data-theme="dark"] .reader-heading {
     linear-gradient(137deg, #1c1129 0%, #301629 55%, #461b32 100%);
   box-shadow: 0 15px 34px rgba(0, 0, 0, .2);
 }
+
+/* Home: church identity, expandable search, language choice, then the full hymns. */
+.brand-header { justify-content: flex-start; }
+.brand-subtitle { letter-spacing: .035em; }
+.home-page { max-width: 760px; }
+.home-search-control { display: flex; align-items: stretch; gap: 9px; margin: 0 0 15px; }
+.home-search-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 15px;
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 22%, transparent);
+  font-weight: 750;
+  cursor: pointer;
+}
+.home-search-trigger:hover { filter: brightness(1.06); }
+.home-search-trigger svg { width: 21px; height: 21px; }
+.home-search-control.is-open .search-panel { flex: 1; min-width: 0; margin: 0; }
+.home-search-control.is-open .search-form { min-height: 56px; border-radius: 15px; }
+.home-search-control.is-open .search-submit { width: 46px; height: 46px; }
+.home-search-close {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 56px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  background: var(--surface);
+  cursor: pointer;
+}
+.home-language { display: flex; justify-content: center; margin: 0 0 17px; }
+.home-language .language-toggle { display: grid; grid-template-columns: repeat(2, minmax(110px, 1fr)); width: min(100%, 360px); }
+.home-language .language-toggle button { min-height: 43px; }
+.home-hymn-list { display: grid; gap: 15px; }
+.home-hymn {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--surface);
+  box-shadow: 0 7px 22px rgba(34, 30, 51, .055);
+}
+.home-hymn-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 13px 0 17px;
+}
+.home-hymn-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.home-hymn-title {
+  min-width: 0;
+  color: var(--ink);
+  font-family: var(--font-reading);
+  font-size: 1.13rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.home-hymn-heading .favorite-toggle { width: 42px; height: 42px; flex: 0 0 auto; }
+.home-hymn-first-line {
+  margin: 10px 18px 0;
+  color: var(--muted);
+  font-family: var(--font-reading);
+  font-size: .98rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+.home-hymn .language-reading {
+  margin-top: 11px;
+  padding: 0 18px 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.home-hymn .language-reading h2 { display: none; }
+.home-hymn .verse-block { padding-bottom: 15px; }
+.home-empty { margin-top: 4px; }
+.home-empty .button-secondary { margin-top: 7px; }
+
+@media (max-width: 430px) {
+  .brand-header { justify-content: flex-start; }
+  .home-search-control.is-open { gap: 7px; }
+  .home-search-control.is-open .search-form { padding-left: 12px; }
+  .home-hymn-heading { padding-left: 13px; }
+  .home-hymn-open { gap: 9px; }
+  .home-hymn .language-reading { padding: 0 14px 16px; }
+  .home-hymn-first-line { margin-right: 14px; margin-left: 14px; }
+}
