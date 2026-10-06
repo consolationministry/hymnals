@@ -239,7 +239,7 @@ button { -webkit-tap-highlight-color: transparent; }
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--purple) 12%, var(--line));
   border-radius: 24px;
-  background: linear-gradient(145deg, #f3ebfa 0%, #fff8ea 52%, #e9e8fb 100%);
+  background: linear-gradient(145deg, #e9dbef 0%, #f0dce3 52%, #e4d9ee 100%);
   box-shadow: var(--shadow);
 }
 .home-cover-art {
@@ -272,9 +272,9 @@ button { -webkit-tap-highlight-color: transparent; }
   background:
     radial-gradient(circle at 88% 18%, rgba(255,255,255,.17) 0 1px, transparent 2px),
     radial-gradient(circle at 72% 66%, rgba(255,255,255,.15) 0 1px, transparent 2px),
-    radial-gradient(ellipse at 87% 12%, rgba(139,184,255,.34), transparent 37%),
-    linear-gradient(137deg, #12274f 0%, #194b89 57%, #315fa0 100%);
-  box-shadow: 0 15px 34px rgba(24, 58, 104, .2);
+    radial-gradient(ellipse at 87% 12%, rgba(231,161,199,.3), transparent 37%),
+    linear-gradient(137deg, #382044 0%, #622545 55%, #922e55 100%);
+  box-shadow: 0 15px 34px rgba(77, 30, 66, .24);
 }
 .reader-heading::after {
   position: absolute;
@@ -339,12 +339,12 @@ button { -webkit-tap-highlight-color: transparent; }
   .accent-choice { gap: 7px; padding-right: 8px; padding-left: 8px; font-size: .83rem; }
 }
 
-html[data-theme="dark"] .home-cover { border-color: var(--line); background: linear-gradient(145deg, #292338 0%, #30272b 52%, #22263a 100%); }
+html[data-theme="dark"] .home-cover { border-color: var(--line); background: linear-gradient(145deg, #2b1d35 0%, #38212f 52%, #2c213a 100%); }
 html[data-theme="dark"] .reader-heading {
   background:
     radial-gradient(circle at 88% 18%, rgba(255,255,255,.13) 0 1px, transparent 2px),
     radial-gradient(circle at 72% 66%, rgba(255,255,255,.12) 0 1px, transparent 2px),
-    radial-gradient(ellipse at 87% 12%, rgba(122,162,255,.18), transparent 37%),
-    linear-gradient(137deg, #09152c 0%, #11294a 57%, #1c365a 100%);
+    radial-gradient(ellipse at 87% 12%, rgba(205,135,177,.18), transparent 37%),
+    linear-gradient(137deg, #1c1129 0%, #301629 55%, #461b32 100%);
   box-shadow: 0 15px 34px rgba(0, 0, 0, .2);
 }
