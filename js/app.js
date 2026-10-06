@@ -1,7 +1,7 @@
 import { getAllHymns } from "./hymn-service.js";
 import { searchHymns } from "./search.js";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
-import { getRecentNumbers, addRecent } from "./recent.js";
+import { addRecent } from "./recent.js";
 import { ACCENT_THEMES, getSettings, saveSettings } from "./settings.js";
 import { shareHymn } from "./sharing.js";
 
@@ -12,7 +12,7 @@ const shell = document.getElementById("app-shell");
 const splash = document.getElementById("splash");
 const toast = document.getElementById("toast");
 const categories = ["Praise", "Worship", "Thanksgiving", "Prayer", "Faith", "Hope", "Service", "Community", "Family", "Evangelism"];
-const state = { hymns: [], view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", settings: getSettings(), toastTimer: null };
+const state = { hymns: [], view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
@@ -52,18 +52,18 @@ function applyPreferences() {
 }
 
 function languageLabel(language) {
-  return { english: "English", yoruba: "Yorùbá", both: "Both" }[language] || "English";
+  return { english: "English", yoruba: "Yorùbá" }[language] || "English";
 }
 
 function languageToggle() {
-  const choices = ["english", "yoruba", "both"];
+  const choices = ["english", "yoruba"];
   return '<div class="language-toggle" role="group" aria-label="Hymn language">' + choices.map(function (language) {
     return '<button type="button" data-action="language" data-language="' + language + '" aria-pressed="' + (state.settings.language === language) + '" data-testid="button-language-' + language + '">' + languageLabel(language) + '</button>';
   }).join("") + '</div>';
 }
 
 function renderHeader() {
-  header.innerHTML = '<button class="brand-lockup" type="button" data-action="navigate" data-view="home" aria-label="Go to Home" data-testid="button-brand-home"><img src="./assets/demo-church-mark.svg" alt="" width="44" height="44"><span><span class="brand-name">Consolation Evangelical<br class="brand-break"> and Revival Church</span><span class="brand-subtitle">English hymns · Yorùbá pending</span></span></button><span class="header-note">English · Yorùbá pending</span>';
+  header.innerHTML = '<button class="brand-lockup" type="button" data-action="navigate" data-view="home" aria-label="Go to Home" data-testid="button-brand-home"><img src="./assets/demo-church-mark.svg" alt="" width="44" height="44"><span><span class="brand-name">Consolation Evangelical<br class="brand-break"> and Revival Church</span><span class="brand-subtitle">Faith · Hope · Worship</span></span></button>';
 }
 
 function renderNav() {
@@ -81,6 +81,13 @@ function renderNav() {
 
 function renderSearchBar() {
   return '<div class="search-panel"><form class="search-form" role="search" data-search-form><label class="sr-only" for="hymn-search">Search by hymn number, title, keyword, or first line</label>' + icon("search", "search-icon") + '<input id="hymn-search" type="search" inputmode="search" autocomplete="off" value="' + escapeHtml(state.query) + '" placeholder="Search number, title, first line…" data-testid="input-hymn-search"><button class="search-submit" type="submit" aria-label="Search hymns" data-testid="button-search-hymns">' + icon("arrowRight") + '</button></form></div>';
+}
+
+function renderHomeSearch() {
+  if (!state.searchOpen && !state.query) {
+    return '<div class="home-search-control"><button class="home-search-trigger" type="button" data-action="open-search" data-testid="button-open-search">' + icon("search") + '<span>Search hymns</span></button></div>';
+  }
+  return '<div class="home-search-control is-open">' + renderSearchBar() + '<button class="home-search-close" type="button" data-action="close-search" aria-label="Close search" data-testid="button-close-search">' + icon("close") + '</button></div>';
 }
 
 function renderLanguageArea() {
@@ -102,17 +109,12 @@ function titleMarkup(hymn) {
       ? '<span lang="yo">' + escapeHtml(hymn.title_yoruba) + '</span>'
       : '<span lang="en">' + escapeHtml(hymn.title_en) + '</span>' + pendingYorubaMarkup();
   }
-  if (state.settings.language === "both") {
-    return '<span lang="en">' + escapeHtml(hymn.title_en) + '</span>' +
-      (hasYoruba ? '<span class="yoruba-secondary" lang="yo">' + escapeHtml(hymn.title_yoruba) + '</span>' : pendingYorubaMarkup());
-  }
-  return '<span lang="en">' + escapeHtml(hymn.title_en) + '</span>' + pendingYorubaMarkup();
+  return '<span lang="en">' + escapeHtml(hymn.title_en) + '</span>';
 }
 
 function previewMarkup(hymn) {
   const hasYoruba = hasYorubaText(hymn);
   if (state.settings.language === "yoruba" && hasYoruba) return '<span lang="yo">' + escapeHtml(hymn.first_line_yoruba) + '</span>';
-  if (state.settings.language === "both" && hasYoruba) return '<span lang="en">' + escapeHtml(hymn.first_line_en) + '</span><br><span lang="yo">' + escapeHtml(hymn.first_line_yoruba) + '</span>';
   return '<span lang="en">' + escapeHtml(hymn.first_line_en) + '</span>';
 }
 
@@ -146,29 +148,42 @@ function pageHeading(title, subtitle) {
 }
 
 function renderHome() {
-  const recentNumbers = getRecentNumbers();
-  const recentHymns = recentNumbers.map(function (number) { return state.hymns.find(function (hymn) { return hymn.hymn_number === number; }); }).filter(Boolean).slice(0, 2);
-  const featured = recentHymns[0] || state.hymns[0];
-  const favoriteCount = getFavorites().length;
-  const hymnCountLabel = state.hymns.length + (state.hymns.length === 1 ? " hymn" : " hymns");
-  return '<section class="page home-page">' +
-    '<div class="home-intro"><p class="eyebrow">Pentecostal Hymns No. 1</p><h1>Find a hymn for this moment.</h1><p>Search by number, title, or the first line you remember.</p></div>' +
-    renderSearchBar() +
-    '<div class="home-language-row"><span>Read in</span>' + languageToggle() + '</div>' +
-    '<section class="section-block home-shortcuts"><div class="section-title-row"><div><h2>Your hymnal</h2><p>Go straight to the collection or your saved songs.</p></div></div><div class="quick-actions"><button class="quick-action" type="button" data-action="navigate" data-view="hymns" data-testid="button-quick-library"><span class="quick-icon">' + icon("book") + '</span><span><strong>Hymn library</strong><small>' + escapeHtml(hymnCountLabel) + '</small></span><span class="quick-arrow" aria-hidden="true">' + icon("arrowRight") + '</span></button><button class="quick-action" type="button" data-action="navigate" data-view="favorites" data-testid="button-quick-favorites"><span class="quick-icon">' + icon("heart") + '</span><span><strong>Favorites</strong><small>' + favoriteCount + (favoriteCount === 1 ? " saved hymn" : " saved hymns") + '</small></span><span class="quick-arrow" aria-hidden="true">' + icon("arrowRight") + '</span></button></div></section>' +
-    '<section class="section-block"><div class="section-title-row"><div><h2>Find by theme</h2><p>Choose a theme for your gathering.</p></div></div>' + categoryButtons("") + '</section>' +
-    '<section class="section-block home-recent"><div class="section-title-row"><div><h2>' + (recentHymns.length ? "Pick up where you left off" : "A hymn to preview") + '</h2><p>' + (recentHymns.length ? "Your recently opened hymns." : "A hymn from the current English collection.") + '</p></div><button class="text-link" type="button" data-action="navigate" data-view="hymns" data-testid="link-all-hymns">See all</button></div>' + hymnList(recentHymns.length ? recentHymns : (featured ? [featured] : []), "No preview hymns are available", "The local hymn list could not be loaded.") + '</section></section>';
+  const matchingHymns = searchHymns(state.hymns, state.query, "");
+  const visibleHymns = state.settings.language === "yoruba"
+    ? matchingHymns.filter(hasYorubaText)
+    : matchingHymns;
+  let collection;
+  if (!visibleHymns.length && state.settings.language === "yoruba") {
+    collection = '<section class="empty-state home-empty" aria-live="polite"><h2>Yorùbá hymns are not available yet</h2><p>This collection does not contain verified Yorùbá translations yet. Switch to English to read the available hymns.</p><button class="button-secondary" type="button" data-action="language" data-language="english" data-testid="button-switch-to-english">Show English hymns</button></section>';
+  } else if (!visibleHymns.length) {
+    collection = '<section class="empty-state home-empty" aria-live="polite"><h2>No matching hymns</h2><p>Try another number, title, word, or first line.</p><button class="button-secondary" type="button" data-action="clear-home-search" data-testid="button-clear-home-search">Clear search</button></section>';
+  } else {
+    collection = '<div class="home-hymn-list" aria-live="polite">' + visibleHymns.map(homeHymn).join("") + '</div>';
+  }
+  return '<section class="page home-page">' + renderHomeSearch() + '<div class="home-language">' + languageToggle() + '</div>' + collection + '</section>';
 }
 function renderHymnLibrary() {
-  const results = searchHymns(state.hymns, state.query, state.category);
+  const results = searchHymns(state.hymns, state.query, state.category).filter(function (hymn) {
+    return state.settings.language !== "yoruba" || hasYorubaText(hymn);
+  });
   const caption = state.category ? state.category : (state.query ? "Search results" : "All hymns");
-  return '<section class="page">' + pageHeading("Hymn library", "Browse by number, title, keyword, or first line.") + renderSearchBar() + renderLanguageArea() + '<section class="library-tools"><div class="section-title-row"><div><h2>Browse by theme</h2></div></div>' + categoryButtons(state.category) + '</section><div class="results-meta"><span>' + escapeHtml(caption) + '</span><span>' + results.length + (results.length === 1 ? " hymn" : " hymns") + '</span></div>' + hymnList(results, "No matching hymns", state.query ? "Try another number, title, word, or first line." : "No hymns are available.") + '</section>';
+  const emptyTitle = state.settings.language === "yoruba" ? "No verified Yorùbá hymns" : "No matching hymns";
+  const emptyMessage = state.settings.language === "yoruba"
+    ? "Verified Yorùbá translations are not available in this collection yet. Switch to English to browse the available hymns."
+    : (state.query ? "Try another number, title, word, or first line." : "No hymns are available.");
+  return '<section class="page">' + pageHeading("Hymn library", "Browse by number, title, keyword, or first line.") + renderSearchBar() + renderLanguageArea() + '<section class="library-tools"><div class="section-title-row"><div><h2>Browse by theme</h2></div></div>' + categoryButtons(state.category) + '</section><div class="results-meta"><span>' + escapeHtml(caption) + '</span><span>' + results.length + (results.length === 1 ? " hymn" : " hymns") + '</span></div>' + hymnList(results, emptyTitle, emptyMessage) + '</section>';
 }
 
 function renderFavorites() {
   const ids = new Set(getFavorites());
-  const saved = state.hymns.filter(function (hymn) { return ids.has(String(hymn.hymn_number)); });
-  return '<section class="page">' + pageHeading("Favorites", "Your saved hymns stay on this device.") + renderLanguageArea() + hymnList(saved, "No favorites yet", "Tap the heart beside a hymn to keep it here for quick access.") + '</section>';
+  const saved = state.hymns.filter(function (hymn) {
+    return ids.has(String(hymn.hymn_number)) && (state.settings.language !== "yoruba" || hasYorubaText(hymn));
+  });
+  const emptyTitle = state.settings.language === "yoruba" ? "No Yorùbá favorites" : "No favorites yet";
+  const emptyMessage = state.settings.language === "yoruba"
+    ? "No saved hymn has a verified Yorùbá translation yet."
+    : "Tap the heart beside a hymn to keep it here for quick access.";
+  return '<section class="page">' + pageHeading("Favorites", "Your saved hymns stay on this device.") + renderLanguageArea() + hymnList(saved, emptyTitle, emptyMessage) + '</section>';
 }
 
 function poemSection(label, verses, chorus, languageCode) {
@@ -177,6 +192,18 @@ function poemSection(label, verses, chorus, languageCode) {
   }).join("");
   const chorusMarkup = chorus ? '<div class="chorus-block"><span class="verse-label">Refrain</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(chorus) + '</p></div>' : "";
   return '<section class="language-reading" lang="' + languageCode + '"><h2>' + label + '</h2>' + verseMarkup + chorusMarkup + '</section>';
+}
+
+function homeHymn(hymn) {
+  const number = String(hymn.hymn_number).padStart(2, "0");
+  const yoruba = state.settings.language === "yoruba" && hasYorubaText(hymn);
+  const title = yoruba ? hymn.title_yoruba : hymn.title_en;
+  const firstLine = yoruba ? hymn.first_line_yoruba : hymn.first_line_en;
+  const verses = yoruba ? hymn.verses_yoruba : hymn.verses_en;
+  const chorus = yoruba ? hymn.chorus_yoruba : hymn.chorus_en;
+  const languageName = yoruba ? "Yorùbá" : "English";
+  const languageCode = yoruba ? "yo" : "en";
+  return '<article class="home-hymn" data-testid="home-hymn-' + hymn.hymn_number + '"><header class="home-hymn-heading"><button class="home-hymn-open" type="button" data-action="open-hymn" data-number="' + hymn.hymn_number + '" aria-label="Open hymn ' + number + ': ' + escapeHtml(title) + '"><span class="hymn-number">' + number + '</span><span class="home-hymn-title">' + escapeHtml(title) + '</span></button>' + favoriteButton(hymn) + '</header><p class="home-hymn-first-line" lang="' + languageCode + '">' + escapeHtml(firstLine) + '</p>' + poemSection(languageName, verses, chorus, languageCode) + '</article>';
 }
 
 function renderReader() {
@@ -194,17 +221,10 @@ function renderReader() {
       firstLine = '<span lang="yo">' + escapeHtml(hymn.first_line_yoruba) + '</span>';
       sections = poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo");
     } else {
-      title += pendingYorubaMarkup();
-      translationNote = '<p class="translation-note" role="note">A verified Yorùbá text has not yet been sourced for this hymn. Showing English.</p>';
-    }
-  } else if (state.settings.language === "both") {
-    if (hasYoruba) {
-      title += '<span class="yoruba-secondary" lang="yo">' + escapeHtml(hymn.title_yoruba) + '</span>';
-      firstLine += '<br><span lang="yo">' + escapeHtml(hymn.first_line_yoruba) + '</span>';
-      sections += poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo");
-    } else {
-      title += pendingYorubaMarkup();
-      translationNote = '<p class="translation-note" role="note">A verified Yorùbá text has not yet been sourced for this hymn. Showing English.</p>';
+      title = '<span lang="en">' + escapeHtml(hymn.title_en) + '</span>';
+      firstLine = "";
+      sections = "";
+      translationNote = '<p class="translation-note" role="note">A verified Yorùbá text is not available for this hymn yet. The English lyrics are hidden while Yorùbá is selected.</p>';
     }
   } else {
     title += pendingYorubaMarkup();
@@ -273,6 +293,7 @@ function openHymn(number) {
 function navigate(view) {
   if (!["home", "hymns", "favorites", "settings"].includes(view)) return;
   state.view = view;
+  state.searchOpen = false;
   if (view !== "hymns") state.category = "";
   render();
   window.scrollTo(0, 0);
@@ -282,6 +303,8 @@ function navigate(view) {
 function updateSearch(value, selectionStart, selectionEnd) {
   state.query = value;
   if (state.view === "home") {
+    state.searchOpen = true;
+  } else {
     state.view = "hymns";
     state.category = "";
   }
@@ -314,7 +337,16 @@ document.addEventListener("click", function (event) {
   if (!target) return;
   const action = target.dataset.action;
   if (action === "navigate") navigate(target.dataset.view);
-  else if (action === "open-hymn") openHymn(target.dataset.number);
+  else if (action === "open-search") {
+    state.searchOpen = true;
+    render();
+    const input = document.getElementById("hymn-search");
+    if (input) input.focus();
+  } else if (action === "close-search" || action === "clear-home-search") {
+    state.query = "";
+    state.searchOpen = false;
+    render();
+  } else if (action === "open-hymn") openHymn(target.dataset.number);
   else if (action === "back") {
     state.view = state.readerReturnView;
     render();
@@ -363,8 +395,10 @@ document.addEventListener("input", function (event) {
 document.addEventListener("submit", function (event) {
   if (event.target.matches("[data-search-form]")) {
     event.preventDefault();
-    state.view = "hymns";
-    state.category = "";
+    if (state.view !== "home") {
+      state.view = "hymns";
+      state.category = "";
+    }
     render();
     window.scrollTo(0, 0);
   }

@@ -2,8 +2,7 @@ function hymnText(hymn, language) {
   const parts = [];
   parts.push("Hymn " + String(hymn.hymn_number).padStart(2, "0"));
   const hasYoruba = Array.isArray(hymn.verses_yoruba) && hymn.verses_yoruba.length > 0;
-  const showEnglish = language === "english" || language === "both" || (language === "yoruba" && !hasYoruba);
-  if (showEnglish) {
+  if (language !== "yoruba") {
     parts.push(hymn.title_en);
     parts.push("");
     parts.push(...hymn.verses_en);
@@ -11,9 +10,7 @@ function hymnText(hymn, language) {
       parts.push("Refrain:");
       parts.push(hymn.chorus_en);
     }
-  }
-  if ((language === "both" || language === "yoruba") && hasYoruba) {
-    if (showEnglish) parts.push("");
+  } else if (hasYoruba) {
     parts.push(hymn.title_yoruba);
     parts.push("");
     parts.push(...hymn.verses_yoruba);
@@ -21,9 +18,9 @@ function hymnText(hymn, language) {
       parts.push("Ìdáhùn:");
       parts.push(hymn.chorus_yoruba);
     }
-  } else if (language === "both" || language === "yoruba") {
+  } else {
     parts.push("");
-    parts.push("Yorùbá translation not yet sourced; English text shown.");
+    parts.push("A verified Yorùbá translation is not available in this collection yet.");
   }
   if (hymn.lyrics_source_url) parts.push("", "Text source: " + hymn.lyrics_source_url);
   return parts.join("\n");

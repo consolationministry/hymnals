@@ -4,9 +4,9 @@ Phase 1 is a lightweight, mobile-first hymn frontend built with plain HTML, CSS,
 
 ## What is included
 
-- Hymn Home, Library, Reader, Favorites, and Settings screens
+- Hymn Home (full-text collection), Library, Reader, Favorites, and Settings screens
 - Instant search by hymn number, title, keyword, first line, and lyric text
-- English, Yorùbá, and bilingual reading modes; Yorùbá text is explicitly marked pending until sourced and reviewed
+- English and Yorùbá language choices; the home screen defaults to English and shows a notice until verified Yorùbá texts are added
 - Favorites and reading preferences stored locally in the browser
 - Light, dark, and system appearance modes, plus adjustable reading size and accent
 - Native sharing when available, with a copy-to-clipboard fallback
