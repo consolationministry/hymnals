@@ -149,18 +149,21 @@ function renderHome() {
   const recentNumbers = getRecentNumbers();
   const recentHymns = recentNumbers.map(function (number) { return state.hymns.find(function (hymn) { return hymn.hymn_number === number; }); }).filter(Boolean).slice(0, 2);
   const featured = recentHymns[0] || state.hymns[0];
+  const featuredHymn = state.hymns.find(function (hymn) { return hymn.hymn_number === 250; });
+  const featuredTitle = featuredHymn ? escapeHtml(featuredHymn.title_en) : "Hymn 250";
+  const featuredLine = featuredHymn ? escapeHtml(featuredHymn.first_line_en) : "This hymn is not currently available.";
+  const featuredAuthor = featuredHymn ? escapeHtml(featuredHymn.author_en) : "";
   const favoriteCount = getFavorites().length;
   const hymnCountLabel = state.hymns.length + (state.hymns.length === 1 ? " hymn" : " hymns");
   return '<section class="page home-page">' +
     '<div class="home-intro"><p class="eyebrow">Consolation Hymnal</p><h1>Find a hymn for this moment.</h1><p>Search by number, title, or the first line you remember.</p></div>' +
     renderSearchBar() +
     '<div class="home-language-row"><span>Read in</span>' + languageToggle() + '</div>' +
-    '<section class="hero-card home-stage" aria-label="About the church hymnal"><div class="hero-copy"><p class="hero-kicker">Songs for worship, prayer &amp; praise</p><h2>The words we sing, together.</h2><p>Browse English hymns now; Yorùbá versions are pending sourcing and review.</p><div class="home-stage-meta"><span class="home-stage-count">' + escapeHtml(hymnCountLabel) + '</span><span class="home-stage-languages">ENGLISH <i aria-hidden="true">·</i> YORÙBÁ PENDING</span></div></div><img class="hero-mark" src="./assets/demo-church-mark.svg" alt="" width="92" height="92"></section>' +
+    '<section class="hero-card home-stage" aria-labelledby="home-featured-title"><div class="hero-copy"><p class="hero-kicker">Pentecostal Hymns No. 1 · Hymn 250</p><h2 id="home-featured-title">' + featuredTitle + '</h2><p class="home-featured-line">&ldquo;' + featuredLine + '&rdquo;</p><div class="home-stage-meta"><span class="home-stage-count">1894 edition</span><span class="home-featured-credit">' + featuredAuthor + (featuredHymn && featuredHymn.category ? ' · ' + escapeHtml(featuredHymn.category) : '') + '</span></div>' + (featuredHymn ? '<button class="button-primary home-featured-open" type="button" data-action="open-hymn" data-number="250" aria-label="Read hymn 250: ' + featuredTitle + '" data-testid="button-featured-hymn-250">Read hymn ' + icon("arrowRight") + '</button>' : '') + '</div><img class="hero-mark" src="./assets/demo-church-mark.svg" alt="" width="92" height="92"></section>' +
     '<section class="section-block home-shortcuts"><div class="section-title-row"><div><h2>Your hymnal</h2><p>Go straight to the collection or your saved songs.</p></div></div><div class="quick-actions"><button class="quick-action" type="button" data-action="navigate" data-view="hymns" data-testid="button-quick-library"><span class="quick-icon">' + icon("book") + '</span><span><strong>Hymn library</strong><small>' + escapeHtml(hymnCountLabel) + '</small></span><span class="quick-arrow" aria-hidden="true">' + icon("arrowRight") + '</span></button><button class="quick-action" type="button" data-action="navigate" data-view="favorites" data-testid="button-quick-favorites"><span class="quick-icon">' + icon("heart") + '</span><span><strong>Favorites</strong><small>' + favoriteCount + (favoriteCount === 1 ? " saved hymn" : " saved hymns") + '</small></span><span class="quick-arrow" aria-hidden="true">' + icon("arrowRight") + '</span></button></div></section>' +
     '<section class="section-block"><div class="section-title-row"><div><h2>Find by theme</h2><p>Choose a theme for your gathering.</p></div></div>' + categoryButtons("") + '</section>' +
     '<section class="section-block home-recent"><div class="section-title-row"><div><h2>' + (recentHymns.length ? "Pick up where you left off" : "A hymn to preview") + '</h2><p>' + (recentHymns.length ? "Your recently opened hymns." : "A hymn from the current English collection.") + '</p></div><button class="text-link" type="button" data-action="navigate" data-view="hymns" data-testid="link-all-hymns">See all</button></div>' + hymnList(recentHymns.length ? recentHymns : (featured ? [featured] : []), "No preview hymns are available", "The local hymn list could not be loaded.") + '</section></section>';
 }
-
 function renderHymnLibrary() {
   const results = searchHymns(state.hymns, state.query, state.category);
   const caption = state.category ? state.category : (state.query ? "Search results" : "All hymns");
