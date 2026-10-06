@@ -77,6 +77,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .hymn-details { min-width: 0; padding-top: 1px; }
 .hymn-details h3 { margin: 0; overflow-wrap: anywhere; font-family: var(--font-reading); font-size: 1.03rem; line-height: 1.3; }
 .yoruba-secondary { display: block; margin-top: 2px; color: var(--muted); font-size: .91rem; font-weight: 500; }
+.yoruba-pending { display: block; margin-top: 4px; color: var(--muted); font-family: var(--font-ui); font-size: .69rem; font-weight: 650; }
 .hymn-preview { display: -webkit-box; margin: 7px 0 0; overflow: hidden; color: var(--muted); font-size: .88rem; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .hymn-category { display: inline-block; margin-top: 8px; color: var(--accent); font-size: .74rem; font-weight: 750; }
 .icon-button { display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid transparent; border-radius: 14px; color: var(--muted); background: transparent; cursor: pointer; }
@@ -113,6 +114,9 @@ button { -webkit-tap-highlight-color: transparent; }
 .chorus-block { margin-top: 23px; padding: 17px; border-left: 4px solid var(--accent); border-radius: 0 14px 14px 0; background: var(--accent-soft); }
 .chorus-block .verse-text { font-weight: 600; }
 .reader-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0; padding: 13px 2px; color: var(--muted); font-size: .86rem; }
+.source-link { color: var(--accent); font-weight: 650; text-decoration: none; }
+.source-link:hover { text-decoration: underline; }
+.translation-note { margin: 0; padding: 13px 16px; border: 1px solid var(--line); border-radius: 14px; color: var(--muted); background: var(--surface); font-size: .9rem; }
 .settings-group { margin: 0 0 18px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
 .settings-group h2 { margin: 0 0 3px; font-family: var(--font-reading); font-size: 1.12rem; }
 .settings-description { margin: 0 0 14px; color: var(--muted); font-size: .88rem; }
