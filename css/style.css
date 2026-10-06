@@ -227,3 +227,124 @@ button { -webkit-tap-highlight-color: transparent; }
   .home-stage .home-featured-line { max-width: 290px; }
   .home-featured-open { margin-top: 16px; }
 }
+
+/* Reference-led home screen and hymn-reader layout */
+.home-page { max-width: 760px; }
+.home-cover {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  margin: 0 0 25px;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--purple) 12%, var(--line));
+  border-radius: 24px;
+  background: linear-gradient(145deg, #f3ebfa 0%, #fff8ea 52%, #e9e8fb 100%);
+  box-shadow: var(--shadow);
+}
+.home-cover-art {
+  display: block;
+  width: auto;
+  max-width: min(100%, 270px);
+  max-height: min(440px, 62vh);
+  object-fit: contain;
+  border-radius: 17px;
+  filter: drop-shadow(0 8px 16px rgba(50, 39, 85, .12));
+}
+.home-intro { margin: 0 0 17px; }
+.home-intro .eyebrow { margin-bottom: 5px; }
+.home-intro h1 { font-size: clamp(1.65rem, 5vw, 2.15rem); }
+.home-intro > p:last-child { margin-top: 6px; }
+.home-page .search-panel { margin: 0 0 14px; }
+
+.reader-page { max-width: 700px; }
+.reader-topbar { margin-bottom: 12px; }
+.reader-back { padding-left: 4px; }
+.reader-heading {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-bottom: 19px;
+  padding: 22px clamp(20px, 5vw, 30px) 25px;
+  border: 0;
+  border-radius: 19px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(255,255,255,.17) 0 1px, transparent 2px),
+    radial-gradient(circle at 72% 66%, rgba(255,255,255,.15) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 87% 12%, rgba(139,184,255,.34), transparent 37%),
+    linear-gradient(137deg, #12274f 0%, #194b89 57%, #315fa0 100%);
+  box-shadow: 0 15px 34px rgba(24, 58, 104, .2);
+}
+.reader-heading::after {
+  position: absolute;
+  z-index: -1;
+  right: -53px;
+  bottom: -125px;
+  width: 245px;
+  height: 245px;
+  border: 1px solid rgba(255,255,255,.19);
+  border-radius: 50%;
+  box-shadow: 0 0 0 22px rgba(255,255,255,.035), 0 0 0 47px rgba(255,255,255,.025);
+  content: "";
+}
+.reader-edition { display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,.78); font-size: .75rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.reader-heading .hymn-number { display: inline-grid; width: auto; min-width: 42px; height: 35px; padding: 0 9px; border: 1px solid rgba(255,255,255,.25); color: #fff; background: rgba(255,255,255,.12); font-size: .84rem; }
+.reader-heading h1 { position: relative; margin: 18px 0 0; color: #fff; font-size: clamp(1.8rem, 6vw, 2.45rem); }
+.reader-heading h1 .yoruba-pending { color: rgba(255,255,255,.72); }
+.reader-heading .reader-first-line { position: relative; margin-top: 10px; color: rgba(255,255,255,.86); font-family: var(--font-reading); font-size: 1.04rem; }
+.reader-heading .hymn-category { display: inline-flex; position: relative; margin-top: 15px; padding: 5px 10px; border: 1px solid rgba(255,255,255,.26); border-radius: 999px; color: #fff; font-size: .72rem; }
+.reader-meta { margin: 0 0 14px; }
+.hymn-reading { display: grid; gap: 15px; }
+.language-reading {
+  padding: 25px clamp(19px, 5vw, 34px);
+  border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--line));
+  border-radius: 17px;
+  background: var(--surface);
+  box-shadow: 0 7px 22px rgba(34, 30, 51, .055);
+}
+.language-reading h2 { padding-bottom: 13px; border-bottom: 1px solid var(--line); text-align: center; }
+.verse-block { padding-bottom: 17px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+.verse-block:last-child { padding-bottom: 0; border-bottom: 0; }
+.verse-label { color: var(--accent); font-size: .68rem; letter-spacing: .14em; }
+.chorus-block { border-left-color: var(--accent); }
+.reader-footer { margin-top: 13px; }
+
+.accent-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 9px; }
+.accent-choice { justify-content: flex-start; min-height: 48px; padding: 9px 11px; }
+.accent-choice[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.accent-choice .color-dot { width: 20px; height: 20px; flex: 0 0 auto; background: var(--accent-light); box-shadow: inset 0 0 0 2px rgba(255,255,255,.6), 0 0 0 1px color-mix(in srgb, var(--accent-light) 28%, transparent); }
+.accent-choice[data-accent="ruby"] .color-dot { background: #a52249; }
+.accent-choice[data-accent="blue"] .color-dot { background: #2860b8; }
+.accent-choice[data-accent="purple"] .color-dot { background: #6941a5; }
+.accent-choice[data-accent="berry"] .color-dot { background: #78315d; }
+.accent-choice[data-accent="teal"] .color-dot { background: #087d7a; }
+.accent-choice[data-accent="emerald"] .color-dot { background: #16784d; }
+.accent-choice[data-accent="green"] .color-dot { background: #427625; }
+.accent-choice[data-accent="lime"] .color-dot { background: #667d13; }
+.accent-choice[data-accent="amber"] .color-dot { background: #976000; }
+.accent-choice[data-accent="orange"] .color-dot { background: #b34c12; }
+.accent-choice[data-accent="coral"] .color-dot { background: #b64442; }
+.accent-choice[data-accent="rose"] .color-dot { background: #ac315f; }
+.accent-choice[data-accent="indigo"] .color-dot { background: #4649a4; }
+.accent-choice[data-accent="sky"] .color-dot { background: #1673a0; }
+.accent-choice[data-accent="slate"] .color-dot { background: #536277; }
+
+@media (max-width: 430px) {
+  .home-cover { min-height: 220px; margin-bottom: 21px; padding: 9px; border-radius: 20px; }
+  .home-cover-art { max-width: min(100%, 235px); max-height: min(380px, 56vh); }
+  .reader-heading { padding: 20px 19px 22px; }
+  .language-reading { padding-top: 21px; padding-bottom: 21px; }
+  .accent-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .accent-choice { gap: 7px; padding-right: 8px; padding-left: 8px; font-size: .83rem; }
+}
+
+html[data-theme="dark"] .home-cover { border-color: var(--line); background: linear-gradient(145deg, #292338 0%, #30272b 52%, #22263a 100%); }
+html[data-theme="dark"] .reader-heading {
+  background:
+    radial-gradient(circle at 88% 18%, rgba(255,255,255,.13) 0 1px, transparent 2px),
+    radial-gradient(circle at 72% 66%, rgba(255,255,255,.12) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 87% 12%, rgba(122,162,255,.18), transparent 37%),
+    linear-gradient(137deg, #09152c 0%, #11294a 57%, #1c365a 100%);
+  box-shadow: 0 15px 34px rgba(0, 0, 0, .2);
+}
