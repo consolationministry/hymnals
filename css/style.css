@@ -230,27 +230,6 @@ button { -webkit-tap-highlight-color: transparent; }
 
 /* Reference-led home screen and hymn-reader layout */
 .home-page { max-width: 760px; }
-.home-cover {
-  display: grid;
-  place-items: center;
-  min-height: 260px;
-  margin: 0 0 25px;
-  padding: 12px;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--purple) 12%, var(--line));
-  border-radius: 24px;
-  background: linear-gradient(145deg, #e9dbef 0%, #f0dce3 52%, #e4d9ee 100%);
-  box-shadow: var(--shadow);
-}
-.home-cover-art {
-  display: block;
-  width: auto;
-  max-width: min(100%, 270px);
-  max-height: min(440px, 62vh);
-  object-fit: contain;
-  border-radius: 17px;
-  filter: drop-shadow(0 8px 16px rgba(50, 39, 85, .12));
-}
 .home-intro { margin: 0 0 17px; }
 .home-intro .eyebrow { margin-bottom: 5px; }
 .home-intro h1 { font-size: clamp(1.65rem, 5vw, 2.15rem); }
@@ -331,15 +310,12 @@ button { -webkit-tap-highlight-color: transparent; }
 .accent-choice[data-accent="slate"] .color-dot { background: #536277; }
 
 @media (max-width: 430px) {
-  .home-cover { min-height: 220px; margin-bottom: 21px; padding: 9px; border-radius: 20px; }
-  .home-cover-art { max-width: min(100%, 235px); max-height: min(380px, 56vh); }
   .reader-heading { padding: 20px 19px 22px; }
   .language-reading { padding-top: 21px; padding-bottom: 21px; }
   .accent-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .accent-choice { gap: 7px; padding-right: 8px; padding-left: 8px; font-size: .83rem; }
 }
 
-html[data-theme="dark"] .home-cover { border-color: var(--line); background: linear-gradient(145deg, #2b1d35 0%, #38212f 52%, #2c213a 100%); }
 html[data-theme="dark"] .reader-heading {
   background:
     radial-gradient(circle at 88% 18%, rgba(255,255,255,.13) 0 1px, transparent 2px),
