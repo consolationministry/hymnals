@@ -19,7 +19,7 @@ const updateVersion = document.getElementById("update-version");
 const updateStatus = document.getElementById("update-status");
 const updateInstallButton = document.getElementById("update-install");
 const categories = ["Praise", "Worship", "Thanksgiving", "Prayer", "Faith", "Hope", "Service", "Community", "Family", "Evangelism"];
-const state = { hymns: [], view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, settings: getSettings(), toastTimer: null };
+const state = { hymns: [], view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
@@ -27,6 +27,7 @@ const iconPaths = {
   heart: '<path d="M20.8 8.8c0 5.3-8.8 11-8.8 11s-8.8-5.7-8.8-11a4.8 4.8 0 0 1 8.8-2.4 4.8 4.8 0 0 1 8.8 2.4Z"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 1 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/>',
   search: '<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   arrow: '<path d="m15 18-6-6 6-6"/>',
   share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
@@ -70,7 +71,15 @@ function languageToggle() {
 }
 
 function renderHeader() {
-  header.innerHTML = '<button class="brand-lockup" type="button" data-action="navigate" data-view="home" aria-label="Go to Home" data-testid="button-brand-home"><img src="./assets/demo-church-mark.svg" alt="" width="44" height="44"><span><span class="brand-name">Consolation Evangelical<br class="brand-break"> and Revival Church</span><span class="brand-subtitle">Faith · Hope · Worship</span></span></button>';
+  const activeView = state.view === "reader" ? state.readerReturnView : state.view;
+  const items = [["home", "Home"], ["hymns", "Hymns"], ["favorites", "Favorites"], ["settings", "Settings"]];
+  const menu = '<nav id="header-nav-menu" class="header-nav-menu" aria-label="Main menu"' + (state.menuOpen ? "" : " hidden") + '>' + items.map(function (item) {
+      return '<button class="header-nav-item" type="button" data-action="navigate" data-view="' + item[0] + '" aria-current="' + (activeView === item[0] ? "page" : "false") + '" data-testid="menu-' + item[0] + '">' + item[1] + '</button>';
+    }).join("") + '</nav>'
+  const searchExpanded = state.view === "home"
+    ? state.searchOpen || Boolean(state.query)
+    : state.view === "hymns";
+  header.innerHTML = '<button class="brand-lockup" type="button" data-action="navigate" data-view="home" aria-label="Go to Home" data-testid="button-brand-home"><img src="./assets/demo-church-mark.svg" alt="" width="44" height="44"><span><span class="brand-name">Consolation Evangelical<br class="brand-break"> and Revival Church</span><span class="brand-subtitle">Faith · Hope · Worship</span></span></button><div class="header-actions"><button class="header-icon-button" type="button" data-action="header-search" aria-label="Search hymns" aria-expanded="' + searchExpanded + '" data-testid="button-header-search">' + icon("search") + '</button><button class="header-icon-button" type="button" data-action="toggle-menu" aria-label="Main menu" aria-expanded="' + state.menuOpen + '" aria-haspopup="true" aria-controls="header-nav-menu" data-testid="button-header-menu">' + icon(state.menuOpen ? "close" : "menu") + '</button>' + menu + '</div>';
 }
 
 function renderNav() {
@@ -91,9 +100,7 @@ function renderSearchBar() {
 }
 
 function renderHomeSearch() {
-  if (!state.searchOpen && !state.query) {
-    return '<div class="home-search-control"><button class="home-search-trigger" type="button" data-action="open-search" data-testid="button-open-search">' + icon("search") + '<span>Search hymns</span></button></div>';
-  }
+  if (!state.searchOpen && !state.query) return "";
   return '<div class="home-search-control is-open">' + renderSearchBar() + '<button class="home-search-close" type="button" data-action="close-search" aria-label="Close search" data-testid="button-close-search">' + icon("close") + '</button></div>';
 }
 
@@ -296,6 +303,7 @@ function navigate(view) {
   if (!["home", "hymns", "favorites", "settings"].includes(view)) return;
   state.view = view;
   state.searchOpen = false;
+  state.menuOpen = false;
   if (view !== "hymns") state.category = "";
   render();
   window.scrollTo(0, 0);
@@ -374,16 +382,32 @@ async function installAvailableUpdate() {
 
 document.addEventListener("click", function (event) {
   const target = event.target.closest("[data-action]");
-  if (!target) return;
+  if (state.menuOpen && !header.contains(event.target)) {
+    state.menuOpen = false;
+    renderHeader();
+  }
+  if (!target) {
+    return;
+  }
   const action = target.dataset.action;
   if (action === "dismiss-update") updateDialog.close();
   else if (action === "install-update") installAvailableUpdate();
   else if (action === "navigate") navigate(target.dataset.view);
-  else if (action === "open-search") {
-    state.searchOpen = true;
+  else if (action === "header-search") {
+    state.menuOpen = false;
+    if (state.view === "home") {
+      state.searchOpen = state.query ? true : !state.searchOpen;
+    } else if (state.view !== "hymns") {
+      state.view = "hymns";
+      state.category = "";
+      state.searchOpen = true;
+    }
     render();
     const input = document.getElementById("hymn-search");
     if (input) input.focus();
+  } else if (action === "toggle-menu") {
+    state.menuOpen = !state.menuOpen;
+    renderHeader();
   } else if (action === "close-search" || action === "clear-home-search") {
     state.query = "";
     state.searchOpen = false;
@@ -414,6 +438,14 @@ document.addEventListener("click", function (event) {
   else if (action === "theme") setSettings({ theme: target.dataset.theme });
   else if (action === "accent") setSettings({ accent: target.dataset.accent });
   else if (action === "share") performShare(target.dataset.number);
+});
+
+document.addEventListener("keydown", function (event) {
+  if (event.key === "Escape" && state.menuOpen) {
+    state.menuOpen = false;
+    renderHeader();
+    document.querySelector('[data-testid="button-header-menu"]').focus();
+  }
 });
 
 document.addEventListener("input", function (event) {
