@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f8f6fa">
   <meta name="description" content="A simple bilingual digital hymnal for Consolation Evangelical and Revival Church.">
   <meta name="color-scheme" content="light dark">
+  <link rel="manifest" href="./manifest.webmanifest">
   <title>Consolation Hymnal</title>
   <link rel="icon" type="image/svg+xml" href="./assets/demo-church-mark.svg">
   <link rel="stylesheet" href="./css/theme.css">
@@ -25,6 +26,20 @@
     <main class="main-content" id="main-content" tabindex="-1"></main>
     <nav class="bottom-nav" id="bottom-nav" aria-label="Main navigation"></nav>
   </div>
+  <dialog class="update-dialog" id="update-dialog" aria-labelledby="update-title" aria-describedby="update-message">
+    <div class="update-dialog-content">
+      <span class="update-dialog-icon" aria-hidden="true">↻</span>
+      <p class="update-kicker">APP UPDATE</p>
+      <h2 id="update-title">A new update is available</h2>
+      <p id="update-message">Download the latest version to keep your hymnal up to date.</p>
+      <p class="update-version" id="update-version"></p>
+      <p class="update-status" id="update-status" role="status" aria-live="polite" hidden></p>
+      <div class="update-dialog-actions">
+        <button class="button-secondary" type="button" data-action="dismiss-update">Later</button>
+        <button class="button-primary" type="button" data-action="install-update" id="update-install">Download</button>
+      </div>
+    </div>
+  </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
   <script type="module" src="./js/app.js"></script>
 </body>
