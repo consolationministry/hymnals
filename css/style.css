@@ -227,3 +227,59 @@ button { -webkit-tap-highlight-color: transparent; }
   .home-stage .home-featured-line { max-width: 290px; }
   .home-featured-open { margin-top: 16px; }
 }
+
+/* Premium hymnal reader */
+.reader-page { max-width: 790px; }
+.reader-topbar { margin-bottom: 17px; }
+.reader-back { min-height: 42px; padding: 8px 10px; border: 0; border-radius: 11px; color: var(--muted); background: transparent; font-weight: 700; cursor: pointer; }
+.reader-back:hover { color: var(--accent-deep); background: var(--accent-soft); }
+.reader-hero { position: relative; isolation: isolate; overflow: hidden; margin: 0; padding: clamp(22px, 5vw, 34px); border: 1px solid var(--line); border-radius: 26px; background: radial-gradient(circle at 94% 6%, var(--accent-soft) 0, transparent 28%), linear-gradient(140deg, var(--surface) 0%, var(--surface-soft) 100%); box-shadow: var(--shadow); }
+.reader-hero::after { position: absolute; z-index: -1; right: -54px; bottom: -94px; width: 210px; height: 210px; border: 1px solid var(--line); border-radius: 50%; box-shadow: 0 0 0 22px color-mix(in srgb, var(--surface) 68%, transparent), 0 0 0 48px color-mix(in srgb, var(--surface) 58%, transparent); content: ""; pointer-events: none; }
+.reader-edition-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; margin-bottom: 27px; }
+.reader-edition { color: var(--accent-deep); font-size: .72rem; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
+.reader-edition-year { color: var(--muted); font-size: .75rem; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
+.reader-title-row { position: relative; z-index: 1; display: grid; grid-template-columns: 58px minmax(0, 1fr); align-items: start; gap: 17px; }
+.reader-hero .hymn-number { display: grid; place-items: center; width: 58px; height: 58px; padding: 0; border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line)); border-radius: 18px; color: var(--accent-deep); background: var(--accent-soft); font-family: var(--font-reading); font-size: 1.14rem; font-weight: 700; }
+.reader-title-copy { min-width: 0; }
+.reader-title-copy h1 { margin: 0; color: var(--ink); font-family: var(--font-reading); font-size: clamp(2rem, 6vw, 3rem); line-height: 1.08; letter-spacing: -.035em; }
+.reader-title-copy h1 .yoruba-secondary { display: block; margin-top: 9px; color: var(--muted); font-size: .72em; }
+.reader-first-line { margin: 14px 0 0; padding-left: 14px; border-left: 2px solid var(--accent); color: var(--muted); font-family: var(--font-reading); font-size: clamp(1.06rem, 3vw, 1.25rem); font-style: italic; line-height: 1.55; }
+.reader-hero-meta { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 25px 0 0 75px; }
+.reader-author { color: var(--muted); font-size: .88rem; font-weight: 650; }
+.reader-category { padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--accent-deep); background: var(--surface); font-size: .73rem; font-weight: 750; letter-spacing: .04em; }
+.reader-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 15px 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 4px 16px rgba(45, 28, 57, .04); }
+.reader-language-control { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.reader-control-label, .reading-size-label { color: var(--muted); font-size: .76rem; font-weight: 750; }
+.reader-meta .section-language { margin: 0; }
+.reader-meta .language-toggle { padding: 3px; border-radius: 12px; }
+.reader-meta .language-toggle button { min-height: 38px; padding: 7px 11px; }
+.reading-size { display: flex; align-items: center; gap: 5px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
+.reading-size-label { padding: 0 7px; }
+.reading-size button { width: 36px; height: 35px; border-radius: 9px; }
+.reading-size output { min-width: 42px; font-size: .77rem; }
+.reader-text-card { padding: clamp(19px, 4vw, 31px); border: 1px solid var(--line); border-radius: 23px; background: var(--surface); box-shadow: var(--shadow); }
+.reader-text-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px 16px; margin: 0 0 20px; padding-bottom: 15px; border-bottom: 1px solid var(--line); }
+.reader-text-heading span:first-child { color: var(--ink); font-family: var(--font-reading); font-size: 1.08rem; font-weight: 700; }
+.reader-text-heading span:last-child { color: var(--muted); font-size: .72rem; font-weight: 650; letter-spacing: .04em; }
+.hymn-reading { display: grid; gap: 22px; }
+.language-reading > h2 { margin: 0 0 10px; color: var(--accent-deep); font-size: .72rem; font-weight: 850; letter-spacing: .15em; text-transform: uppercase; }
+.verse-block { margin: 0; padding: 16px 0 19px; border-bottom: 1px solid var(--line); }
+.verse-block:last-of-type { border-bottom: 0; }
+.verse-label { margin-bottom: 9px; color: var(--accent); font-size: .7rem; letter-spacing: .14em; }
+.verse-text { max-width: 60ch; font-size: var(--hymn-size); line-height: 1.86; }
+.chorus-block { margin-top: 7px; padding: 16px 18px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 4px 14px 14px 4px; background: var(--surface-soft); }
+.chorus-block .verse-text { font-weight: 650; }
+.translation-note { margin: 0 0 16px; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); }
+.reader-footer { margin: 15px 0 0; padding: 15px 3px 5px; border-top: 1px solid var(--line); }
+.source-link { display: inline-flex; align-items: center; gap: 7px; }
+.source-link svg { width: 15px; height: 15px; }
+@media (max-width: 560px) {
+  .reader-title-row { grid-template-columns: 46px minmax(0, 1fr); gap: 12px; }
+  .reader-hero .hymn-number { width: 46px; height: 46px; border-radius: 14px; font-size: 1rem; }
+  .reader-edition-row { margin-bottom: 20px; }
+  .reader-hero-meta { margin: 21px 0 0 58px; }
+  .reader-meta { align-items: stretch; flex-direction: column; }
+  .reader-language-control { justify-content: space-between; }
+  .reading-size { justify-content: space-between; }
+  .reader-footer { align-items: flex-start; flex-direction: column; }
+}
