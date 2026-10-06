@@ -205,12 +205,7 @@ function homeHymn(hymn) {
   const number = String(hymn.hymn_number).padStart(2, "0");
   const yoruba = state.settings.language === "yoruba" && hasYorubaText(hymn);
   const title = yoruba ? hymn.title_yoruba : hymn.title_en;
-  const firstLine = yoruba ? hymn.first_line_yoruba : hymn.first_line_en;
-  const verses = yoruba ? hymn.verses_yoruba : hymn.verses_en;
-  const chorus = yoruba ? hymn.chorus_yoruba : hymn.chorus_en;
-  const languageName = yoruba ? "Yorùbá" : "English";
-  const languageCode = yoruba ? "yo" : "en";
-  return '<article class="home-hymn" data-testid="home-hymn-' + hymn.hymn_number + '"><header class="home-hymn-heading"><button class="home-hymn-open" type="button" data-action="open-hymn" data-number="' + hymn.hymn_number + '" aria-label="Open hymn ' + number + ': ' + escapeHtml(title) + '"><span class="hymn-number">' + number + '</span><span class="home-hymn-title">' + escapeHtml(title) + '</span></button>' + favoriteButton(hymn) + '</header><p class="home-hymn-first-line" lang="' + languageCode + '">' + escapeHtml(firstLine) + '</p>' + poemSection(languageName, verses, chorus, languageCode) + '</article>';
+  return '<article class="home-hymn" data-testid="home-hymn-' + hymn.hymn_number + '"><header class="home-hymn-heading"><button class="home-hymn-open" type="button" data-action="open-hymn" data-number="' + hymn.hymn_number + '" aria-label="Open hymn ' + number + ': ' + escapeHtml(title) + '"><span class="hymn-number">' + number + '</span><span class="home-hymn-title">' + escapeHtml(title) + '</span></button></header></article>';
 }
 
 function renderReader() {

@@ -389,18 +389,15 @@ html[data-theme="dark"] .reader-heading {
   box-shadow: 0 7px 22px rgba(34, 30, 51, .055);
 }
 .home-hymn-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 14px 13px 0 17px;
+  margin: 0;
 }
 .home-hymn-open {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   min-width: 0;
-  padding: 2px 0;
+  padding: 15px 17px;
   border: 0;
   background: transparent;
   text-align: left;
@@ -415,25 +412,6 @@ html[data-theme="dark"] .reader-heading {
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
-.home-hymn-heading .favorite-toggle { width: 42px; height: 42px; flex: 0 0 auto; }
-.home-hymn-first-line {
-  margin: 10px 18px 0;
-  color: var(--muted);
-  font-family: var(--font-reading);
-  font-size: .98rem;
-  font-style: italic;
-  line-height: 1.5;
-}
-.home-hymn .language-reading {
-  margin-top: 11px;
-  padding: 0 18px 18px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-.home-hymn .language-reading h2 { display: none; }
-.home-hymn .verse-block { padding-bottom: 15px; }
 .home-empty { margin-top: 4px; }
 .home-empty .button-secondary { margin-top: 7px; }
 
@@ -441,8 +419,5 @@ html[data-theme="dark"] .reader-heading {
   .brand-header { justify-content: flex-start; }
   .home-search-control.is-open { gap: 7px; }
   .home-search-control.is-open .search-form { padding-left: 12px; }
-  .home-hymn-heading { padding-left: 13px; }
-  .home-hymn-open { gap: 9px; }
-  .home-hymn .language-reading { padding: 0 14px 16px; }
-  .home-hymn-first-line { margin-right: 14px; margin-left: 14px; }
+  .home-hymn-open { gap: 9px; padding: 14px 13px; }
 }
