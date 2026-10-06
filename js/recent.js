@@ -1,6 +1,6 @@
 import { readLocal, writeLocal } from "./local-store.js";
 
-const RECENTS_KEY = "cerc-hymnal-recent-v1";
+const RECENTS_KEY = "cerc-hymnal-recent-v2";
 
 export function getRecentNumbers() {
   const recent = readLocal(RECENTS_KEY, []);
