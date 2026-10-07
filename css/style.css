@@ -11,7 +11,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .splash.is-leaving { opacity: 0; visibility: hidden; }
 .splash-emblem { position: relative; display: grid; place-items: center; width: 156px; height: 156px; margin: 0 0 18px; }
 .splash-emblem::before { content: ""; position: absolute; inset: 6px; border: 1px solid color-mix(in srgb, var(--purple) 14%, transparent); border-radius: 50%; }
-.splash-ring { position: absolute; inset: 0; border: 2px solid transparent; border-top-color: var(--accent); border-right-color: color-mix(in srgb, var(--purple) 74%, transparent); border-bottom-color: color-mix(in srgb, var(--purple) 16%, transparent); border-radius: 50%; animation: splash-ring-roll 2.6s linear infinite; }
+.splash-ring { position: absolute; inset: 0; border: 2px solid transparent; border-top-color: var(--accent); border-right-color: color-mix(in srgb, var(--purple) 74%, transparent); border-bottom-color: color-mix(in srgb, var(--purple) 16%, transparent); border-radius: 50%; animation: splash-ring-roll 10s linear infinite; }
 .splash-ring::after { content: ""; position: absolute; top: 10px; right: 16px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent), 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent); }
 .splash-logo { position: relative; z-index: 1; display: block; width: 138px; height: 138px; margin: 0; border-radius: 50%; object-fit: contain; filter: drop-shadow(0 8px 16px rgba(31, 20, 56, .16)); }
 .splash-kicker { margin: 0 0 8px; color: var(--accent); font-size: .75rem; font-weight: 800; letter-spacing: .18em; }
