@@ -1,4 +1,4 @@
-const CACHE_NAME = "consolation-hymnal-1.1.3";
+const CACHE_NAME = "consolation-hymnal-1.1.4";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const PRECACHE_URLS = [
   "./js/app.js",
   "./js/favorites.js",
   "./js/hymn-service.js",
+  "./js/hymn-reading.js",
   "./js/local-store.js",
   "./js/native-updates.js",
   "./js/recent.js",

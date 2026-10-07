@@ -1,7 +1,8 @@
 import { getAllHymns } from "./hymn-service.js";
 import { searchHymns } from "./search.js";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
-import { addRecent } from "./recent.js";
+import { addRecent, getRecentNumbers } from "./recent.js";
+import { getReadingParts } from "./hymn-reading.js";
 import { ACCENT_THEMES, getSettings, saveSettings } from "./settings.js";
 import { shareHymn } from "./sharing.js";
 import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
@@ -25,6 +26,7 @@ const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
   book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5v14A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h7"/>',
   heart: '<path d="M20.8 8.8c0 5.3-8.8 11-8.8 11s-8.8-5.7-8.8-11a4.8 4.8 0 0 1 8.8-2.4 4.8 4.8 0 0 1 8.8 2.4Z"/>',
+  history: '<path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 1 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/>',
   search: '<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
@@ -57,6 +59,7 @@ function applyPreferences() {
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.accent = state.settings.accent;
   document.documentElement.style.setProperty("--hymn-size", state.settings.fontSize + "px");
+  document.documentElement.style.fontSize = (state.settings.fontSize * 16 / 21) + "px";
 }
 
 function languageLabel(language) {
@@ -72,7 +75,7 @@ function languageToggle() {
 
 function renderHeader() {
   const activeView = state.view === "reader" ? state.readerReturnView : state.view;
-  const items = [["home", "Home"], ["hymns", "Hymns"], ["favorites", "Favorites"], ["settings", "Settings"]];
+  const items = [["home", "Home"], ["hymns", "Hymns"], ["favorites", "Favorites"], ["recent", "Recently viewed"], ["settings", "Settings"]];
   const menu = '<nav id="header-nav-menu" class="header-nav-menu" aria-label="Main menu"' + (state.menuOpen ? "" : " hidden") + '>' + items.map(function (item) {
       return '<button class="header-nav-item" type="button" data-action="navigate" data-view="' + item[0] + '" aria-current="' + (activeView === item[0] ? "page" : "false") + '" data-testid="menu-' + item[0] + '">' + item[1] + '</button>';
     }).join("") + '</nav>'
@@ -88,6 +91,7 @@ function renderNav() {
     ["home", "Home", "home"],
     ["hymns", "Hymns", "book"],
     ["favorites", "Favorites", "heart"],
+    ["recent", "Recent", "history"],
     ["settings", "Settings", "settings"]
   ];
   nav.innerHTML = items.map(function (item) {
@@ -201,11 +205,20 @@ function renderFavorites() {
 }
 
 function poemSection(label, verses, chorus, languageCode) {
-  const verseMarkup = verses.map(function (verse, index) {
-    return '<div class="verse-block"><span class="verse-label">Verse ' + (index + 1) + '</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(verse) + '</p></div>';
+  const partsMarkup = getReadingParts(verses, chorus).map(function (part) {
+    if (part.type === "chorus") {
+      return '<div class="chorus-block"><span class="verse-label">Chorus</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
+    }
+    return '<div class="verse-block"><span class="verse-label">Verse ' + part.number + '</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
   }).join("");
-  const chorusMarkup = chorus ? '<div class="chorus-block"><span class="verse-label">Refrain</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(chorus) + '</p></div>' : "";
-  return '<section class="language-reading" lang="' + languageCode + '"><h2>' + label + '</h2>' + verseMarkup + chorusMarkup + '</section>';
+  return '<section class="language-reading" lang="' + languageCode + '"><h2>' + label + '</h2>' + partsMarkup + '</section>';
+}
+
+function renderRecentlyViewed() {
+  const viewed = getRecentNumbers().map(function (number) {
+    return state.hymns.find(function (hymn) { return hymn.hymn_number === number; });
+  }).filter(Boolean);
+  return '<section class="page">' + pageHeading("Recently viewed", "Your hymn history on this device, newest first.") + hymnList(viewed, "No recently viewed hymns", "Open a hymn and it will appear here for quick access.") + '</section>';
 }
 
 function homeHymn(hymn) {
@@ -247,15 +260,16 @@ function themeChoice(theme, label, iconName) {
 
 function renderSettings() {
   const size = state.settings.fontSize;
-  const accentLabels = {
-    ruby: "Red", blue: "Blue", purple: "Purple", berry: "Berry", teal: "Teal",
-    emerald: "Emerald", green: "Green", lime: "Lime", amber: "Amber",
-    orange: "Orange", coral: "Coral", rose: "Rose", indigo: "Indigo",
-    sky: "Sky", slate: "Slate"
-  };
-  return '<section class="page">' + pageHeading("Settings", "Make the hymn book comfortable for you.") + '<section class="settings-group"><h2>Appearance</h2><p class="settings-description">Choose how the app looks on this device.</p><div class="preference-choices">' + themeChoice("light", "Light", "sun") + themeChoice("dark", "Dark", "moon") + themeChoice("system", "System", "settings") + '</div></section><section class="settings-group"><h2>Accent colour</h2><p class="settings-description">Choose from 15 colours. Your choice works with light and dark mode.</p><div class="accent-grid">' + ACCENT_THEMES.map(function (accent) {
+  const accentLabels = { red: "Red", purple: "Purple", black: "Black", green: "Green", sky: "Sky", blue: "Blue" };
+  const accentChoices = ACCENT_THEMES.map(function (accent) {
     return '<button class="preference-choice accent-choice" type="button" data-action="accent" data-accent="' + accent + '" aria-pressed="' + (state.settings.accent === accent) + '" data-testid="button-accent-' + accent + '"><span class="color-dot" aria-hidden="true"></span><span>' + accentLabels[accent] + '</span></button>';
-    }).join("") + '</div></section><section class="settings-group"><h2>Reading</h2><p class="settings-description">Set your preferred hymn language and text size. Yorùbá text is still being sourced.</p><div class="setting-row"><span><strong>Language</strong><small>Choose which hymn text to show.</small></span>' + languageToggle() + '</div><div class="setting-row"><span><strong>Text size</strong><small id="settings-font-value">' + size + ' px</small></span><input class="setting-range" id="settings-font-size" type="range" min="17" max="32" step="1" value="' + size + '" aria-label="Hymn text size" data-testid="input-font-size"></div><p class="verse-text setting-preview" style="--hymn-size:' + size + 'px">The hymn text will use this size.</p></section><section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal · Version ' + APP_VERSION + '</small></span></div><p class="about-copy">The current collection contains 197 English texts associated with <em>Pentecostal Hymns No. 1</em> (1894). Each included text is marked Public Domain on its Hymnary text authority page. Yorùbá versions are pending sourcing and review.</p><div class="setting-note" style="margin-top:14px"><strong>Rights scope</strong><br>The source’s Public Domain designation and the 1894 publication date do not establish status in every country. Verify local rights before use outside the United States.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
+  }).join("");
+  return '<section class="page">' + pageHeading("Settings", "Make the hymn book comfortable for you.") +
+    '<section class="settings-group"><h2>Appearance</h2><p class="settings-description">Choose how the app looks on this device.</p><div class="preference-choices">' + themeChoice("light", "Light", "sun") + themeChoice("dark", "Dark", "moon") + themeChoice("system", "System", "settings") + '</div></section>' +
+    '<section class="settings-group"><h2>Accent colour</h2><p class="settings-description">Choose from six colours. Your choice works with light and dark mode.</p><div class="accent-grid">' + accentChoices + '</div></section>' +
+    '<section class="settings-group"><h2>Reading</h2><p class="settings-description">Set your preferred hymn language and text size. Text-size changes apply across the app. Yorùbá text is still being sourced.</p><div class="setting-row"><span><strong>Language</strong><small>Choose which hymn text to show.</small></span>' + languageToggle() + '</div><div class="setting-row"><span><strong>Text size</strong><small id="settings-font-value">' + size + ' px</small></span><input class="setting-range" id="settings-font-size" type="range" min="17" max="32" step="1" value="' + size + '" aria-label="Text size across the app" data-testid="input-font-size"></div><p class="verse-text setting-preview" style="--hymn-size:' + size + 'px">The hymn text will use this size.</p></section>' +
+    '<div class="settings-actions"><button class="button-primary settings-save" type="button" data-action="save-settings" data-testid="button-save-settings">' + icon("check") + ' Save settings</button></div>' +
+    '<section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal · Version ' + APP_VERSION + '</small></span></div><p class="about-copy">The current collection contains 197 English texts associated with <em>Pentecostal Hymns No. 1</em> (1894). Each included text is marked Public Domain on its Hymnary text authority page. Yorùbá versions are pending sourcing and review.</p><div class="setting-note" style="margin-top:14px"><strong>Rights scope</strong><br>The source’s Public Domain designation and the 1894 publication date do not establish status in every country. Verify local rights before use outside the United States.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
 }
 
 function showToast(message) {
@@ -273,17 +287,26 @@ function render() {
   if (state.view === "home") main.innerHTML = renderHome();
   else if (state.view === "hymns") main.innerHTML = renderHymnLibrary();
   else if (state.view === "favorites") main.innerHTML = renderFavorites();
+  else if (state.view === "recent") main.innerHTML = renderRecentlyViewed();
   else if (state.view === "settings") main.innerHTML = renderSettings();
   else main.innerHTML = renderReader();
   renderNav();
   document.title = state.view === "reader" ? "Hymn " + String(state.selectedNumber).padStart(2, "0") + " · Consolation Hymnal" : "Consolation Hymnal";
 }
 
-function setSettings(changes) {
-  const result = saveSettings(changes);
+function setSettings(changes, persist = true) {
+  state.settings = Object.assign({}, state.settings, changes);
+  const result = persist ? saveSettings(state.settings) : { settings: state.settings, persisted: true };
   state.settings = result.settings;
   render();
   if (!result.persisted) showToast("Preference changed for now, but browser storage is unavailable.");
+}
+
+function saveCurrentSettings() {
+  const result = saveSettings(state.settings);
+  state.settings = result.settings;
+  render();
+  showToast(result.persisted ? "Settings saved on this device." : "Settings changed for now, but browser storage is unavailable.");
 }
 
 function openHymn(number) {
@@ -300,7 +323,7 @@ function openHymn(number) {
 }
 
 function navigate(view) {
-  if (!["home", "hymns", "favorites", "settings"].includes(view)) return;
+  if (!["home", "hymns", "favorites", "recent", "settings"].includes(view)) return;
   state.view = view;
   state.searchOpen = false;
   state.menuOpen = false;
@@ -392,6 +415,7 @@ document.addEventListener("click", function (event) {
   const action = target.dataset.action;
   if (action === "dismiss-update") updateDialog.close();
   else if (action === "install-update") installAvailableUpdate();
+  else if (action === "save-settings") saveCurrentSettings();
   else if (action === "navigate") navigate(target.dataset.view);
   else if (action === "header-search") {
     state.menuOpen = false;
@@ -422,7 +446,7 @@ document.addEventListener("click", function (event) {
     render();
     showToast(result.isFavorite ? "Added to Favorites." : "Removed from Favorites.");
     if (!result.persisted) showToast("Favorite changed for now, but browser storage is unavailable.");
-  } else if (action === "language") setSettings({ language: target.dataset.language });
+  } else if (action === "language") setSettings({ language: target.dataset.language }, state.view !== "settings");
   else if (action === "category") {
     state.category = target.dataset.category || "";
     state.view = "hymns";
@@ -435,8 +459,8 @@ document.addEventListener("click", function (event) {
     render();
   } else if (action === "font-increase") adjustFont(1);
   else if (action === "font-decrease") adjustFont(-1);
-  else if (action === "theme") setSettings({ theme: target.dataset.theme });
-  else if (action === "accent") setSettings({ accent: target.dataset.accent });
+  else if (action === "theme") setSettings({ theme: target.dataset.theme }, state.view !== "settings");
+  else if (action === "accent") setSettings({ accent: target.dataset.accent }, state.view !== "settings");
   else if (action === "share") performShare(target.dataset.number);
 });
 
@@ -455,14 +479,12 @@ document.addEventListener("input", function (event) {
     updateSearch(event.target.value, start, end);
   } else if (event.target.id === "settings-font-size") {
     const size = Number(event.target.value);
-    const result = saveSettings({ fontSize: size });
-    state.settings = result.settings;
+    state.settings = Object.assign({}, state.settings, { fontSize: size });
     applyPreferences();
     const label = document.getElementById("settings-font-value");
     const preview = main.querySelector(".setting-preview");
     if (label) label.textContent = size + " px";
     if (preview) preview.style.setProperty("--hymn-size", size + "px");
-    if (!result.persisted) showToast("Text size changed for now, but browser storage is unavailable.");
   }
 });
 

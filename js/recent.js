@@ -4,10 +4,14 @@ const RECENTS_KEY = "cerc-hymnal-recent-v2";
 
 export function getRecentNumbers() {
   const recent = readLocal(RECENTS_KEY, []);
-  return Array.isArray(recent) ? recent.map(Number) : [];
+  return Array.isArray(recent)
+    ? Array.from(new Set(recent.map(Number).filter(function (value) { return Number.isFinite(value) && value > 0; }))).slice(0, 50)
+    : [];
 }
 
 export function addRecent(number) {
-  const next = [Number(number), ...getRecentNumbers().filter(function (value) { return value !== Number(number); })].slice(0, 6);
+  const parsed = Number(number);
+  if (!Number.isFinite(parsed) || parsed <= 0) return false;
+  const next = [parsed, ...getRecentNumbers().filter(function (value) { return value !== parsed; })].slice(0, 50);
   return writeLocal(RECENTS_KEY, next);
 }
