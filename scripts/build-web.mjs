@@ -13,7 +13,8 @@ if (appVersion !== packageJson.version) {
 }
 
 await mkdir(path.join(dist, "assets"), { recursive: true });
-await copyFile(path.join(root, "assets/demo-church-mark.svg"), path.join(dist, "assets/demo-church-mark.svg"));
+await copyFile(path.join(root, "assets/consolation-launcher.png"), path.join(dist, "assets/consolation-launcher.png"));
+await copyFile(path.join(root, "assets/consolation-launcher-192.png"), path.join(dist, "assets/consolation-launcher-192.png"));
 await copyFile(path.join(root, "manifest.webmanifest"), path.join(dist, "manifest.webmanifest"));
 const sourceWorker = await readFile(path.join(root, "service-worker.js"), "utf8");
 if (!sourceWorker.includes(`consolation-hymnal-${packageJson.version}`)) {

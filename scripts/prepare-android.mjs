@@ -76,7 +76,7 @@ const valuesDir = path.join(androidRes, "values");
 await mkdir(valuesDir, { recursive: true });
 await writeFile(path.join(valuesDir, "ic_launcher_background.xml"), `<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#211234</color>
+    <color name="ic_launcher_background">#000000</color>
 </resources>
 `);
 
