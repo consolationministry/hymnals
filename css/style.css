@@ -438,3 +438,16 @@ html[data-theme="dark"] .reader-heading {
   .home-search-control.is-open .search-form { padding-left: 12px; }
   .home-hymn-open { gap: 9px; padding: 14px 13px; }
 }
+
+
+/* Keep church identity readable across the app themes. */
+.brand-header { border-bottom-color: #e8e2e9; color: #30243a; background: #fff; backdrop-filter: none; }
+.brand-lockup img { width: 60px; height: 60px; }
+.brand-name { color: #30243a; font-size: 1.18rem; }
+.brand-subtitle { color: #62576a; font-size: .87rem; }
+.brand-header .header-icon-button { color: #382c42; }
+@media (max-width: 430px) {
+  .brand-lockup img { width: 52px; height: 52px; }
+  .brand-name { font-size: 1.04rem; }
+  .brand-subtitle { font-size: .78rem; }
+}

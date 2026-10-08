@@ -7,12 +7,18 @@ import { ACCENT_THEMES, getSettings, saveSettings } from "./settings.js";
 import { shareHymn } from "./sharing.js";
 import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
 import { APP_VERSION } from "./version.js";
+import { remainingSplashMs } from "./splash-timing.js";
+
+const splashStartedAt = Date.now();
+const CHURCH_MOTTO = "Occupy Till I Come";
 
 const header = document.getElementById("brand-header");
 const main = document.getElementById("main-content");
 const nav = document.getElementById("bottom-nav");
 const shell = document.getElementById("app-shell");
 const splash = document.getElementById("splash");
+const splashMotto = document.querySelector(".splash-motto");
+if (splashMotto) splashMotto.textContent = CHURCH_MOTTO;
 const toast = document.getElementById("toast");
 const updateDialog = document.getElementById("update-dialog");
 const updateMessage = document.getElementById("update-message");
@@ -82,7 +88,7 @@ function renderHeader() {
   const searchExpanded = state.view === "home"
     ? state.searchOpen || Boolean(state.query)
     : state.view === "hymns";
-  header.innerHTML = '<button class="brand-lockup" type="button" data-action="navigate" data-view="home" aria-label="Go to Home" data-testid="button-brand-home"><img src="./assets/consolation-launcher.png" alt="" width="52" height="52"><span><span class="brand-name">Consolation Evangelical<br class="brand-break"> and Revival Church</span><span class="brand-subtitle">Faith · Hope · Worship</span></span></button><div class="header-actions"><button class="header-icon-button" type="button" data-action="header-search" aria-label="Search hymns" aria-expanded="' + searchExpanded + '" data-testid="button-header-search">' + icon("search") + '</button><button class="header-icon-button" type="button" data-action="toggle-menu" aria-label="Main menu" aria-expanded="' + state.menuOpen + '" aria-haspopup="true" aria-controls="header-nav-menu" data-testid="button-header-menu">' + icon(state.menuOpen ? "close" : "menu") + '</button>' + menu + '</div>';
+  header.innerHTML = '<button class="brand-lockup" type="button" data-action="navigate" data-view="home" aria-label="Go to Home" data-testid="button-brand-home"><img src="./assets/consolation-launcher.png" alt="" width="60" height="60"><span><span class="brand-name">Consolation Evangelical<br class="brand-break"> and Revival Church</span><span class="brand-subtitle">' + CHURCH_MOTTO + '</span></span></button><div class="header-actions"><button class="header-icon-button" type="button" data-action="header-search" aria-label="Search hymns" aria-expanded="' + searchExpanded + '" data-testid="button-header-search">' + icon("search") + '</button><button class="header-icon-button" type="button" data-action="toggle-menu" aria-label="Main menu" aria-expanded="' + state.menuOpen + '" aria-haspopup="true" aria-controls="header-nav-menu" data-testid="button-header-menu">' + icon(state.menuOpen ? "close" : "menu") + '</button>' + menu + '</div>';
 }
 
 function renderNav() {
@@ -270,6 +276,14 @@ function renderSettings() {
     '<section class="settings-group"><h2>Reading</h2><p class="settings-description">Set your preferred hymn language and text size. Text-size changes apply across the app. Yorùbá text is still being sourced.</p><div class="setting-row"><span><strong>Language</strong><small>Choose which hymn text to show.</small></span>' + languageToggle() + '</div><div class="setting-row"><span><strong>Text size</strong><small id="settings-font-value">' + size + ' px</small></span><input class="setting-range" id="settings-font-size" type="range" min="17" max="32" step="1" value="' + size + '" aria-label="Text size across the app" data-testid="input-font-size"></div><p class="verse-text setting-preview" style="--hymn-size:' + size + 'px">The hymn text will use this size.</p></section>' +
     '<div class="settings-actions"><button class="button-primary settings-save" type="button" data-action="save-settings" data-testid="button-save-settings">' + icon("check") + ' Save settings</button></div>' +
     '<section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal · Version ' + APP_VERSION + '</small></span></div><p class="about-copy">The current collection contains 197 English texts associated with <em>Pentecostal Hymns No. 1</em> (1894). Each included text is marked Public Domain on its Hymnary text authority page. Yorùbá versions are pending sourcing and review.</p><div class="setting-note" style="margin-top:14px"><strong>Rights scope</strong><br>The source’s Public Domain designation and the 1894 publication date do not establish status in every country. Verify local rights before use outside the United States.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
+}
+
+function finishSplash() {
+  const delay = remainingSplashMs(splashStartedAt);
+  window.setTimeout(function () {
+    splash.classList.add("is-leaving");
+    window.setTimeout(function () { splash.hidden = true; }, 370);
+  }, delay);
 }
 
 function showToast(message) {
@@ -510,17 +524,14 @@ async function boot() {
     state.hymns = await getAllHymns();
     render();
     shell.hidden = false;
-    window.setTimeout(function () {
-      splash.classList.add("is-leaving");
-      window.setTimeout(function () { splash.hidden = true; }, 370);
-    }, 950);
+    finishSplash();
     initializeUpdates({ onAvailable: showUpdateNotice });
   } catch (error) {
     shell.hidden = false;
     header.innerHTML = "";
     main.innerHTML = '<section class="page empty-state" role="alert"><h1>Hymns could not be loaded</h1><p>Refresh this page to try again.</p></section>';
     nav.innerHTML = "";
-    window.setTimeout(function () { splash.classList.add("is-leaving"); }, 950);
+    finishSplash();
   }
 }
 
