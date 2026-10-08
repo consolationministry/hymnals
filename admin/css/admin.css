@@ -304,3 +304,15 @@ a { color: inherit; }
   .row-action-danger:hover { border-color: #643b49; background: #321f27; }
   .app-toast { border-color: #355c45; color: #a9e6c1; background: #1d3427; }
 }
+
+
+/* Phase 2C category management */
+.category-table-wrap { margin-top: 16px; }
+.category-table { min-width: 570px; }
+.category-usage { display: block; color: var(--ink); font-weight: 700; }
+.category-usage-note { display: block; margin-top: 4px; color: var(--muted); font-size: .74rem; }
+.category-table .row-action:disabled { opacity: .5; cursor: not-allowed; }
+.category-empty-action { margin-top: 17px; }
+@media (max-width: 760px) {
+  .category-table { min-width: 520px; }
+}

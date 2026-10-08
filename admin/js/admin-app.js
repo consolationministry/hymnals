@@ -1,8 +1,8 @@
 import { initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js";
-import { createHymn, deleteHymn, getCategories, getDashboardStats, getDraftHymns, getHymn, getHymns, getPublishedHymns, getRecentlyUpdatedHymns, getStorageMode, publishHymn, saveHymnAsDraft, updateHymn } from "./admin-data.js?v=2b";
+import { createCategory, createHymn, deleteCategory, deleteHymn, getCategories, getDashboardStats, getDraftHymns, getHymn, getHymns, getPublishedHymns, getRecentlyUpdatedHymns, getStorageMode, publishHymn, saveHymnAsDraft, updateCategory, updateHymn } from "./admin-data.js?v=2c";
 
 const root = document.getElementById("admin-root");
-const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, toastTimer: null };
+const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, toastTimer: null };
 const navigation = [
   { id: "dashboard", label: "Dashboard", icon: "grid" },
   { id: "hymns", label: "Hymns", icon: "book" },
@@ -132,7 +132,7 @@ function previewBanner() {
   banner.setAttribute("aria-label", "Demo preview notice");
   const mark = make("span", "notice-mark", "!"); mark.setAttribute("aria-hidden", "true");
   const copy = document.createElement("div");
-  copy.append(make("strong", "", "Demo preview · this browser only"), make("p", "", "Hymn edits are stored only in this browser. Nothing is sent to a server, published to the public hymnal, or protected by real admin sign-in."));
+  copy.append(make("strong", "", "Demo preview · this browser only"), make("p", "", "Hymn and category edits are stored only in this browser. Nothing is sent to a server, published to the public hymnal, or protected by real admin sign-in."));
   banner.append(mark, copy); return banner;
 }
 function renderDashboard() {
@@ -184,7 +184,7 @@ function renderDashboard() {
       if (item[3]) button.dataset.view = item[3];
       button.append(icon(item[1], "quick-action-icon"), make("span", "", item[0]), make("span", "quick-arrow", "›")); list.append(button);
     });
-    actionsBody.append(list, make("p", "demo-caption", "Hymn management is available in this browser preview. Other sections remain placeholders.")); actionsPanel.append(actionsBody);
+    actionsBody.append(list, make("p", "demo-caption", "Hymn and category management are available in this browser preview. Service planning and settings remain placeholders.")); actionsPanel.append(actionsBody);
     lower.append(recentPanel, actionsPanel); content.append(lower);
   }).catch(function () { content.append(make("section", "list-empty", "Dashboard preview data could not be loaded.")); });
 }
@@ -194,14 +194,107 @@ function renderPlaceholder(view) {
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
   headingContent.append(make("h1", "", title), make("p", "", "This section is reserved for a later phase.")); heading.append(headingContent); content.append(heading, previewBanner());
   const card = make("section", "placeholder-card"); const inner = make("div", "placeholder-inner");
-  inner.append(icon(item ? item.icon : "grid", "placeholder-icon"), make("h2", "", "Coming in the next phase"), make("p", "", "Phase 2B adds hymn management only. Category management, service planning, and settings remain separate future work."));
+  inner.append(icon(item ? item.icon : "grid", "placeholder-icon"), make("h2", "", "Coming in the next phase"), make("p", "", "Phase 2C adds category management. Service planning and settings remain separate future work."));
   const back = make("button", "button button-secondary", "Back to dashboard"); back.type = "button"; back.dataset.action = "navigate"; back.dataset.view = "dashboard";
   inner.append(back); card.append(inner); content.append(card);
+}
+async function renderCategoryWorkspace() {
+  if (state.categoryMode === "form") return renderCategoryForm();
+  const content = document.getElementById("admin-content"); if (!content) return;
+  content.replaceChildren();
+  const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
+  headingContent.append(make("h1", "", "Categories"), make("p", "", "Create and organize the category labels used by hymns."));
+  const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-category"; addButton.append(icon("plus", ""), document.createTextNode(" Add Category"));
+  heading.append(headingContent, addButton); content.append(heading, previewBanner());
+  try {
+    const results = await Promise.all([getCategories(), getHymns()]);
+    const categories = results[0]; const hymns = results[1];
+    const counts = new Map();
+    hymns.forEach(function (hymn) { if (hymn.category) counts.set(hymn.category, (counts.get(hymn.category) || 0) + 1); });
+    if (!categories.length) {
+      const empty = make("section", "list-empty", "");
+      empty.append(make("h2", "", "No categories yet"), make("p", "", "Add a category to organize hymns in this browser preview."));
+      const firstAdd = make("button", "button button-primary category-empty-action", "Add your first category"); firstAdd.type = "button"; firstAdd.dataset.action = "new-category"; empty.append(firstAdd); content.append(empty); return;
+    }
+    const rows = categories.map(function (category) {
+      const escaped = escapeHtml(category); const count = counts.get(category) || 0;
+      const usage = count + (count === 1 ? " hymn" : " hymns");
+      const note = count ? "Reassign hymns before deleting" : "Not assigned to a hymn";
+      const remove = count
+        ? '<button class="row-action row-action-danger" type="button" disabled title="Reassign hymns before deleting" aria-label="Delete category ' + escaped + '">Delete</button>'
+        : '<button class="row-action row-action-danger" type="button" data-action="delete-category" data-name="' + escaped + '" aria-label="Delete category ' + escaped + '">Delete</button>';
+      return '<tr><td><span class="hymn-row-title">' + escaped + '</span></td><td><span class="category-usage">' + usage + '</span><span class="category-usage-note">' + note + '</span></td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-category" data-name="' + escaped + '" aria-label="Edit category ' + escaped + '">Edit</button>' + remove + '</div></td></tr>';
+    }).join("");
+    const table = make("div", "hymn-table-wrap category-table-wrap", "");
+    table.innerHTML = '<table class="hymn-table category-table"><thead><tr><th scope="col">Category</th><th scope="col">Hymns</th><th scope="col">Actions</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    content.append(table);
+  } catch (error) {
+    content.append(make("section", "list-empty", "Category preview data could not be loaded."));
+  }
+}
+function renderCategoryForm() {
+  const content = document.getElementById("admin-content"); if (!content) return;
+  content.replaceChildren();
+  const editing = state.editingCategoryName !== null; const currentName = editing ? state.editingCategoryName : "";
+  const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
+  headingContent.append(make("h1", "", editing ? "Edit Category" : "Add Category"), make("p", "", editing ? "Rename the category used by any hymns in this browser preview." : "Create a category for organizing demo hymns."));
+  heading.append(headingContent); content.append(heading, previewBanner());
+  const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", editing ? "Edit category form" : "Add category form");
+  panel.innerHTML = '<form id="category-form" novalidate><h2 class="form-section-title">Category details</h2><p class="form-section-help">Category changes are saved only in this browser preview. Renaming a category also updates demo hymns that use it.</p><div class="admin-field"><label for="category-name">Category name <span aria-hidden="true">*</span></label><input class="form-input" id="category-name" name="category_name" type="text" maxlength="60" autocomplete="off" value="' + escapeHtml(currentName) + '" required><p class="field-hint">Use up to 60 characters. Category names must be unique.</p></div><div id="category-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-category">Cancel</button><button class="button button-primary" type="submit">Save Category</button></div></div></form>';
+  content.append(panel); state.categoryFormStart = currentName;
+  const input = document.getElementById("category-name"); if (!editing && input) input.focus({ preventScroll: true });
+}
+function showCategoryErrors(errors) {
+  const box = document.getElementById("category-errors"); if (!box) return;
+  box.textContent = errors.join(" "); box.hidden = !errors.length;
+}
+async function saveCategoryForm(submitter) {
+  const input = document.getElementById("category-name"); if (!input) return;
+  const name = input.value.trim(); const editing = state.editingCategoryName !== null; const originalName = state.editingCategoryName;
+  const errors = [];
+  if (!name) errors.push("Enter a category name.");
+  if (name.length > 60) errors.push("Category names must be 60 characters or fewer.");
+  if (name) {
+    const categories = await getCategories();
+    if (categories.some(function (category) { return category !== originalName && category.toLowerCase() === name.toLowerCase(); })) errors.push("A category with that name already exists.");
+  }
+  if (errors.length) { showCategoryErrors(errors); input.focus(); return; }
+  const button = submitter || document.querySelector('#category-form button[type="submit"]');
+  if (button) { button.disabled = true; button.setAttribute("aria-busy", "true"); }
+  try {
+    const mode = editing ? await updateCategory(originalName, name) : await createCategory(name);
+    state.categoryMode = "list"; state.editingCategoryName = null; state.categoryFormStart = null;
+    await renderCategoryWorkspace();
+    const verb = editing ? "renamed" : "created";
+    showToast(mode === "browser" ? "Category " + verb + " in this browser's demo data." : "Category " + verb + " for this open session only; browser storage is unavailable.");
+  } catch (error) {
+    showCategoryErrors([error && error.message ? error.message : "The category could not be saved."]);
+    input.focus();
+  } finally {
+    if (button && button.isConnected) { button.disabled = false; button.removeAttribute("aria-busy"); }
+  }
+}
+async function cancelCategoryForm() {
+  if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes?")) return;
+  state.categoryMode = "list"; state.editingCategoryName = null; state.categoryFormStart = null;
+  await renderCategoryWorkspace();
+}
+async function removeCategoryFromPreview(name) {
+  const hymns = await getHymns();
+  if (hymns.some(function (hymn) { return hymn.category === name; })) { showToast("Reassign the hymns in this category before deleting it."); return; }
+  if (!window.confirm('Delete the category "' + name + '" from this browser demo?')) return;
+  try {
+    const mode = await deleteCategory(name);
+    if (!mode) { showToast("That category is no longer available."); return; }
+    await renderCategoryWorkspace();
+    showToast(mode === "browser" ? "Category deleted from this browser's demo data." : "Category deleted for this open session only; browser storage is unavailable.");
+  } catch (error) { showToast(error.message || "The category could not be deleted."); }
 }
 function renderCurrentView() {
   root.querySelectorAll(".nav-item[data-view]").forEach(function (button) { button.setAttribute("aria-current", button.dataset.view === state.activeView ? "page" : "false"); });
   if (state.activeView === "dashboard") renderDashboard();
   else if (state.activeView === "hymns") renderHymnWorkspace();
+  else if (state.activeView === "categories") renderCategoryWorkspace();
   else renderPlaceholder(state.activeView);
 }
 function categoryOptions(selected, includeAll) {
@@ -295,6 +388,10 @@ function currentFormData(status) {
 }
 function formSignature() { return JSON.stringify(currentFormData("")); }
 function isFormDirty() { return state.hymnMode === "form" && state.formStart !== null && formSignature() !== state.formStart; }
+function isCategoryFormDirty() {
+  const input = document.getElementById("category-name");
+  return state.categoryMode === "form" && state.categoryFormStart !== null && input && input.value.trim() !== state.categoryFormStart;
+}
 async function renderHymnForm() {
   const content = document.getElementById("admin-content"); if (!content) return;
   const existing = state.editingHymnId ? await getHymn(state.editingHymnId) : null;
@@ -404,7 +501,8 @@ root.addEventListener("click", async function (event) {
     state.view = "preview"; state.activeView = "dashboard"; closeMenu(); renderShell();
   } else if (action === "navigate") {
     if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes?")) return;
-    state.formStart = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; closeMenu(); renderCurrentView();
+    if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes?")) return;
+    state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; closeMenu(); renderCurrentView();
     const content = document.getElementById("admin-content"); if (content) content.focus({ preventScroll: true });
   } else if (action === "open-hymns") {
     state.activeView = "hymns"; state.hymnMode = "list"; closeMenu(); renderCurrentView();
@@ -422,6 +520,14 @@ root.addEventListener("click", async function (event) {
     await setHymnStatus(button.dataset.id, button.dataset.status);
   } else if (action === "clear-hymn-filters") {
     state.search = ""; state.statusFilter = ""; state.categoryFilter = ""; await renderHymnList();
+  } else if (action === "new-category") {
+    state.activeView = "categories"; state.categoryMode = "form"; state.editingCategoryName = null; closeMenu(); renderCurrentView();
+  } else if (action === "edit-category") {
+    state.activeView = "categories"; state.categoryMode = "form"; state.editingCategoryName = button.dataset.name; closeMenu(); renderCurrentView();
+  } else if (action === "cancel-category") {
+    await cancelCategoryForm();
+  } else if (action === "delete-category") {
+    await removeCategoryFromPreview(button.dataset.name);
   } else if (action === "toggle-menu") {
     state.menuOpen = !state.menuOpen;
     const sidebar = document.getElementById("admin-sidebar"); const toggle = root.querySelector('[data-action="toggle-menu"]'); const backdrop = root.querySelector(".sidebar-backdrop");
@@ -430,7 +536,8 @@ root.addEventListener("click", async function (event) {
     closeMenu();
   } else if (action === "logout") {
     if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes and exit the preview?")) return;
-    await logoutAdmin(); state.formStart = null; renderLogin();
+    if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes and exit the preview?")) return;
+    await logoutAdmin(); state.formStart = null; state.categoryFormStart = null; renderLogin();
   }
 });
 
@@ -444,6 +551,8 @@ root.addEventListener("submit", async function (event) {
     try { await loginAdmin(email.value.trim(), password.value); }
     catch (error) { feedback.textContent = error && error.message ? error.message : "Sign-in is not available in this phase."; }
     finally { submit.disabled = false; submit.removeAttribute("aria-busy"); label.textContent = "Sign in"; }
+  } else if (event.target.id === "category-form") {
+    event.preventDefault(); await saveCategoryForm(event.submitter);
   } else if (event.target.id === "hymn-form") {
     event.preventDefault(); const submitter = event.submitter; await saveHymnForm(submitter && submitter.dataset.saveStatus === "published" ? "published" : "draft");
   }
