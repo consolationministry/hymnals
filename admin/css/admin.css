@@ -388,3 +388,61 @@ a { color: inherit; }
 .theme-system-row .button[aria-pressed="true"] { border-color: var(--purple); color: var(--purple); }
 .settings-status { grid-column: 1 / -1; }
 @media (max-width: 620px) { .theme-system-row { align-items: flex-start; flex-direction: column; } }
+
+/* Upcoming program manager and daily scripture quote settings */
+.settings-modules-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; align-items: start; }
+.settings-module { min-width: 0; }
+.settings-module-copy { margin: 0 0 16px; color: var(--muted); font-size: .86rem; line-height: 1.55; }
+.program-analytics-note { margin: 0 0 16px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--surface-soft); }
+.program-analytics-note strong { display: block; font-size: .88rem; }
+.program-analytics-note p { margin: 5px 0 0; color: var(--muted); font-size: .81rem; line-height: 1.5; }
+.program-list { display: grid; gap: 14px; }
+.program-card { display: grid; grid-template-columns: minmax(210px, .7fr) minmax(0, 1.3fr); gap: 20px; overflow: hidden; padding: 17px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: 0 5px 18px rgba(50,32,58,.04); }
+.program-card-flyer { display: grid; min-height: 220px; max-height: 360px; place-items: center; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); }
+.program-card-image { display: block; width: 100%; height: 100%; max-height: 360px; object-fit: contain; }
+.program-flyer-empty { padding: 20px; color: var(--muted); font-size: .84rem; text-align: center; }
+.program-card-details { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; }
+.program-card-details h2 { margin: 8px 0 3px; color: var(--ink); font-size: 1.12rem; line-height: 1.35; overflow-wrap: anywhere; }
+.program-status-pill { display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 999px; font-size: .7rem; font-weight: 750; }
+.program-status-upcoming { color: var(--green); background: var(--green-soft); }
+.program-status-past { color: var(--muted); background: var(--surface-soft); }
+.program-card-venue, .program-card-date, .program-card-response, .program-card-options { margin: 5px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.45; overflow-wrap: anywhere; }
+.program-card-response { margin-top: 14px; color: var(--ink); font-weight: 650; }
+.program-card-options { margin-top: 2px; }
+.program-metrics { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 15px; }
+.program-metric { display: grid; gap: 3px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); }
+.program-metric span { color: var(--muted); font-size: .72rem; font-weight: 700; }
+.program-metric strong { color: var(--ink); font-size: 1.05rem; }
+.program-metric small { color: var(--muted); font-size: .67rem; }
+.program-card-actions { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 14px; }
+.program-flyer-section, .program-response-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.program-flyer-section h2, .program-response-section h2 { margin: 0; color: var(--ink); font-size: 1rem; }
+.program-flyer-section > p, .program-response-section > p { margin: 6px 0 13px; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.flyer-upload-button { display: inline-flex; align-items: center; }
+.program-flyer-preview { display: grid; justify-items: start; gap: 8px; min-height: 100px; margin-top: 12px; padding: 12px; border: 1px dashed var(--line); border-radius: 12px; background: var(--surface-soft); }
+.program-flyer-preview-image { display: block; width: 100%; max-height: 460px; object-fit: contain; }
+.program-flyer-placeholder { align-self: center; margin: 0; color: var(--muted); font-size: .82rem; }
+.optional-label { color: var(--muted); font-size: .75rem; font-weight: 500; }
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+#program-flyer-input:focus-visible { position: static !important; width: auto; height: auto; padding: 7px; margin: 0; overflow: visible; clip: auto; white-space: normal; outline: 3px solid var(--purple); outline-offset: 2px; }
+.quote-enable-row { display: flex; align-items: flex-start; gap: 11px; padding: 3px 0 16px; color: var(--ink); cursor: pointer; }
+.quote-enable-row input, .quote-source-option input { width: 18px; height: 18px; flex: 0 0 auto; margin: 2px 0 0; accent-color: var(--purple); }
+.quote-enable-row span { display: grid; gap: 4px; }
+.quote-enable-row strong { font-size: .88rem; }
+.quote-enable-row small { color: var(--muted); font-size: .78rem; line-height: 1.45; }
+.quote-source-fieldset { display: flex; flex-wrap: wrap; gap: 9px 18px; margin: 0 0 18px; padding: 13px 14px 14px; border: 1px solid var(--line); border-radius: 10px; }
+.quote-source-fieldset legend { padding: 0 5px; color: var(--ink); font-size: .82rem; font-weight: 700; }
+.quote-source-option { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-size: .84rem; cursor: pointer; }
+.quote-provider-notice { margin-top: 16px; padding: 12px 13px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--surface-soft); }
+.quote-provider-notice strong { font-size: .8rem; }
+.quote-provider-notice p { margin: 5px 0 0; color: var(--muted); font-size: .76rem; line-height: 1.5; }
+@media (max-width: 760px) {
+  .settings-modules-grid { grid-template-columns: 1fr; }
+  .program-card { grid-template-columns: 1fr; }
+  .program-card-flyer { min-height: 180px; max-height: 320px; }
+  .program-card-image { max-height: 320px; }
+}
+@media (max-width: 460px) {
+  .program-card { padding: 13px; }
+  .program-card-actions { align-items: flex-start; flex-direction: column; }
+}

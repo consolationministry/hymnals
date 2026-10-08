@@ -1,13 +1,14 @@
 import { initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js";
-import { createCategory, createHymn, createService, deleteCategory, deleteHymn, deleteService, getAdminSettings, getCategories, getDashboardStats, getDraftHymns, getHymn, getHymns, getPublishedHymns, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateHymn, updateService } from "./admin-data.js?v=2f";
+import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getDraftHymns, getHymn, getHymns, getProgram, getPrograms, getPublishedHymns, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=30";
 
 const root = document.getElementById("admin-root");
-const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, settingsFormStart: null, toastTimer: null };
+const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null };
 const navigation = [
   { id: "dashboard", label: "Dashboard", icon: "grid" },
   { id: "hymns", label: "Hymns", icon: "book" },
   { id: "categories", label: "Categories", icon: "layers" },
   { id: "services", label: "Service Planner", icon: "calendar" },
+  { id: "programs", label: "Upcoming Programs", icon: "calendar" },
   { id: "settings", label: "Settings", icon: "settings" }
 ];
 const iconPaths = {
@@ -132,7 +133,7 @@ function previewBanner() {
   banner.setAttribute("aria-label", "Demo preview notice");
   const mark = make("span", "notice-mark", "!"); mark.setAttribute("aria-hidden", "true");
   const copy = document.createElement("div");
-  copy.append(make("strong", "", "Demo preview · this browser only"), make("p", "", "Hymn, category, service plan, and workspace preference edits are stored only in this browser. Nothing is sent to a server, published to the public hymnal, or protected by real admin sign-in."));
+  copy.append(make("strong", "", "Demo preview · this browser only"), make("p", "", "Hymn, category, service plan, program, and settings edits are stored only in this browser. Nothing is sent to a server, published to the public hymnal, or protected by real admin sign-in."));
   banner.append(mark, copy); return banner;
 }
 function renderDashboard() {
@@ -177,14 +178,14 @@ function renderDashboard() {
     tableWrap.append(table); body.append(tableWrap, make("p", "demo-caption", "Sample placeholders only; these are not live church records.")); recentPanel.append(body);
     const actionsPanel = make("section", "panel"); const actionsHeader = make("header", "panel-header"); const actionsTitle = document.createElement("div");
     actionsTitle.append(make("h2", "", "Quick Actions"), make("p", "", "Shortcuts for hymnal management.")); actionsHeader.append(actionsTitle); actionsPanel.append(actionsHeader);
-    const actionsBody = make("div", "panel-body"); const actions = [["Add New Hymn", "plus", "new-hymn"], ["Manage Hymns", "book", "open-hymns"], ["Manage Categories", "layers", "navigate", "categories"], ["Create Service Plan", "calendar", "navigate", "services"]];
+    const actionsBody = make("div", "panel-body"); const actions = [["Add New Hymn", "plus", "new-hymn"], ["Manage Hymns", "book", "open-hymns"], ["Manage Categories", "layers", "navigate", "categories"], ["Create Service Plan", "calendar", "navigate", "services"], ["Manage Upcoming Programs", "calendar", "navigate", "programs"]];
     const list = make("div", "quick-actions");
     actions.forEach(function (item) {
       const button = make("button", "quick-action", ""); button.type = "button"; button.dataset.action = item[2];
       if (item[3]) button.dataset.view = item[3];
       button.append(icon(item[1], "quick-action-icon"), make("span", "", item[0]), make("span", "quick-arrow", "›")); list.append(button);
     });
-    actionsBody.append(list, make("p", "demo-caption", "Hymn, category, and service planning are available in this browser preview. Settings holds admin-only workspace preferences.")); actionsPanel.append(actionsBody);
+    actionsBody.append(list, make("p", "demo-caption", "Hymn, category, service, and program planning are available in this browser preview. Settings holds admin-only workspace preferences.")); actionsPanel.append(actionsBody);
     lower.append(recentPanel, actionsPanel); content.append(lower);
   }).catch(function () { content.append(make("section", "list-empty", "Dashboard preview data could not be loaded.")); });
 }
@@ -394,6 +395,179 @@ async function removeServiceFromPreview(id) {
     showToast(mode === "browser" ? "Service plan deleted from this browser's demo data." : "Service plan deleted for this open session only; browser storage is unavailable.");
   } catch (error) { showToast(error.message || "The service plan could not be deleted."); }
 }
+async function renderProgramWorkspace() {
+  if (state.programMode === "form") return renderProgramForm();
+  const content = document.getElementById("admin-content"); if (!content) return;
+  content.replaceChildren();
+  const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
+  headingContent.append(make("h1", "", "Upcoming Programs"), make("p", "", "Prepare church program announcements and review responses when the app is connected."));
+  const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-program"; addButton.append(icon("plus", ""), document.createTextNode(" Add Program"));
+  heading.append(headingContent, addButton); content.append(heading, previewBanner());
+  const note = make("section", "program-analytics-note");
+  note.append(make("strong", "", "Views and attendance responses are not connected yet."), make("p", "", "This phase builds the admin workflow only. Counts will become real after the public app and backend are connected."));
+  content.append(note);
+  try {
+    const programs = await getPrograms();
+    if (!programs.length) {
+      const empty = make("section", "list-empty", "");
+      empty.append(make("h2", "", "No programs added yet"), make("p", "", "Create an upcoming program with its venue, dates, flyer, and response wording."));
+      const firstAdd = make("button", "button button-primary category-empty-action", "Create your first program"); firstAdd.type = "button"; firstAdd.dataset.action = "new-program"; empty.append(firstAdd); content.append(empty); return;
+    }
+    const list = make("section", "program-list"); list.setAttribute("aria-label", "Church programs");
+    const today = new Date(); const todayValue = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    programs.forEach(function (program) {
+      const card = make("article", "program-card");
+      const flyer = make("div", "program-card-flyer");
+      if (program.flyerDataUrl) {
+        const image = make("img", "program-card-image"); image.src = program.flyerDataUrl; image.alt = "Flyer for " + (program.title || "church program"); flyer.append(image);
+      } else {
+        flyer.append(make("span", "program-flyer-empty", "No flyer added"));
+      }
+      const detail = make("div", "program-card-details");
+      const dateStatus = program.endDate || program.startDate;
+      const badge = make("span", "program-status-pill " + (dateStatus >= todayValue ? "program-status-upcoming" : "program-status-past"), dateStatus >= todayValue ? "Upcoming" : "Past");
+      const title = make("h2", "", program.title || "Untitled program");
+      const venue = make("p", "program-card-venue", program.venue || "Venue not added");
+      const dates = make("p", "program-card-date", formatProgramDateRange(program.startDate, program.endDate));
+      const prompt = make("p", "program-card-response", program.responseQuestion || "Availability question not added");
+      const options = make("p", "program-card-options", (program.yesLabel || "Yes") + " · " + (program.noLabel || "No"));
+      const metrics = make("div", "program-metrics");
+      [["Views", "Analytics pending"], ["Interested", "Analytics pending"]].forEach(function (metric) {
+        const item = make("div", "program-metric"); item.append(make("span", "", metric[0]), make("strong", "", "—"), make("small", "", metric[1])); metrics.append(item);
+      });
+      const actions = make("div", "program-card-actions");
+      const edit = make("button", "button button-secondary", "Edit program"); edit.type = "button"; edit.dataset.action = "edit-program"; edit.dataset.id = program.id;
+      const remove = make("button", "row-action row-action-danger", "Delete"); remove.type = "button"; remove.dataset.action = "delete-program"; remove.dataset.id = program.id;
+      actions.append(edit, remove);
+      detail.append(badge, title, venue, dates, prompt, options, metrics, actions);
+      card.append(flyer, detail); list.append(card);
+    });
+    content.append(list);
+  } catch (error) {
+    content.append(make("section", "list-empty", "Program preview data could not be loaded."));
+  }
+}
+function formatProgramDateRange(startDate, endDate) {
+  function format(value) {
+    const date = new Date(String(value || "") + "T00:00:00");
+    return Number.isNaN(date.getTime()) ? String(value || "Date not set") : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long", year: "numeric" }).format(date);
+  }
+  return endDate ? format(startDate) + " – " + format(endDate) : format(startDate);
+}
+async function renderProgramForm() {
+  const content = document.getElementById("admin-content"); if (!content) return;
+  const existing = state.editingProgramId ? await getProgram(state.editingProgramId) : null;
+  if (state.editingProgramId && !existing) { state.programMode = "list"; state.editingProgramId = null; showToast("That demo program is no longer available."); return renderProgramWorkspace(); }
+  state.programFlyerUrl = existing ? existing.flyerDataUrl || "" : "";
+  content.replaceChildren();
+  const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
+  headingContent.append(make("h1", "", existing ? "Edit Program" : "Add Upcoming Program"), make("p", "", existing ? "Update the program details and response wording." : "Add the event details that will later appear in the connected hymnal app."));
+  const cancel = make("button", "button button-secondary", "Cancel"); cancel.type = "button"; cancel.dataset.action = "cancel-program";
+  heading.append(headingContent, cancel); content.append(heading, previewBanner());
+  const program = existing || { title: "", venue: "", startDate: "", endDate: "", responseQuestion: "Will you be available for this program?", yesLabel: "Yes, I’ll be there", noLabel: "Not this time" };
+  const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit program form" : "Add program form");
+  panel.innerHTML = '<form id="program-form" novalidate><h2 class="form-section-title">Program details</h2><p class="form-section-help">Program changes stay in this browser preview and are not published to the public app in this phase.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="program-title">Program name <span aria-hidden="true">*</span></label><input class="form-input" id="program-title" name="title" type="text" maxlength="120" placeholder="Annual Thanksgiving Service" value="' + escapeHtml(program.title) + '" required></div><div class="admin-field"><label for="program-venue">Venue <span aria-hidden="true">*</span></label><input class="form-input" id="program-venue" name="venue" type="text" maxlength="160" placeholder="Church auditorium" value="' + escapeHtml(program.venue) + '" required></div><div class="admin-field"><label for="program-start-date">From <span aria-hidden="true">*</span></label><input class="form-input" id="program-start-date" name="startDate" type="date" value="' + escapeHtml(program.startDate) + '" required></div><div class="admin-field"><label for="program-end-date">To <span class="optional-label">optional</span></label><input class="form-input" id="program-end-date" name="endDate" type="date" value="' + escapeHtml(program.endDate || "") + '"><p class="field-hint">Leave this blank for a one-day program.</p></div></div><section class="program-flyer-section" aria-labelledby="program-flyer-heading"><h2 id="program-flyer-heading">Program flyer</h2><p>Upload a PNG, JPEG, or WebP image. The preview keeps the full flyer visible without cropping.</p><label class="button button-secondary flyer-upload-button" for="program-flyer-input">Choose flyer</label><input class="visually-hidden" id="program-flyer-input" type="file" accept="image/png,image/jpeg,image/webp"><div id="program-flyer-preview" class="program-flyer-preview" aria-live="polite"></div><p class="field-hint">Large images are resized proportionally for this browser preview. A server-backed upload will be added later.</p><p id="program-flyer-error" class="form-error" role="alert" aria-live="polite"></p></section><section class="program-response-section"><h2>Attendance response</h2><p>Set the question and the wording shown on the two response buttons.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="program-response-question">Question shown to users</label><input class="form-input" id="program-response-question" name="responseQuestion" type="text" maxlength="120" value="' + escapeHtml(program.responseQuestion) + '" required></div><div class="admin-field"><label for="program-yes-label">Yes button</label><input class="form-input" id="program-yes-label" name="yesLabel" type="text" maxlength="48" value="' + escapeHtml(program.yesLabel) + '" required></div><div class="admin-field"><label for="program-no-label">No button</label><input class="form-input" id="program-no-label" name="noLabel" type="text" maxlength="48" value="' + escapeHtml(program.noLabel) + '" required></div></div></section><div id="program-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-program" data-id="' + escapeHtml(existing.id) + '">Delete Program</button>' : "") + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-program">Cancel</button><button class="button button-primary" type="submit">Save Program</button></div></div></form>';
+  content.append(panel);
+  updateProgramFlyerPreview(state.programFlyerUrl);
+  state.programFormStart = programFormSignature();
+  const first = document.getElementById("program-title"); if (!existing && first) first.focus({ preventScroll: true });
+}
+function currentProgramFormData() {
+  const form = document.getElementById("program-form"); if (!form) return null;
+  return {
+    title: form.elements.title.value.trim(), venue: form.elements.venue.value.trim(),
+    startDate: form.elements.startDate.value, endDate: form.elements.endDate.value,
+    flyerDataUrl: state.programFlyerUrl,
+    responseQuestion: form.elements.responseQuestion.value.trim(),
+    yesLabel: form.elements.yesLabel.value.trim(), noLabel: form.elements.noLabel.value.trim()
+  };
+}
+function programFormSignature() {
+  const data = currentProgramFormData(); return data ? JSON.stringify(data) : null;
+}
+function updateProgramFlyerPreview(dataUrl) {
+  const preview = document.getElementById("program-flyer-preview"); if (!preview) return;
+  preview.replaceChildren();
+  if (dataUrl) {
+    const image = make("img", "program-flyer-preview-image"); image.src = dataUrl; image.alt = "Full program flyer preview";
+    const remove = make("button", "row-action row-action-danger", "Remove flyer"); remove.type = "button"; remove.dataset.action = "remove-program-flyer";
+    preview.append(image, remove);
+  } else {
+    preview.append(make("p", "program-flyer-placeholder", "No flyer selected. You can add one now or return to it later."));
+  }
+}
+function optimizeProgramFlyer(file) {
+  return new Promise(function (resolve, reject) {
+    if (!file || !["image/png", "image/jpeg", "image/webp"].includes(file.type)) { reject(new Error("Choose a PNG, JPEG, or WebP image.")); return; }
+    if (file.size > 12000000) { reject(new Error("Choose an image smaller than 12 MB before resizing.")); return; }
+    const source = URL.createObjectURL(file); const image = new Image();
+    image.onload = function () {
+      URL.revokeObjectURL(source);
+      const width = image.naturalWidth; const height = image.naturalHeight;
+      if (!width || !height) { reject(new Error("The selected image could not be read.")); return; }
+      const scale = Math.min(1, 1800 / Math.max(width, height));
+      const canvas = document.createElement("canvas"); canvas.width = Math.max(1, Math.round(width * scale)); canvas.height = Math.max(1, Math.round(height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) { reject(new Error("Flyer preview is not supported in this browser.")); return; }
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      let output = canvas.toDataURL("image/webp", 0.88);
+      if (!output.startsWith("data:image/webp")) {
+        context.fillStyle = "#ffffff"; context.globalCompositeOperation = "destination-over"; context.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      for (let quality = 0.88; output.length > 1800000 && quality >= 0.48; quality -= 0.08) {
+        output = output.startsWith("data:image/webp") ? canvas.toDataURL("image/webp", quality) : canvas.toDataURL("image/jpeg", quality);
+      }
+      if (output.length > 1800000) { reject(new Error("This flyer is still too large after resizing. Choose a smaller image.")); return; }
+      resolve(output);
+    };
+    image.onerror = function () { URL.revokeObjectURL(source); reject(new Error("The selected image could not be opened.")); };
+    image.src = source;
+  });
+}
+function showProgramErrors(errors) {
+  const box = document.getElementById("program-errors"); if (!box) return;
+  box.textContent = errors.join(" "); box.hidden = !errors.length;
+}
+async function saveProgramForm(submitter) {
+  const data = currentProgramFormData(); if (!data) return;
+  const errors = [];
+  if (!data.title) errors.push("Enter the program name.");
+  if (!data.venue) errors.push("Enter the venue.");
+  if (!data.startDate) errors.push("Choose a start date.");
+  if (data.endDate && data.startDate && data.endDate < data.startDate) errors.push("The end date cannot be before the start date.");
+  if (!data.responseQuestion) errors.push("Enter the attendance question.");
+  if (!data.yesLabel || !data.noLabel) errors.push("Enter both response button labels.");
+  if (errors.length) { showProgramErrors(errors); if (!data.title) document.getElementById("program-title").focus(); else if (!data.venue) document.getElementById("program-venue").focus(); else if (!data.startDate) document.getElementById("program-start-date").focus(); return; }
+  const button = submitter || document.querySelector('#program-form button[type="submit"]');
+  if (button) { button.disabled = true; button.setAttribute("aria-busy", "true"); }
+  const editing = state.editingProgramId !== null; const id = state.editingProgramId;
+  try {
+    const saved = editing ? await updateProgram(id, data) : await createProgram(data);
+    state.programMode = "list"; state.editingProgramId = null; state.programFormStart = null; state.programFlyerUrl = "";
+    await renderProgramWorkspace();
+    showToast(saved._storage_mode === "browser" ? "Program saved in this browser preview." : "Program saved for this open session only; browser storage is unavailable.");
+  } catch (error) {
+    showProgramErrors([error && error.message ? error.message : "The program could not be saved."]);
+  } finally {
+    if (button && button.isConnected) { button.disabled = false; button.removeAttribute("aria-busy"); }
+  }
+}
+async function cancelProgramForm() {
+  if (isProgramFormDirty() && !window.confirm("Discard your unsaved program changes?")) return;
+  state.programMode = "list"; state.editingProgramId = null; state.programFormStart = null; state.programFlyerUrl = "";
+  await renderProgramWorkspace();
+}
+async function removeProgramFromPreview(id) {
+  const program = await getProgram(id); if (!program) { showToast("That demo program is no longer available."); return; }
+  if (!window.confirm('Delete the program "' + program.title + '" from this browser demo?')) return;
+  try {
+    const mode = await deleteProgram(id);
+    if (!mode) { showToast("That program could not be found."); return; }
+    state.programMode = "list"; state.editingProgramId = null; state.programFormStart = null;
+    await renderProgramWorkspace();
+    showToast(mode === "browser" ? "Program deleted from this browser preview." : "Program deleted for this open session only; browser storage is unavailable.");
+  } catch (error) { showToast(error.message || "The program could not be deleted."); }
+}
 async function renderSettingsWorkspace() {
   const content = document.getElementById("admin-content"); if (!content) return;
   content.replaceChildren();
@@ -401,8 +575,8 @@ async function renderSettingsWorkspace() {
   headingContent.append(make("h1", "", "Settings"), make("p", "", "Admin-only preferences for this browser workspace."));
   heading.append(headingContent); content.append(heading, previewBanner());
   try {
-    const results = await Promise.all([getCategories(), getAdminSettings()]);
-    const categories = results[0]; const settings = results[1];
+    const results = await Promise.all([getCategories(), getAdminSettings(), getDailyQuoteSettings()]);
+    const categories = results[0]; const settings = results[1]; const quoteSettings = results[2];
     const themeMode = ["system", "light", "dark"].includes(settings.defaultTheme) ? settings.defaultTheme : "system";
     applyAdminTheme(themeMode);
     const darkEnabled = themeMode === "dark" || (themeMode === "system" && getSystemTheme() === "dark");
@@ -416,10 +590,16 @@ async function renderSettingsWorkspace() {
     statusTitle.append(make("h2", "", "Preview status"), make("p", "", "What this settings page can change today.")); statusHeader.append(statusTitle);
     const statusBody = make("div", "panel-body", "");
     const statusList = make("ul", "settings-status-list", "");
-    statusList.append(make("li", "", "Preferences are saved in this browser only."), make("li", "", "They do not change the public hymnal or sync to another device."), make("li", "", "Administrator sign-in and server authorization are not configured in this phase."));
+    statusList.append(make("li", "", "Program announcements and preferences are saved in this browser only."), make("li", "", "Nothing is published to the public hymnal in this phase."), make("li", "", "Real analytics, admin authorization, and server-backed storage come in a later phase."));
     statusBody.append(statusList); statusPanel.append(statusHeader, statusBody);
     const grid = make("div", "settings-grid", ""); grid.append(panel, appearancePanel, statusPanel); content.append(grid);
+    const programSettings = make("section", "panel settings-module");
+    programSettings.innerHTML = '<header class="panel-header"><div><h2>Upcoming programs</h2><p>Create and edit event announcements, flyers, and attendance wording.</p></div></header><div class="panel-body"><p class="settings-module-copy">The program manager is available in the admin menu. View counts and attendance totals will appear after the public app and backend are connected.</p><button class="button button-secondary" type="button" data-action="navigate" data-view="programs">Open Upcoming Programs</button></div>';
+    const quotePanel = make("section", "panel settings-module quote-settings");
+    quotePanel.innerHTML = '<header class="panel-header"><div><h2>Daily Scripture Quote</h2><p>Choose the scripture sources and when the quote should refresh.</p></div></header><div class="panel-body"><form id="daily-quote-form" novalidate><label class="quote-enable-row"><input id="daily-quote-enabled" name="enabled" type="checkbox"' + (quoteSettings.enabled ? " checked" : "") + '><span><strong>Enable the quote feature</strong><small>Controls the planned quote feature in the member hymnal.</small></span></label><fieldset class="quote-source-fieldset"><legend>Allowed Bible books</legend><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Psalms"' + (quoteSettings.books.includes("Psalms") ? " checked" : "") + '><span>Psalms</span></label><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Proverbs"' + (quoteSettings.books.includes("Proverbs") ? " checked" : "") + '><span>Proverbs</span></label></fieldset><div class="admin-field"><label for="quote-refresh-mode">When should a new quote be generated?</label><select class="form-select" id="quote-refresh-mode" name="refreshMode"><option value="on-open"' + (quoteSettings.refreshMode === "on-open" ? " selected" : "") + '>Every time a user opens the app</option><option value="daily"' + (quoteSettings.refreshMode === "daily" ? " selected" : "") + '>Once per day</option></select><p class="field-hint">This preference is saved in the browser preview; the public quote will be wired in the backend phase.</p></div><div class="quote-provider-notice"><strong>Groq connection · Not configured</strong><p>Add the Groq API key as a server secret in the backend phase. It should never be entered or stored in this browser page.</p></div><div id="quote-settings-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-primary" type="submit">Save Quote Settings</button></div></div></form></div>';
+    const modules = make("div", "settings-modules-grid"); modules.append(programSettings, quotePanel); content.append(modules);
     state.settingsFormStart = settings.defaultHymnCategory || "";
+    state.quoteSettingsFormStart = quoteSettingsFormSignature();
   } catch (error) {
     content.append(make("section", "list-empty", "Workspace settings could not be loaded."));
   }
@@ -439,12 +619,36 @@ async function saveSettingsForm() {
     showSettingsErrors(error && error.message ? error.message : "The preference could not be saved.");
   }
 }
+function quoteSettingsFormSignature() {
+  const form = document.getElementById("daily-quote-form"); if (!form) return null;
+  const books = Array.from(form.querySelectorAll('input[name="quote_books"]:checked')).map(function (input) { return input.value; }).sort();
+  return JSON.stringify({ enabled: form.elements.enabled.checked, books: books, refreshMode: form.elements.refreshMode.value });
+}
+async function saveDailyQuoteSettings() {
+  const form = document.getElementById("daily-quote-form"); if (!form) return;
+  const data = {
+    enabled: form.elements.enabled.checked,
+    books: Array.from(form.querySelectorAll('input[name="quote_books"]:checked')).map(function (input) { return input.value; }),
+    refreshMode: form.elements.refreshMode.value
+  };
+  const errors = document.getElementById("quote-settings-errors");
+  if (!data.books.length) { if (errors) { errors.textContent = "Choose Psalms, Proverbs, or both as quote sources."; errors.hidden = false; } return; }
+  try {
+    const mode = await updateDailyQuoteSettings(data);
+    state.quoteSettingsFormStart = null;
+    await renderSettingsWorkspace();
+    showToast(mode === "browser" ? "Quote settings saved in this browser preview." : "Quote settings saved for this open session only; browser storage is unavailable.");
+  } catch (error) {
+    if (errors) { errors.textContent = error && error.message ? error.message : "Quote settings could not be saved."; errors.hidden = false; }
+  }
+}
 function renderCurrentView() {
   root.querySelectorAll(".nav-item[data-view]").forEach(function (button) { button.setAttribute("aria-current", button.dataset.view === state.activeView ? "page" : "false"); });
   if (state.activeView === "dashboard") renderDashboard();
   else if (state.activeView === "hymns") renderHymnWorkspace();
   else if (state.activeView === "categories") renderCategoryWorkspace();
   else if (state.activeView === "services") renderServiceWorkspace();
+  else if (state.activeView === "programs") renderProgramWorkspace();
   else if (state.activeView === "settings") renderSettingsWorkspace();
   else renderPlaceholder(state.activeView);
 }
@@ -555,6 +759,14 @@ function isServiceFormDirty() {
 function isSettingsFormDirty() {
   const select = document.getElementById("default-hymn-category");
   return state.activeView === "settings" && state.settingsFormStart !== null && select && select.value !== state.settingsFormStart;
+}
+function isQuoteSettingsFormDirty() {
+  const signature = quoteSettingsFormSignature();
+  return state.activeView === "settings" && state.quoteSettingsFormStart !== null && signature !== null && signature !== state.quoteSettingsFormStart;
+}
+function isProgramFormDirty() {
+  const signature = programFormSignature();
+  return state.programMode === "form" && state.programFormStart !== null && signature !== null && signature !== state.programFormStart;
 }
 function getSystemTheme() {
   return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -677,8 +889,10 @@ root.addEventListener("click", async function (event) {
     if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes?")) return;
     if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes?")) return;
     if (isServiceFormDirty() && !window.confirm("Discard your unsaved service plan changes?")) return;
+    if (isProgramFormDirty() && !window.confirm("Discard your unsaved program changes?")) return;
     if (isSettingsFormDirty() && !window.confirm("Discard your unsaved workspace preference?")) return;
-    state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.serviceFormStart = null; state.serviceMode = "list"; state.editingServiceId = null; state.settingsFormStart = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; closeMenu(); renderCurrentView();
+    if (isQuoteSettingsFormDirty() && !window.confirm("Discard your unsaved quote settings?")) return;
+    state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.serviceFormStart = null; state.serviceMode = "list"; state.editingServiceId = null; state.programFormStart = null; state.programMode = "list"; state.editingProgramId = null; state.programFlyerUrl = ""; state.settingsFormStart = null; state.quoteSettingsFormStart = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; closeMenu(); renderCurrentView();
     const content = document.getElementById("admin-content"); if (content) content.focus({ preventScroll: true });
   } else if (action === "open-hymns") {
     state.activeView = "hymns"; state.hymnMode = "list"; closeMenu(); renderCurrentView();
@@ -712,6 +926,18 @@ root.addEventListener("click", async function (event) {
     await cancelServiceForm();
   } else if (action === "delete-service") {
     await removeServiceFromPreview(button.dataset.id);
+  } else if (action === "new-program") {
+    state.activeView = "programs"; state.programMode = "form"; state.editingProgramId = null; state.programFlyerUrl = ""; closeMenu(); renderCurrentView();
+  } else if (action === "edit-program") {
+    state.activeView = "programs"; state.programMode = "form"; state.editingProgramId = button.dataset.id; closeMenu(); renderCurrentView();
+  } else if (action === "cancel-program") {
+    await cancelProgramForm();
+  } else if (action === "delete-program") {
+    await removeProgramFromPreview(button.dataset.id || state.editingProgramId);
+  } else if (action === "remove-program-flyer") {
+    state.programFlyerUrl = "";
+    const input = document.getElementById("program-flyer-input"); if (input) input.value = "";
+    updateProgramFlyerPreview("");
   } else if (action === "toggle-admin-theme") {
     const current = await getAdminSettings();
     const active = current.defaultTheme === "system" ? getSystemTheme() : current.defaultTheme;
@@ -731,8 +957,10 @@ root.addEventListener("click", async function (event) {
     if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes and exit the preview?")) return;
     if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes and exit the preview?")) return;
     if (isServiceFormDirty() && !window.confirm("Discard your unsaved service plan changes and exit the preview?")) return;
+    if (isProgramFormDirty() && !window.confirm("Discard your unsaved program changes and exit the preview?")) return;
     if (isSettingsFormDirty() && !window.confirm("Discard your unsaved workspace preference and exit the preview?")) return;
-    await logoutAdmin(); state.formStart = null; state.categoryFormStart = null; state.serviceFormStart = null; state.settingsFormStart = null; renderLogin();
+    if (isQuoteSettingsFormDirty() && !window.confirm("Discard your unsaved quote settings and exit the preview?")) return;
+    await logoutAdmin(); state.formStart = null; state.categoryFormStart = null; state.serviceFormStart = null; state.programFormStart = null; state.programFlyerUrl = ""; state.quoteSettingsFormStart = null; state.settingsFormStart = null; renderLogin();
   }
 });
 
@@ -750,8 +978,12 @@ root.addEventListener("submit", async function (event) {
     event.preventDefault(); await saveCategoryForm(event.submitter);
   } else if (event.target.id === "settings-form") {
     event.preventDefault(); await saveSettingsForm();
+  } else if (event.target.id === "daily-quote-form") {
+    event.preventDefault(); await saveDailyQuoteSettings();
   } else if (event.target.id === "service-form") {
     event.preventDefault(); await saveServiceForm(event.submitter);
+  } else if (event.target.id === "program-form") {
+    event.preventDefault(); await saveProgramForm(event.submitter);
   } else if (event.target.id === "hymn-form") {
     event.preventDefault(); const submitter = event.submitter; await saveHymnForm(submitter && submitter.dataset.saveStatus === "published" ? "published" : "draft");
   }
@@ -766,6 +998,17 @@ root.addEventListener("change", function (event) {
   if (event.target.matches('[data-filter="category"]')) { state.categoryFilter = event.target.value; refreshHymnRows(); }
   if (event.target.matches("[data-editor-command]")) runEditorCommand(event.target.dataset.editorTarget, event.target.dataset.editorCommand, event.target.value);
   if (event.target.matches('input[name="service_hymn_ids"]')) updateServiceHymnCount();
+  if (event.target.id === "program-flyer-input") {
+    const file = event.target.files && event.target.files[0]; const feedback = document.getElementById("program-flyer-error");
+    if (!file) return;
+    if (feedback) feedback.textContent = "Preparing full flyer preview…";
+    optimizeProgramFlyer(file).then(function (dataUrl) {
+      state.programFlyerUrl = dataUrl; updateProgramFlyerPreview(dataUrl);
+      if (feedback) feedback.textContent = "";
+    }).catch(function (error) {
+      event.target.value = ""; if (feedback) feedback.textContent = error && error.message ? error.message : "The flyer could not be loaded.";
+    });
+  }
 });
 function rememberEditorSelection(key) {
   const editor = root.querySelector('[data-rich-editor="' + key + '"]'); const selection = window.getSelection();
@@ -798,7 +1041,7 @@ root.addEventListener("paste", function (event) {
   restoreEditorSelection(editor); document.execCommand("insertHTML", false, clean); rememberEditorSelection(editor.dataset.richEditor); state.formDirty = isFormDirty();
 });
 window.addEventListener("beforeunload", function (event) {
-  if (isFormDirty() || isSettingsFormDirty()) { event.preventDefault(); event.returnValue = ""; }
+  if (isFormDirty() || isSettingsFormDirty() || isQuoteSettingsFormDirty() || isProgramFormDirty()) { event.preventDefault(); event.returnValue = ""; }
 });
 
 getAdminSettings().then(function (settings) { applyAdminTheme(settings.defaultTheme); }).catch(function () { applyAdminTheme("system"); });

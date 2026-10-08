@@ -4,7 +4,10 @@ const STORAGE_KEY = "consolation-hymnal-admin-demo-v1";
 const CATEGORY_STORAGE_KEY = "consolation-hymnal-admin-categories-v1";
 const SERVICE_STORAGE_KEY = "consolation-hymnal-admin-services-v1";
 const SETTINGS_STORAGE_KEY = "consolation-hymnal-admin-settings-v1";
+const PROGRAM_STORAGE_KEY = "consolation-hymnal-admin-programs-v1";
+const QUOTE_SETTINGS_STORAGE_KEY = "consolation-hymnal-admin-daily-quote-v1";
 const initialAdminSettings = { defaultHymnCategory: "Praise", defaultTheme: "system" };
+const initialDailyQuoteSettings = { enabled: true, books: ["Psalms", "Proverbs"], refreshMode: "on-open" };
 const initialDemoCategories = ["Praise", "Worship", "Thanksgiving", "Prayer", "Faith", "Hope", "Communion", "Evangelism"];
 const initialDemoHymns = [
   {
@@ -39,6 +42,8 @@ let memoryRecords = null;
 let memoryCategories = null;
 let memoryServices = null;
 let memoryAdminSettings = null;
+let memoryPrograms = null;
+let memoryDailyQuoteSettings = null;
 let lastStorageMode = null;
 
 function copy(value) { return JSON.parse(JSON.stringify(value)); }
@@ -110,6 +115,85 @@ function writeServiceRecords(records) {
     window.localStorage.setItem(SERVICE_STORAGE_KEY, JSON.stringify(records));
     lastStorageMode = "browser"; return "browser";
   } catch (error) { lastStorageMode = "memory"; return "memory"; }
+}
+function readProgramRecords() {
+  try {
+    const stored = window.localStorage.getItem(PROGRAM_STORAGE_KEY);
+    if (stored !== null) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) { memoryPrograms = parsed; return copy(parsed); }
+    }
+  } catch (error) {
+    // Fall through to the in-memory copy when browser storage is blocked.
+  }
+  return copy(memoryPrograms || []);
+}
+function writeProgramRecords(records) {
+  memoryPrograms = copy(records);
+  try {
+    window.localStorage.setItem(PROGRAM_STORAGE_KEY, JSON.stringify(records));
+    lastStorageMode = "browser"; return "browser";
+  } catch (error) { lastStorageMode = "memory"; return "memory"; }
+}
+function readDailyQuoteSettings() {
+  try {
+    const stored = window.localStorage.getItem(QUOTE_SETTINGS_STORAGE_KEY);
+    if (stored !== null) {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const books = Array.isArray(parsed.books) ? parsed.books.filter(function (book, index, values) {
+          return ["Psalms", "Proverbs"].includes(book) && values.indexOf(book) === index;
+        }) : initialDailyQuoteSettings.books;
+        memoryDailyQuoteSettings = {
+          enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : initialDailyQuoteSettings.enabled,
+          books: books,
+          refreshMode: ["on-open", "daily"].includes(parsed.refreshMode) ? parsed.refreshMode : initialDailyQuoteSettings.refreshMode
+        };
+        return copy(memoryDailyQuoteSettings);
+      }
+    }
+  } catch (error) {
+    // Fall through to the in-memory copy when browser storage is blocked.
+  }
+  return copy(memoryDailyQuoteSettings || initialDailyQuoteSettings);
+}
+function writeDailyQuoteSettings(settings) {
+  memoryDailyQuoteSettings = copy(settings);
+  try {
+    window.localStorage.setItem(QUOTE_SETTINGS_STORAGE_KEY, JSON.stringify(memoryDailyQuoteSettings));
+    lastStorageMode = "browser"; return "browser";
+  } catch (error) { lastStorageMode = "memory"; return "memory"; }
+}
+function validDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(value + "T00:00:00.000Z");
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+function normalizeProgramData(value) {
+  const data = value || {};
+  const title = typeof data.title === "string" ? data.title.trim() : "";
+  const venue = typeof data.venue === "string" ? data.venue.trim() : "";
+  const startDate = typeof data.startDate === "string" ? data.startDate : "";
+  const endDate = typeof data.endDate === "string" ? data.endDate : "";
+  const flyerDataUrl = typeof data.flyerDataUrl === "string" ? data.flyerDataUrl : "";
+  const responseQuestion = typeof data.responseQuestion === "string" ? data.responseQuestion.trim() : "";
+  const yesLabel = typeof data.yesLabel === "string" ? data.yesLabel.trim() : "";
+  const noLabel = typeof data.noLabel === "string" ? data.noLabel.trim() : "";
+  if (!title) throw new Error("Enter the program name.");
+  if (title.length > 120) throw new Error("Program names must be 120 characters or fewer.");
+  if (!venue) throw new Error("Enter the program venue.");
+  if (venue.length > 160) throw new Error("Venues must be 160 characters or fewer.");
+  if (!validDate(startDate)) throw new Error("Choose a valid start date.");
+  if (endDate && !validDate(endDate)) throw new Error("Choose a valid end date or leave it blank.");
+  if (endDate && endDate < startDate) throw new Error("The end date cannot be before the start date.");
+  if (flyerDataUrl && (!/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(flyerDataUrl) || flyerDataUrl.length > 1900000)) {
+    throw new Error("Use a PNG, JPEG, or WebP flyer smaller than 1.4 MB after resizing.");
+  }
+  if (!responseQuestion) throw new Error("Enter the availability question.");
+  if (responseQuestion.length > 120) throw new Error("The availability question must be 120 characters or fewer.");
+  if (!yesLabel || !noLabel) throw new Error("Enter both response button labels.");
+  if (yesLabel.length > 48 || noLabel.length > 48) throw new Error("Response button labels must be 48 characters or fewer.");
+  return { title: title, venue: venue, startDate: startDate, endDate: endDate, flyerDataUrl: flyerDataUrl, responseQuestion: responseQuestion, yesLabel: yesLabel, noLabel: noLabel };
 }
 function normalizeServiceData(value) {
   const data = value || {}; const title = typeof data.title === "string" ? data.title.trim() : "";
@@ -223,6 +307,20 @@ export async function updateAdminSettings(value) {
   if (!["system", "light", "dark"].includes(theme)) throw new Error("Choose light, dark, or device theme.");
   return writeAdminSettings({ defaultHymnCategory: category, defaultTheme: theme });
 }
+export async function getDailyQuoteSettings() {
+  return readDailyQuoteSettings();
+}
+export async function updateDailyQuoteSettings(value) {
+  const data = value || {};
+  const books = Array.isArray(data.books) ? Array.from(new Set(data.books.filter(function (book) {
+    return book === "Psalms" || book === "Proverbs";
+  }))) : [];
+  const refreshMode = data.refreshMode;
+  if (!books.length) throw new Error("Choose Psalms, Proverbs, or both as quote sources.");
+  if (!["on-open", "daily"].includes(refreshMode)) throw new Error("Choose when a new quote should be generated.");
+  if (typeof data.enabled !== "boolean") throw new Error("Choose whether the daily quote feature is enabled.");
+  return writeDailyQuoteSettings({ enabled: data.enabled, books: books, refreshMode: refreshMode });
+}
 export function getStorageMode() {
   if (lastStorageMode) return lastStorageMode;
   try { window.localStorage.getItem(STORAGE_KEY); return "browser"; }
@@ -327,4 +425,31 @@ export async function deleteService(id) {
   const plans = readServiceRecords();
   if (!plans.some(function (item) { return item.id === id; })) return false;
   return writeServiceRecords(plans.filter(function (item) { return item.id !== id; }));
+}
+export async function getPrograms() {
+  return readProgramRecords().sort(function (a, b) {
+    return String(a.startDate || "").localeCompare(String(b.startDate || "")) || String(b.updated_at || "").localeCompare(String(a.updated_at || ""));
+  });
+}
+export async function getProgram(id) {
+  const program = readProgramRecords().find(function (item) { return item.id === id; });
+  return program ? copy(program) : null;
+}
+export async function createProgram(value) {
+  const data = normalizeProgramData(value); const timestamp = nowIso();
+  const record = Object.assign({}, data, { id: makeId(), created_at: timestamp, updated_at: timestamp });
+  const programs = readProgramRecords(); programs.push(record);
+  return Object.assign(copy(record), { _storage_mode: writeProgramRecords(programs) });
+}
+export async function updateProgram(id, value) {
+  const programs = readProgramRecords(); const existing = programs.find(function (item) { return item.id === id; });
+  if (!existing) throw new Error("This demo program could not be found.");
+  const data = normalizeProgramData(value); const updated = Object.assign({}, existing, data, { id: existing.id, updated_at: nowIso() });
+  const mode = writeProgramRecords(programs.map(function (item) { return item.id === id ? updated : item; }));
+  return Object.assign(copy(updated), { _storage_mode: mode });
+}
+export async function deleteProgram(id) {
+  const programs = readProgramRecords();
+  if (!programs.some(function (item) { return item.id === id; })) return false;
+  return writeProgramRecords(programs.filter(function (item) { return item.id !== id; }));
 }
