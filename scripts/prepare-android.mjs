@@ -74,6 +74,33 @@ await writeFile(path.join(adaptiveIconsDir, "ic_launcher_round.xml"), adaptiveIc
 
 const valuesDir = path.join(androidRes, "values");
 await mkdir(valuesDir, { recursive: true });
+const launchBackgroundXml = '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="launch_splash_background">#F8F0F5</color>\n</resources>\n';
+await writeFile(path.join(valuesDir, "launch_splash_background.xml"), launchBackgroundXml);
+const valuesNightDir = path.join(androidRes, "values-night");
+await mkdir(valuesNightDir, { recursive: true });
+await writeFile(path.join(valuesNightDir, "launch_splash_background.xml"), launchBackgroundXml.replace("#F8F0F5", "#211B29"));
+const stylesPath = path.join(valuesDir, "styles.xml");
+let stylesXml = await readFile(stylesPath, "utf8");
+const styleStart = stylesXml.indexOf('<style name="AppTheme.NoActionBarLaunch"');
+const styleEnd = styleStart < 0 ? -1 : stylesXml.indexOf("</style>", styleStart);
+if (styleStart < 0 || styleEnd < 0) throw new Error("Could not find the generated Android launch theme.");
+let launchStyle = stylesXml.slice(styleStart, styleEnd + 8);
+function setLaunchThemeItem(style, name, value) {
+  const open = '<item name="' + name + '">';
+  const start = style.indexOf(open);
+  const item = open + value + "</item>";
+  if (start >= 0) {
+    const end = style.indexOf("</item>", start);
+    if (end < 0) throw new Error("Malformed Android launch theme item: " + name);
+    return style.slice(0, start) + item + style.slice(end + 7);
+  }
+  return style.replace("</style>", "        " + item + "\n    </style>");
+}
+launchStyle = setLaunchThemeItem(launchStyle, "android:background", "@color/launch_splash_background");
+launchStyle = setLaunchThemeItem(launchStyle, "android:windowSplashScreenBackground", "@color/launch_splash_background");
+launchStyle = setLaunchThemeItem(launchStyle, "android:windowSplashScreenAnimatedIcon", "@android:color/transparent");
+stylesXml = stylesXml.slice(0, styleStart) + launchStyle + stylesXml.slice(styleEnd + 8);
+await writeFile(stylesPath, stylesXml);
 await writeFile(path.join(valuesDir, "ic_launcher_background.xml"), `<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#60366F</color>

@@ -26,9 +26,9 @@ button { -webkit-tap-highlight-color: transparent; }
 .app-shell { width: min(100%, 1080px); min-height: 100vh; margin: 0 auto; padding-bottom: calc(82px + env(safe-area-inset-bottom)); }
 .brand-header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px max(20px, env(safe-area-inset-left)); border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(12px); }
 .brand-lockup { display: flex; align-items: center; min-width: 0; gap: 11px; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
-.brand-lockup img { width: 44px; height: 44px; flex: 0 0 auto; }
-.brand-name { display: block; max-width: 290px; overflow: hidden; color: var(--ink); font-family: var(--font-reading); font-size: .97rem; font-weight: 700; line-height: 1.12; text-overflow: ellipsis; }
-.brand-subtitle { display: block; margin-top: 3px; color: var(--muted); font-size: .73rem; letter-spacing: .02em; }
+.brand-lockup img { width: 52px; height: 52px; flex: 0 0 auto; }
+.brand-name { display: block; max-width: 290px; overflow: hidden; color: var(--ink); font-family: var(--font-reading); font-size: 1.08rem; font-weight: 700; line-height: 1.12; text-overflow: ellipsis; }
+.brand-subtitle { display: block; margin-top: 3px; color: var(--muted); font-size: .82rem; letter-spacing: .02em; }
 .header-note { padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: .73rem; white-space: nowrap; }
 .main-content { padding: 20px 18px 28px; }
 .page { width: min(100%, 820px); margin: 0 auto; animation: page-in .24s ease both; }
@@ -174,9 +174,9 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 @media (max-width: 430px) {
   .brand-header { gap: 8px; padding-top: 10px; padding-bottom: 10px; }
-  .brand-lockup img { width: 40px; height: 40px; }
-  .brand-name { max-width: 215px; font-size: .9rem; }
-  .brand-subtitle { font-size: .68rem; }
+  .brand-lockup img { width: 46px; height: 46px; }
+  .brand-name { max-width: 215px; font-size: .98rem; }
+  .brand-subtitle { font-size: .76rem; }
   .header-note { padding: 6px 8px; font-size: .67rem; }
   .main-content { padding-right: 14px; padding-left: 14px; }
   .hero-card { grid-template-columns: 1fr; min-height: 0; padding: 20px; }
@@ -437,4 +437,17 @@ html[data-theme="dark"] .reader-heading {
   .home-search-control.is-open { gap: 7px; }
   .home-search-control.is-open .search-form { padding-left: 12px; }
   .home-hymn-open { gap: 9px; padding: 14px 13px; }
+}
+
+
+/* Keep church identity readable across the app themes. */
+.brand-header { border-bottom-color: #e8e2e9; color: #30243a; background: #fff; backdrop-filter: none; }
+.brand-lockup img { width: 60px; height: 60px; }
+.brand-name { color: #30243a; font-size: 1.18rem; }
+.brand-subtitle { color: #62576a; font-size: .87rem; }
+.brand-header .header-icon-button { color: #382c42; }
+@media (max-width: 430px) {
+  .brand-lockup img { width: 52px; height: 52px; }
+  .brand-name { font-size: 1.04rem; }
+  .brand-subtitle { font-size: .78rem; }
 }
