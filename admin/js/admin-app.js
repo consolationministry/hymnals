@@ -1,5 +1,5 @@
 import { initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js";
-import { createCategory, createHymn, createService, deleteCategory, deleteHymn, deleteService, getAdminSettings, getCategories, getDashboardStats, getDraftHymns, getHymn, getHymns, getPublishedHymns, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateHymn, updateService } from "./admin-data.js?v=2e";
+import { createCategory, createHymn, createService, deleteCategory, deleteHymn, deleteService, getAdminSettings, getCategories, getDashboardStats, getDraftHymns, getHymn, getHymns, getPublishedHymns, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateHymn, updateService } from "./admin-data.js?v=2f";
 
 const root = document.getElementById("admin-root");
 const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, settingsFormStart: null, toastTimer: null };
@@ -403,9 +403,14 @@ async function renderSettingsWorkspace() {
   try {
     const results = await Promise.all([getCategories(), getAdminSettings()]);
     const categories = results[0]; const settings = results[1];
+    const themeMode = ["system", "light", "dark"].includes(settings.defaultTheme) ? settings.defaultTheme : "system";
+    applyAdminTheme(themeMode);
+    const darkEnabled = themeMode === "dark" || (themeMode === "system" && getSystemTheme() === "dark");
     const options = categories.map(function (category) { return '<option value="' + escapeHtml(category) + '"' + (category === settings.defaultHymnCategory ? " selected" : "") + '>' + escapeHtml(category) + '</option>'; }).join("");
     const panel = make("section", "panel form-panel settings-preferences");
     panel.innerHTML = '<form id="settings-form" novalidate><h2 class="form-section-title">Hymn editor</h2><p class="form-section-help">Set a default for the next hymn you add. Existing hymns are not changed by this preference.</p><div class="admin-field"><label for="default-hymn-category">Default category for new hymns</label><select class="form-select" id="default-hymn-category" name="default_hymn_category"><option value=""' + (!settings.defaultHymnCategory ? " selected" : "") + '>Choose a category each time</option>' + options + '</select><p class="field-hint">The selected category will be prefilled in the Add New Hymn form. You can change it before saving.</p></div><div id="settings-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-primary" type="submit">Save Preference</button></div></div></form>';
+    const appearancePanel = make("section", "panel settings-appearance");
+    appearancePanel.innerHTML = '<header class="panel-header"><div><h2>Appearance</h2><p>Set the default theme for the admin web app.</p></div></header><div class="panel-body"><div class="theme-setting-row"><div><strong>Dark theme</strong><p id="theme-current-description">' + (themeMode === "system" ? "Following device theme (currently " + getSystemTheme() + ")." : (themeMode === "dark" ? "Dark theme is set for this admin workspace." : "Light theme is set for this admin workspace.")) + '</p></div><button type="button" id="admin-theme-switch" class="theme-switch-control" role="switch" aria-label="Dark theme" aria-checked="' + String(darkEnabled) + '" data-action="toggle-admin-theme"><span class="theme-switch-track" aria-hidden="true"><span></span></span></button></div><div class="theme-system-row"><span>Let this device choose light or dark.</span><button type="button" class="button button-secondary" data-action="use-system-theme" aria-pressed="' + String(themeMode === "system") + '">Use device theme</button></div></div>';
     const statusPanel = make("section", "panel settings-status");
     const statusHeader = make("header", "panel-header", ""); const statusTitle = document.createElement("div");
     statusTitle.append(make("h2", "", "Preview status"), make("p", "", "What this settings page can change today.")); statusHeader.append(statusTitle);
@@ -413,7 +418,7 @@ async function renderSettingsWorkspace() {
     const statusList = make("ul", "settings-status-list", "");
     statusList.append(make("li", "", "Preferences are saved in this browser only."), make("li", "", "They do not change the public hymnal or sync to another device."), make("li", "", "Administrator sign-in and server authorization are not configured in this phase."));
     statusBody.append(statusList); statusPanel.append(statusHeader, statusBody);
-    const grid = make("div", "settings-grid", ""); grid.append(panel, statusPanel); content.append(grid);
+    const grid = make("div", "settings-grid", ""); grid.append(panel, appearancePanel, statusPanel); content.append(grid);
     state.settingsFormStart = settings.defaultHymnCategory || "";
   } catch (error) {
     content.append(make("section", "list-empty", "Workspace settings could not be loaded."));
@@ -550,6 +555,14 @@ function isServiceFormDirty() {
 function isSettingsFormDirty() {
   const select = document.getElementById("default-hymn-category");
   return state.activeView === "settings" && state.settingsFormStart !== null && select && select.value !== state.settingsFormStart;
+}
+function getSystemTheme() {
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+function applyAdminTheme(theme) {
+  const rootElement = document.documentElement;
+  if (theme === "light" || theme === "dark") rootElement.setAttribute("data-admin-theme", theme);
+  else rootElement.removeAttribute("data-admin-theme");
 }
 async function renderHymnForm() {
   const content = document.getElementById("admin-content"); if (!content) return;
@@ -699,6 +712,15 @@ root.addEventListener("click", async function (event) {
     await cancelServiceForm();
   } else if (action === "delete-service") {
     await removeServiceFromPreview(button.dataset.id);
+  } else if (action === "toggle-admin-theme") {
+    const current = await getAdminSettings();
+    const active = current.defaultTheme === "system" ? getSystemTheme() : current.defaultTheme;
+    const next = active === "dark" ? "light" : "dark";
+    const mode = await updateAdminSettings({ defaultTheme: next }); applyAdminTheme(next); await renderSettingsWorkspace();
+    showToast(mode === "browser" ? (next === "dark" ? "Dark theme saved as the admin default." : "Light theme saved as the admin default.") : "Theme updated for this session; browser storage is unavailable.");
+  } else if (action === "use-system-theme") {
+    const mode = await updateAdminSettings({ defaultTheme: "system" }); applyAdminTheme("system"); await renderSettingsWorkspace();
+    showToast(mode === "browser" ? "Admin theme now follows this device." : "Device theme applied for this session; browser storage is unavailable.");
   } else if (action === "toggle-menu") {
     state.menuOpen = !state.menuOpen;
     const sidebar = document.getElementById("admin-sidebar"); const toggle = root.querySelector('[data-action="toggle-menu"]'); const backdrop = root.querySelector(".sidebar-backdrop");
@@ -776,8 +798,9 @@ root.addEventListener("paste", function (event) {
   restoreEditorSelection(editor); document.execCommand("insertHTML", false, clean); rememberEditorSelection(editor.dataset.richEditor); state.formDirty = isFormDirty();
 });
 window.addEventListener("beforeunload", function (event) {
-  if (isFormDirty()) { event.preventDefault(); event.returnValue = ""; }
+  if (isFormDirty() || isSettingsFormDirty()) { event.preventDefault(); event.returnValue = ""; }
 });
 
+getAdminSettings().then(function (settings) { applyAdminTheme(settings.defaultTheme); }).catch(function () { applyAdminTheme("system"); });
 initializeAdminAuth().then(function (result) { state.authStatus = result; }).catch(function () { state.authStatus = null; });
 renderLogin();

@@ -4,7 +4,7 @@ const STORAGE_KEY = "consolation-hymnal-admin-demo-v1";
 const CATEGORY_STORAGE_KEY = "consolation-hymnal-admin-categories-v1";
 const SERVICE_STORAGE_KEY = "consolation-hymnal-admin-services-v1";
 const SETTINGS_STORAGE_KEY = "consolation-hymnal-admin-settings-v1";
-const initialAdminSettings = { defaultHymnCategory: "Praise" };
+const initialAdminSettings = { defaultHymnCategory: "Praise", defaultTheme: "system" };
 const initialDemoCategories = ["Praise", "Worship", "Thanksgiving", "Prayer", "Faith", "Hope", "Communion", "Evangelism"];
 const initialDemoHymns = [
   {
@@ -131,7 +131,7 @@ function readAdminSettings() {
     if (stored !== null) {
       const parsed = JSON.parse(stored);
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        memoryAdminSettings = { defaultHymnCategory: typeof parsed.defaultHymnCategory === "string" ? parsed.defaultHymnCategory : initialAdminSettings.defaultHymnCategory };
+        memoryAdminSettings = { defaultHymnCategory: typeof parsed.defaultHymnCategory === "string" ? parsed.defaultHymnCategory : initialAdminSettings.defaultHymnCategory, defaultTheme: ["system", "light", "dark"].includes(parsed.defaultTheme) ? parsed.defaultTheme : initialAdminSettings.defaultTheme };
         return copy(memoryAdminSettings);
       }
     }
@@ -141,7 +141,7 @@ function readAdminSettings() {
   return copy(memoryAdminSettings || initialAdminSettings);
 }
 function writeAdminSettings(settings) {
-  memoryAdminSettings = { defaultHymnCategory: settings.defaultHymnCategory || "" };
+  memoryAdminSettings = { defaultHymnCategory: settings.defaultHymnCategory || "", defaultTheme: settings.defaultTheme || "system" };
   try {
     window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(memoryAdminSettings));
     lastStorageMode = "browser"; return "browser";
@@ -216,9 +216,12 @@ export async function getAdminSettings() {
   return settings;
 }
 export async function updateAdminSettings(value) {
-  const category = value && typeof value.defaultHymnCategory === "string" ? value.defaultHymnCategory.trim() : "";
+  const current = readAdminSettings();
+  const category = value && typeof value.defaultHymnCategory === "string" ? value.defaultHymnCategory.trim() : current.defaultHymnCategory;
+  const theme = value && typeof value.defaultTheme === "string" ? value.defaultTheme : current.defaultTheme;
   if (category && !allCategoryNames().includes(category)) throw new Error("Choose a category that still exists.");
-  return writeAdminSettings({ defaultHymnCategory: category });
+  if (!["system", "light", "dark"].includes(theme)) throw new Error("Choose light, dark, or device theme.");
+  return writeAdminSettings({ defaultHymnCategory: category, defaultTheme: theme });
 }
 export function getStorageMode() {
   if (lastStorageMode) return lastStorageMode;
