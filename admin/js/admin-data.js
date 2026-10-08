@@ -3,6 +3,8 @@
 const STORAGE_KEY = "consolation-hymnal-admin-demo-v1";
 const CATEGORY_STORAGE_KEY = "consolation-hymnal-admin-categories-v1";
 const SERVICE_STORAGE_KEY = "consolation-hymnal-admin-services-v1";
+const SETTINGS_STORAGE_KEY = "consolation-hymnal-admin-settings-v1";
+const initialAdminSettings = { defaultHymnCategory: "Praise" };
 const initialDemoCategories = ["Praise", "Worship", "Thanksgiving", "Prayer", "Faith", "Hope", "Communion", "Evangelism"];
 const initialDemoHymns = [
   {
@@ -36,6 +38,7 @@ const demoServicePlans = [
 let memoryRecords = null;
 let memoryCategories = null;
 let memoryServices = null;
+let memoryAdminSettings = null;
 let lastStorageMode = null;
 
 function copy(value) { return JSON.parse(JSON.stringify(value)); }
@@ -122,6 +125,28 @@ function normalizeServiceData(value) {
   if (hymnIds.some(function (id) { return !knownHymnIds.has(id); })) throw new Error("A selected demo hymn could not be found. Refresh the hymn list and try again.");
   return { title: title, date: date, hymn_ids: hymnIds };
 }
+function readAdminSettings() {
+  try {
+    const stored = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (stored !== null) {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        memoryAdminSettings = { defaultHymnCategory: typeof parsed.defaultHymnCategory === "string" ? parsed.defaultHymnCategory : initialAdminSettings.defaultHymnCategory };
+        return copy(memoryAdminSettings);
+      }
+    }
+  } catch (error) {
+    // Fall through to this page's in-memory workspace preferences when browser storage is blocked.
+  }
+  return copy(memoryAdminSettings || initialAdminSettings);
+}
+function writeAdminSettings(settings) {
+  memoryAdminSettings = { defaultHymnCategory: settings.defaultHymnCategory || "" };
+  try {
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(memoryAdminSettings));
+    lastStorageMode = "browser"; return "browser";
+  } catch (error) { lastStorageMode = "memory"; return "memory"; }
+}
 function allCategoryNames() {
   const names = readCategoryRecords().concat(readRecords().map(function (item) { return typeof item.category === "string" ? item.category.trim() : ""; }).filter(Boolean));
   return Array.from(new Set(names)).sort(function (a, b) { return a.localeCompare(b); });
@@ -184,6 +209,16 @@ export async function getServicePlan(id) {
 }
 export async function getCategories() {
   return allCategoryNames();
+}
+export async function getAdminSettings() {
+  const settings = readAdminSettings(); const categories = allCategoryNames();
+  if (settings.defaultHymnCategory && !categories.includes(settings.defaultHymnCategory)) settings.defaultHymnCategory = categories[0] || "";
+  return settings;
+}
+export async function updateAdminSettings(value) {
+  const category = value && typeof value.defaultHymnCategory === "string" ? value.defaultHymnCategory.trim() : "";
+  if (category && !allCategoryNames().includes(category)) throw new Error("Choose a category that still exists.");
+  return writeAdminSettings({ defaultHymnCategory: category });
 }
 export function getStorageMode() {
   if (lastStorageMode) return lastStorageMode;
@@ -260,6 +295,8 @@ export async function updateCategory(currentName, value) {
     changed = true; return Object.assign({}, item, { category: name, updated_at: timestamp });
   });
   if (changed) writeRecords(updated);
+  const settings = readAdminSettings();
+  if (settings.defaultHymnCategory === currentName) { settings.defaultHymnCategory = name; writeAdminSettings(settings); }
   return writeCategoryRecords(categories);
 }
 export async function deleteCategory(value) {
@@ -267,6 +304,8 @@ export async function deleteCategory(value) {
   if (!allCategoryNames().includes(name)) return false;
   if (readRecords().some(function (item) { return item.category === name; })) throw new Error("Reassign the hymns in this category before deleting it.");
   const categories = readCategoryRecords().filter(function (category) { return category !== name; });
+  const settings = readAdminSettings();
+  if (settings.defaultHymnCategory === name) { settings.defaultHymnCategory = categories.slice().sort(function (a, b) { return a.localeCompare(b); })[0] || ""; writeAdminSettings(settings); }
   return writeCategoryRecords(categories);
 }
 export async function createService(value) {

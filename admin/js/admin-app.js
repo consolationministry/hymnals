@@ -1,8 +1,8 @@
 import { initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js";
-import { createCategory, createHymn, createService, deleteCategory, deleteHymn, deleteService, getCategories, getDashboardStats, getDraftHymns, getHymn, getHymns, getPublishedHymns, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, publishHymn, saveHymnAsDraft, updateCategory, updateHymn, updateService } from "./admin-data.js?v=2d";
+import { createCategory, createHymn, createService, deleteCategory, deleteHymn, deleteService, getAdminSettings, getCategories, getDashboardStats, getDraftHymns, getHymn, getHymns, getPublishedHymns, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateHymn, updateService } from "./admin-data.js?v=2e";
 
 const root = document.getElementById("admin-root");
-const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, toastTimer: null };
+const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, settingsFormStart: null, toastTimer: null };
 const navigation = [
   { id: "dashboard", label: "Dashboard", icon: "grid" },
   { id: "hymns", label: "Hymns", icon: "book" },
@@ -132,7 +132,7 @@ function previewBanner() {
   banner.setAttribute("aria-label", "Demo preview notice");
   const mark = make("span", "notice-mark", "!"); mark.setAttribute("aria-hidden", "true");
   const copy = document.createElement("div");
-  copy.append(make("strong", "", "Demo preview · this browser only"), make("p", "", "Hymn, category, and service plan edits are stored only in this browser. Nothing is sent to a server, published to the public hymnal, or protected by real admin sign-in."));
+  copy.append(make("strong", "", "Demo preview · this browser only"), make("p", "", "Hymn, category, service plan, and workspace preference edits are stored only in this browser. Nothing is sent to a server, published to the public hymnal, or protected by real admin sign-in."));
   banner.append(mark, copy); return banner;
 }
 function renderDashboard() {
@@ -184,7 +184,7 @@ function renderDashboard() {
       if (item[3]) button.dataset.view = item[3];
       button.append(icon(item[1], "quick-action-icon"), make("span", "", item[0]), make("span", "quick-arrow", "›")); list.append(button);
     });
-    actionsBody.append(list, make("p", "demo-caption", "Hymn, category, and service planning are available in this browser preview. Settings remains a placeholder.")); actionsPanel.append(actionsBody);
+    actionsBody.append(list, make("p", "demo-caption", "Hymn, category, and service planning are available in this browser preview. Settings holds admin-only workspace preferences.")); actionsPanel.append(actionsBody);
     lower.append(recentPanel, actionsPanel); content.append(lower);
   }).catch(function () { content.append(make("section", "list-empty", "Dashboard preview data could not be loaded.")); });
 }
@@ -394,12 +394,53 @@ async function removeServiceFromPreview(id) {
     showToast(mode === "browser" ? "Service plan deleted from this browser's demo data." : "Service plan deleted for this open session only; browser storage is unavailable.");
   } catch (error) { showToast(error.message || "The service plan could not be deleted."); }
 }
+async function renderSettingsWorkspace() {
+  const content = document.getElementById("admin-content"); if (!content) return;
+  content.replaceChildren();
+  const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
+  headingContent.append(make("h1", "", "Settings"), make("p", "", "Admin-only preferences for this browser workspace."));
+  heading.append(headingContent); content.append(heading, previewBanner());
+  try {
+    const results = await Promise.all([getCategories(), getAdminSettings()]);
+    const categories = results[0]; const settings = results[1];
+    const options = categories.map(function (category) { return '<option value="' + escapeHtml(category) + '"' + (category === settings.defaultHymnCategory ? " selected" : "") + '>' + escapeHtml(category) + '</option>'; }).join("");
+    const panel = make("section", "panel form-panel settings-preferences");
+    panel.innerHTML = '<form id="settings-form" novalidate><h2 class="form-section-title">Hymn editor</h2><p class="form-section-help">Set a default for the next hymn you add. Existing hymns are not changed by this preference.</p><div class="admin-field"><label for="default-hymn-category">Default category for new hymns</label><select class="form-select" id="default-hymn-category" name="default_hymn_category"><option value=""' + (!settings.defaultHymnCategory ? " selected" : "") + '>Choose a category each time</option>' + options + '</select><p class="field-hint">The selected category will be prefilled in the Add New Hymn form. You can change it before saving.</p></div><div id="settings-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-primary" type="submit">Save Preference</button></div></div></form>';
+    const statusPanel = make("section", "panel settings-status");
+    const statusHeader = make("header", "panel-header", ""); const statusTitle = document.createElement("div");
+    statusTitle.append(make("h2", "", "Preview status"), make("p", "", "What this settings page can change today.")); statusHeader.append(statusTitle);
+    const statusBody = make("div", "panel-body", "");
+    const statusList = make("ul", "settings-status-list", "");
+    statusList.append(make("li", "", "Preferences are saved in this browser only."), make("li", "", "They do not change the public hymnal or sync to another device."), make("li", "", "Administrator sign-in and server authorization are not configured in this phase."));
+    statusBody.append(statusList); statusPanel.append(statusHeader, statusBody);
+    const grid = make("div", "settings-grid", ""); grid.append(panel, statusPanel); content.append(grid);
+    state.settingsFormStart = settings.defaultHymnCategory || "";
+  } catch (error) {
+    content.append(make("section", "list-empty", "Workspace settings could not be loaded."));
+  }
+}
+function showSettingsErrors(message) {
+  const box = document.getElementById("settings-errors"); if (!box) return;
+  box.textContent = message || ""; box.hidden = !message;
+}
+async function saveSettingsForm() {
+  const select = document.getElementById("default-hymn-category"); if (!select) return;
+  try {
+    const mode = await updateAdminSettings({ defaultHymnCategory: select.value });
+    state.settingsFormStart = null;
+    await renderSettingsWorkspace();
+    showToast(mode === "browser" ? "Workspace preference saved in this browser." : "Preference saved for this open session only; browser storage is unavailable.");
+  } catch (error) {
+    showSettingsErrors(error && error.message ? error.message : "The preference could not be saved.");
+  }
+}
 function renderCurrentView() {
   root.querySelectorAll(".nav-item[data-view]").forEach(function (button) { button.setAttribute("aria-current", button.dataset.view === state.activeView ? "page" : "false"); });
   if (state.activeView === "dashboard") renderDashboard();
   else if (state.activeView === "hymns") renderHymnWorkspace();
   else if (state.activeView === "categories") renderCategoryWorkspace();
   else if (state.activeView === "services") renderServiceWorkspace();
+  else if (state.activeView === "settings") renderSettingsWorkspace();
   else renderPlaceholder(state.activeView);
 }
 function categoryOptions(selected, includeAll) {
@@ -506,13 +547,19 @@ function isServiceFormDirty() {
   const signature = serviceFormSignature();
   return state.serviceMode === "form" && state.serviceFormStart !== null && signature !== null && signature !== state.serviceFormStart;
 }
+function isSettingsFormDirty() {
+  const select = document.getElementById("default-hymn-category");
+  return state.activeView === "settings" && state.settingsFormStart !== null && select && select.value !== state.settingsFormStart;
+}
 async function renderHymnForm() {
   const content = document.getElementById("admin-content"); if (!content) return;
   const existing = state.editingHymnId ? await getHymn(state.editingHymnId) : null;
   if (state.editingHymnId && !existing) { state.hymnMode = "list"; showToast("That demo hymn is no longer available."); return renderHymnList(); }
-  const categories = await getCategories();
+  const results = await Promise.all([getCategories(), getAdminSettings()]);
+  const categories = results[0]; const settings = results[1];
   const hymn = existing || { hymn_number: "", title_en: "", title_yoruba: "", first_line_en: "", first_line_yoruba: "", category: "", verses_en: [], verses_yoruba: [], chorus_en: "", chorus_yoruba: "", body_html_en: "", body_html_yoruba: "", chorus_html_en: "", chorus_html_yoruba: "", status: "draft" };
-  const selectedCategory = categories.indexOf(hymn.category) >= 0 ? hymn.category : "";
+  const defaultCategory = !existing && categories.includes(settings.defaultHymnCategory) ? settings.defaultHymnCategory : "";
+  const selectedCategory = categories.indexOf(hymn.category) >= 0 ? hymn.category : defaultCategory;
   const categoryHtml = '<option value="">Choose a category</option>' + categories.map(function (category) { return '<option value="' + escapeHtml(category) + '"' + (category === selectedCategory ? " selected" : "") + '>' + escapeHtml(category) + '</option>'; }).join("");
   const englishBody = hymn.body_html_en || escapeLines(hymn.verses_en);
   const yorubaBody = hymn.body_html_yoruba || escapeLines(hymn.verses_yoruba);
@@ -617,7 +664,8 @@ root.addEventListener("click", async function (event) {
     if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes?")) return;
     if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes?")) return;
     if (isServiceFormDirty() && !window.confirm("Discard your unsaved service plan changes?")) return;
-    state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.serviceFormStart = null; state.serviceMode = "list"; state.editingServiceId = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; closeMenu(); renderCurrentView();
+    if (isSettingsFormDirty() && !window.confirm("Discard your unsaved workspace preference?")) return;
+    state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.serviceFormStart = null; state.serviceMode = "list"; state.editingServiceId = null; state.settingsFormStart = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; closeMenu(); renderCurrentView();
     const content = document.getElementById("admin-content"); if (content) content.focus({ preventScroll: true });
   } else if (action === "open-hymns") {
     state.activeView = "hymns"; state.hymnMode = "list"; closeMenu(); renderCurrentView();
@@ -661,7 +709,8 @@ root.addEventListener("click", async function (event) {
     if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes and exit the preview?")) return;
     if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes and exit the preview?")) return;
     if (isServiceFormDirty() && !window.confirm("Discard your unsaved service plan changes and exit the preview?")) return;
-    await logoutAdmin(); state.formStart = null; state.categoryFormStart = null; state.serviceFormStart = null; renderLogin();
+    if (isSettingsFormDirty() && !window.confirm("Discard your unsaved workspace preference and exit the preview?")) return;
+    await logoutAdmin(); state.formStart = null; state.categoryFormStart = null; state.serviceFormStart = null; state.settingsFormStart = null; renderLogin();
   }
 });
 
@@ -677,6 +726,8 @@ root.addEventListener("submit", async function (event) {
     finally { submit.disabled = false; submit.removeAttribute("aria-busy"); label.textContent = "Sign in"; }
   } else if (event.target.id === "category-form") {
     event.preventDefault(); await saveCategoryForm(event.submitter);
+  } else if (event.target.id === "settings-form") {
+    event.preventDefault(); await saveSettingsForm();
   } else if (event.target.id === "service-form") {
     event.preventDefault(); await saveServiceForm(event.submitter);
   } else if (event.target.id === "hymn-form") {
