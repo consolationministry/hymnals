@@ -13,8 +13,13 @@ The website and Android app use the same mobile-first HTML, CSS, JavaScript, and
 - 197 bundled English hymns, available offline without an account or server
 - Offline-capable web app with a service-worker update prompt
 - Android app update checks, APK download, and Android installer handoff
+- A separate, administrator-only web workspace at `/admin/`
+- Published hymns can load from the shared Supabase database in both the public web app and Android app
 
 The Android app includes all current hymnal files in its package and works offline immediately after installation. The web app caches its files after the first successful online visit; that initial visit needs a connection.
+The member web app and Android app use the same interface and public hymn-data service. When Supabase public read access is configured, they load hymns marked Published; they keep the last successful published list for offline use and fall back to the bundled collection if no remote list is available.
+
+The admin workspace is a separate web page at `/admin/`. It requires an approved administrator account and the Supabase setup below. Draft hymns are excluded from the member app. Service plans, programs, and admin preferences remain admin-only until their public features are implemented.
 
 ## Run locally
 
@@ -63,4 +68,4 @@ The static website and service worker are in the repository root and can be publ
 
 The current 197 English texts are transcribed from Hymnary text-authority records marked Public Domain and associated with *Pentecostal Hymns No. 1* (1894). The app preserves original hymn numbers and links to individual source pages. The source's designation and the 1894 publication date do not establish status in every country; verify local rights before distribution outside the United States. The target is 250 hymns, but entries without clean transcripts and an explicit Public Domain designation are intentionally omitted. No Yorùbá translations are invented or included. Source details are in `data/SOURCES.md`.
 
-Favorites and preferences are stored only in the current browser/device; they do not sync between devices. This phase does not include accounts, an admin panel, audio, service planning, or projector mode.
+Member favorites and reading preferences are stored only in the current browser/device; they do not sync between devices. Members do not need an account. The separate admin account is only for the protected web workspace. Audio and projector mode are not included.
