@@ -316,3 +316,27 @@ a { color: inherit; }
 @media (max-width: 760px) {
   .category-table { min-width: 520px; }
 }
+
+
+/* Phase 2D service planner */
+.service-table-wrap { margin-top: 16px; }
+.service-table { min-width: 820px; }
+.service-hymn-summary { max-width: 430px; color: var(--muted); line-height: 1.55; }
+.service-hymn-section { margin-top: 12px; }
+.service-hymn-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.service-hymn-heading h2 { margin: 0 0 5px; font-size: 1.08rem; }
+.service-hymn-heading p { margin: 0; color: var(--muted); font-size: .84rem; }
+.service-hymn-count { flex: 0 0 auto; padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--purple); background: var(--purple-soft); font-size: .76rem; font-weight: 750; }
+.service-hymn-picker { max-height: 360px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.service-hymn-option { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 11px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.service-hymn-option:last-child { border-bottom: 0; }
+.service-hymn-option:hover { background: var(--surface-soft); }
+.service-hymn-option input { width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--purple); }
+.service-hymn-copy { display: grid; gap: 4px; min-width: 0; }
+.service-hymn-copy strong { overflow-wrap: anywhere; font-size: .87rem; }
+.service-hymn-copy span { color: var(--muted); font-size: .78rem; line-height: 1.4; }
+.service-empty-hymns { margin: 0; padding: 18px; color: var(--muted); font-size: .84rem; }
+@media (max-width: 760px) {
+  .service-table { min-width: 690px; }
+  .service-hymn-heading { align-items: center; }
+}

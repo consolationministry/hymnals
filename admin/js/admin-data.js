@@ -2,6 +2,7 @@
 // Replace the provider functions with Supabase-backed calls only after Auth and row-level authorization are configured.
 const STORAGE_KEY = "consolation-hymnal-admin-demo-v1";
 const CATEGORY_STORAGE_KEY = "consolation-hymnal-admin-categories-v1";
+const SERVICE_STORAGE_KEY = "consolation-hymnal-admin-services-v1";
 const initialDemoCategories = ["Praise", "Worship", "Thanksgiving", "Prayer", "Faith", "Hope", "Communion", "Evangelism"];
 const initialDemoHymns = [
   {
@@ -34,6 +35,7 @@ const demoServicePlans = [
 ];
 let memoryRecords = null;
 let memoryCategories = null;
+let memoryServices = null;
 let lastStorageMode = null;
 
 function copy(value) { return JSON.parse(JSON.stringify(value)); }
@@ -87,6 +89,39 @@ function writeCategoryRecords(categories) {
     lastStorageMode = "browser"; return "browser";
   } catch (error) { lastStorageMode = "memory"; return "memory"; }
 }
+function readServiceRecords() {
+  try {
+    const stored = window.localStorage.getItem(SERVICE_STORAGE_KEY);
+    if (stored !== null) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) { memoryServices = parsed; return copy(parsed); }
+    }
+  } catch (error) {
+    // Fall through to this page's in-memory service plan copy when browser storage is blocked.
+  }
+  return copy(memoryServices || demoServicePlans);
+}
+function writeServiceRecords(records) {
+  memoryServices = copy(records);
+  try {
+    window.localStorage.setItem(SERVICE_STORAGE_KEY, JSON.stringify(records));
+    lastStorageMode = "browser"; return "browser";
+  } catch (error) { lastStorageMode = "memory"; return "memory"; }
+}
+function normalizeServiceData(value) {
+  const data = value || {}; const title = typeof data.title === "string" ? data.title.trim() : "";
+  const date = typeof data.date === "string" ? data.date : "";
+  if (!title) throw new Error("Enter a service name.");
+  if (title.length > 100) throw new Error("Service names must be 100 characters or fewer.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Choose a valid service date.");
+  const parsedDate = new Date(date + "T00:00:00.000Z");
+  if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) throw new Error("Choose a valid service date.");
+  const hymnIds = Array.isArray(data.hymn_ids) ? Array.from(new Set(data.hymn_ids.map(function (id) { return String(id); }))) : [];
+  if (!hymnIds.length) throw new Error("Select at least one hymn for this service.");
+  const knownHymnIds = new Set(readRecords().map(function (hymn) { return hymn.id; }));
+  if (hymnIds.some(function (id) { return !knownHymnIds.has(id); })) throw new Error("A selected demo hymn could not be found. Refresh the hymn list and try again.");
+  return { title: title, date: date, hymn_ids: hymnIds };
+}
 function allCategoryNames() {
   const names = readCategoryRecords().concat(readRecords().map(function (item) { return typeof item.category === "string" ? item.category.trim() : ""; }).filter(Boolean));
   return Array.from(new Set(names)).sort(function (a, b) { return a.localeCompare(b); });
@@ -102,9 +137,6 @@ function nowIso() { return new Date().toISOString(); }
 function makeId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
   return "demo-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9);
-}
-function phaseError(action) {
-  return new Error(action + " is reserved for a later phase. The Phase 2C preview includes hymn and category management only.");
 }
 
 export async function getHymns() {
@@ -122,6 +154,7 @@ export async function getPublishedHymns() {
 }
 export async function getDashboardStats() {
   const hymns = readRecords();
+  const upcomingServices = await getUpcomingServicePlans();
   return {
     totalHymns: hymns.length,
     publishedHymns: hymns.filter(function (item) { return item.status === "published"; }).length,
@@ -129,7 +162,7 @@ export async function getDashboardStats() {
     englishHymns: hymns.filter(function (item) { return Boolean(item.title_en); }).length,
     yorubaHymns: hymns.filter(function (item) { return Boolean(item.title_yoruba); }).length,
     categories: allCategoryNames().length,
-    upcomingServicePlans: demoServicePlans.length
+    upcomingServicePlans: upcomingServices.length
   };
 }
 export async function getRecentlyUpdatedHymns(limit) {
@@ -138,7 +171,17 @@ export async function getRecentlyUpdatedHymns(limit) {
     return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
   }).slice(0, count);
 }
-export async function getUpcomingServicePlans() { return copy(demoServicePlans); }
+export async function getUpcomingServicePlans() {
+  const now = new Date(); const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  return readServiceRecords().filter(function (plan) { return typeof plan.date === "string" && plan.date >= today; }).sort(function (a, b) { return a.date.localeCompare(b.date); });
+}
+export async function getServicePlans() {
+  return readServiceRecords().sort(function (a, b) { return String(a.date || "").localeCompare(String(b.date || "")); });
+}
+export async function getServicePlan(id) {
+  const plan = readServiceRecords().find(function (item) { return item.id === id; });
+  return plan ? copy(plan) : null;
+}
 export async function getCategories() {
   return allCategoryNames();
 }
@@ -226,6 +269,20 @@ export async function deleteCategory(value) {
   const categories = readCategoryRecords().filter(function (category) { return category !== name; });
   return writeCategoryRecords(categories);
 }
-export async function createService() { throw phaseError("createService"); }
-export async function updateService() { throw phaseError("updateService"); }
-export async function deleteService() { throw phaseError("deleteService"); }
+export async function createService(value) {
+  const data = normalizeServiceData(value); const timestamp = nowIso();
+  const plan = Object.assign({}, data, { id: makeId(), created_at: timestamp, updated_at: timestamp });
+  const plans = readServiceRecords(); plans.push(plan);
+  return writeServiceRecords(plans);
+}
+export async function updateService(id, value) {
+  const plans = readServiceRecords(); const existing = plans.find(function (item) { return item.id === id; });
+  if (!existing) throw new Error("This demo service plan could not be found.");
+  const data = normalizeServiceData(value); const updated = Object.assign({}, existing, data, { id: existing.id, updated_at: nowIso() });
+  return writeServiceRecords(plans.map(function (item) { return item.id === id ? updated : item; }));
+}
+export async function deleteService(id) {
+  const plans = readServiceRecords();
+  if (!plans.some(function (item) { return item.id === id; })) return false;
+  return writeServiceRecords(plans.filter(function (item) { return item.id !== id; }));
+}

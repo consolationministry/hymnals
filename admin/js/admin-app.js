@@ -1,8 +1,8 @@
 import { initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js";
-import { createCategory, createHymn, deleteCategory, deleteHymn, getCategories, getDashboardStats, getDraftHymns, getHymn, getHymns, getPublishedHymns, getRecentlyUpdatedHymns, getStorageMode, publishHymn, saveHymnAsDraft, updateCategory, updateHymn } from "./admin-data.js?v=2c";
+import { createCategory, createHymn, createService, deleteCategory, deleteHymn, deleteService, getCategories, getDashboardStats, getDraftHymns, getHymn, getHymns, getPublishedHymns, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, publishHymn, saveHymnAsDraft, updateCategory, updateHymn, updateService } from "./admin-data.js?v=2d";
 
 const root = document.getElementById("admin-root");
-const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, toastTimer: null };
+const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, toastTimer: null };
 const navigation = [
   { id: "dashboard", label: "Dashboard", icon: "grid" },
   { id: "hymns", label: "Hymns", icon: "book" },
@@ -132,7 +132,7 @@ function previewBanner() {
   banner.setAttribute("aria-label", "Demo preview notice");
   const mark = make("span", "notice-mark", "!"); mark.setAttribute("aria-hidden", "true");
   const copy = document.createElement("div");
-  copy.append(make("strong", "", "Demo preview · this browser only"), make("p", "", "Hymn and category edits are stored only in this browser. Nothing is sent to a server, published to the public hymnal, or protected by real admin sign-in."));
+  copy.append(make("strong", "", "Demo preview · this browser only"), make("p", "", "Hymn, category, and service plan edits are stored only in this browser. Nothing is sent to a server, published to the public hymnal, or protected by real admin sign-in."));
   banner.append(mark, copy); return banner;
 }
 function renderDashboard() {
@@ -184,7 +184,7 @@ function renderDashboard() {
       if (item[3]) button.dataset.view = item[3];
       button.append(icon(item[1], "quick-action-icon"), make("span", "", item[0]), make("span", "quick-arrow", "›")); list.append(button);
     });
-    actionsBody.append(list, make("p", "demo-caption", "Hymn and category management are available in this browser preview. Service planning and settings remain placeholders.")); actionsPanel.append(actionsBody);
+    actionsBody.append(list, make("p", "demo-caption", "Hymn, category, and service planning are available in this browser preview. Settings remains a placeholder.")); actionsPanel.append(actionsBody);
     lower.append(recentPanel, actionsPanel); content.append(lower);
   }).catch(function () { content.append(make("section", "list-empty", "Dashboard preview data could not be loaded.")); });
 }
@@ -194,7 +194,7 @@ function renderPlaceholder(view) {
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
   headingContent.append(make("h1", "", title), make("p", "", "This section is reserved for a later phase.")); heading.append(headingContent); content.append(heading, previewBanner());
   const card = make("section", "placeholder-card"); const inner = make("div", "placeholder-inner");
-  inner.append(icon(item ? item.icon : "grid", "placeholder-icon"), make("h2", "", "Coming in the next phase"), make("p", "", "Phase 2C adds category management. Service planning and settings remain separate future work."));
+  inner.append(icon(item ? item.icon : "grid", "placeholder-icon"), make("h2", "", "Coming in the next phase"), make("p", "", "Phase 2D adds service planning. Settings remain separate future work."));
   const back = make("button", "button button-secondary", "Back to dashboard"); back.type = "button"; back.dataset.action = "navigate"; back.dataset.view = "dashboard";
   inner.append(back); card.append(inner); content.append(card);
 }
@@ -290,11 +290,116 @@ async function removeCategoryFromPreview(name) {
     showToast(mode === "browser" ? "Category deleted from this browser's demo data." : "Category deleted for this open session only; browser storage is unavailable.");
   } catch (error) { showToast(error.message || "The category could not be deleted."); }
 }
+async function renderServiceWorkspace() {
+  if (state.serviceMode === "form") return renderServiceForm();
+  const content = document.getElementById("admin-content"); if (!content) return;
+  content.replaceChildren();
+  const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
+  headingContent.append(make("h1", "", "Service Planner"), make("p", "", "Plan services and select the hymns for each gathering."));
+  const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-service"; addButton.append(icon("plus", ""), document.createTextNode(" Create Service Plan"));
+  heading.append(headingContent, addButton); content.append(heading, previewBanner());
+  try {
+    const results = await Promise.all([getServicePlans(), getHymns()]);
+    const plans = results[0]; const hymns = results[1]; const hymnById = new Map(hymns.map(function (hymn) { return [hymn.id, hymn]; }));
+    if (!plans.length) {
+      const empty = make("section", "list-empty", "");
+      empty.append(make("h2", "", "No service plans yet"), make("p", "", "Create a plan and choose the hymns for your next service."));
+      const firstAdd = make("button", "button button-primary category-empty-action", "Create your first service plan"); firstAdd.type = "button"; firstAdd.dataset.action = "new-service"; empty.append(firstAdd); content.append(empty); return;
+    }
+    const rows = plans.map(function (plan) {
+      const escapedId = escapeHtml(plan.id); const title = escapeHtml(plan.title || "Untitled service");
+      const dateValue = String(plan.date || ""); const date = new Date(dateValue + "T00:00:00");
+      const dateText = Number.isNaN(date.getTime()) ? dateValue : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(date);
+      const selected = (plan.hymn_ids || []).map(function (id) {
+        const hymn = hymnById.get(id);
+        return hymn ? "#" + hymn.hymn_number + " · " + (hymn.title_en || hymn.title_yoruba || "Untitled hymn") : "Hymn no longer available";
+      });
+      const names = selected.length ? selected.join(" · ") : "No hymns selected";
+      return '<tr><td><span class="hymn-row-title">' + title + '</span><span class="hymn-row-subtitle">' + selected.length + (selected.length === 1 ? " hymn" : " hymns") + '</span></td><td>' + escapeHtml(dateText) + '</td><td class="service-hymn-summary">' + escapeHtml(names) + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-service" data-id="' + escapedId + '" aria-label="Edit service plan ' + title + '">Edit</button><button class="row-action row-action-danger" type="button" data-action="delete-service" data-id="' + escapedId + '" aria-label="Delete service plan ' + title + '">Delete</button></div></td></tr>';
+    }).join("");
+    const table = make("div", "hymn-table-wrap service-table-wrap", "");
+    table.innerHTML = '<table class="hymn-table service-table"><thead><tr><th scope="col">Service</th><th scope="col">Date</th><th scope="col">Planned hymns</th><th scope="col">Actions</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    content.append(table);
+  } catch (error) {
+    content.append(make("section", "list-empty", "Service plan preview data could not be loaded."));
+  }
+}
+async function renderServiceForm() {
+  const content = document.getElementById("admin-content"); if (!content) return;
+  const existing = state.editingServiceId ? await getServicePlan(state.editingServiceId) : null;
+  if (state.editingServiceId && !existing) { state.serviceMode = "list"; state.editingServiceId = null; showToast("That demo service plan is no longer available."); return renderServiceWorkspace(); }
+  const hymns = await getHymns(); const selectedIds = existing ? existing.hymn_ids || [] : [];
+  content.replaceChildren();
+  const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
+  headingContent.append(make("h1", "", existing ? "Edit Service Plan" : "Create Service Plan"), make("p", "", existing ? "Update the service details and selected hymns." : "Choose a date and the hymns for this service."));
+  heading.append(headingContent); content.append(heading, previewBanner());
+  const options = hymns.map(function (hymn) {
+    const checked = selectedIds.includes(hymn.id) ? " checked" : "";
+    const headingText = "Hymn #" + hymn.hymn_number + " · " + (hymn.title_en || hymn.title_yoruba || "Untitled hymn");
+    const firstLine = hymn.first_line_en || hymn.first_line_yoruba || "First line not added";
+    return '<label class="service-hymn-option" for="service-hymn-' + escapeHtml(hymn.id) + '"><input type="checkbox" id="service-hymn-' + escapeHtml(hymn.id) + '" name="service_hymn_ids" value="' + escapeHtml(hymn.id) + '"' + checked + '><span class="service-hymn-copy"><strong>' + escapeHtml(headingText) + '</strong><span>' + escapeHtml(firstLine) + '</span></span></label>';
+  }).join("");
+  const now = new Date(); const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit service plan form" : "Create service plan form");
+  panel.innerHTML = '<form id="service-form" novalidate><h2 class="form-section-title">Service details</h2><p class="form-section-help">Plans are saved only in this browser preview. They do not publish changes to the public hymnal.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="service-title">Service name <span aria-hidden="true">*</span></label><input class="form-input" id="service-title" name="service_title" type="text" maxlength="100" value="' + escapeHtml(existing ? existing.title : "") + '" placeholder="Sunday service" required></div><div class="admin-field"><label for="service-date">Service date <span aria-hidden="true">*</span></label><input class="form-input" id="service-date" name="service_date" type="date" min="' + today + '" value="' + escapeHtml(existing ? existing.date : "") + '" required></div></div><section class="service-hymn-section" aria-labelledby="service-hymn-heading"><div class="service-hymn-heading"><div><h2 id="service-hymn-heading" tabindex="-1">Choose hymns</h2><p>Select at least one hymn for this service.</p></div><span class="service-hymn-count" id="service-hymn-count" aria-live="polite"></span></div><div class="service-hymn-picker">' + (options || '<p class="service-empty-hymns">No demo hymns are available yet. Add a hymn before creating a service plan.</p>') + '</div></section><div id="service-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-service">Cancel</button><button class="button button-primary" type="submit">Save Service Plan</button></div></div></form>';
+  content.append(panel); state.serviceFormStart = serviceFormSignature(); updateServiceHymnCount();
+  const first = document.getElementById("service-title"); if (!existing && first) first.focus({ preventScroll: true });
+}
+function updateServiceHymnCount() {
+  const form = document.getElementById("service-form"); const count = document.getElementById("service-hymn-count");
+  if (!form || !count) return;
+  const selected = form.querySelectorAll('input[name="service_hymn_ids"]:checked').length;
+  count.textContent = selected + (selected === 1 ? " hymn selected" : " hymns selected");
+}
+function showServiceErrors(errors) {
+  const box = document.getElementById("service-errors"); if (!box) return;
+  box.textContent = errors.join(" "); box.hidden = !errors.length;
+}
+async function saveServiceForm(submitter) {
+  const form = document.getElementById("service-form"); if (!form) return;
+  const data = { title: form.elements.service_title.value.trim(), date: form.elements.service_date.value, hymn_ids: Array.from(form.querySelectorAll('input[name="service_hymn_ids"]:checked')).map(function (input) { return input.value; }) };
+  const errors = [];
+  if (!data.title) errors.push("Enter a service name.");
+  if (data.title.length > 100) errors.push("Service names must be 100 characters or fewer.");
+  if (!data.date) errors.push("Choose a service date.");
+  if (!data.hymn_ids.length) errors.push("Select at least one hymn.");
+  if (errors.length) { showServiceErrors(errors); if (!data.title) form.elements.service_title.focus(); else if (!data.date) form.elements.service_date.focus(); else document.getElementById("service-hymn-heading").focus(); return; }
+  const button = submitter || form.querySelector('button[type="submit"]');
+  if (button) { button.disabled = true; button.setAttribute("aria-busy", "true"); }
+  const editing = state.editingServiceId !== null; const id = state.editingServiceId;
+  try {
+    const mode = editing ? await updateService(id, data) : await createService(data);
+    state.serviceMode = "list"; state.editingServiceId = null; state.serviceFormStart = null;
+    await renderServiceWorkspace();
+    const message = editing ? "Service plan updated." : "Service plan created.";
+    showToast(mode === "browser" ? message + " Saved in this browser's demo data." : message + " Saved for this open session only; browser storage is unavailable.");
+  } catch (error) {
+    showServiceErrors([error && error.message ? error.message : "The service plan could not be saved."]);
+  } finally {
+    if (button && button.isConnected) { button.disabled = false; button.removeAttribute("aria-busy"); }
+  }
+}
+async function cancelServiceForm() {
+  if (isServiceFormDirty() && !window.confirm("Discard your unsaved service plan changes?")) return;
+  state.serviceMode = "list"; state.editingServiceId = null; state.serviceFormStart = null;
+  await renderServiceWorkspace();
+}
+async function removeServiceFromPreview(id) {
+  const service = await getServicePlan(id); if (!service) { showToast("That demo service plan is no longer available."); return; }
+  if (!window.confirm('Delete the service plan "' + service.title + '" from this browser demo?')) return;
+  try {
+    const mode = await deleteService(id);
+    if (!mode) { showToast("That service plan could not be found."); return; }
+    await renderServiceWorkspace();
+    showToast(mode === "browser" ? "Service plan deleted from this browser's demo data." : "Service plan deleted for this open session only; browser storage is unavailable.");
+  } catch (error) { showToast(error.message || "The service plan could not be deleted."); }
+}
 function renderCurrentView() {
   root.querySelectorAll(".nav-item[data-view]").forEach(function (button) { button.setAttribute("aria-current", button.dataset.view === state.activeView ? "page" : "false"); });
   if (state.activeView === "dashboard") renderDashboard();
   else if (state.activeView === "hymns") renderHymnWorkspace();
   else if (state.activeView === "categories") renderCategoryWorkspace();
+  else if (state.activeView === "services") renderServiceWorkspace();
   else renderPlaceholder(state.activeView);
 }
 function categoryOptions(selected, includeAll) {
@@ -391,6 +496,15 @@ function isFormDirty() { return state.hymnMode === "form" && state.formStart !==
 function isCategoryFormDirty() {
   const input = document.getElementById("category-name");
   return state.categoryMode === "form" && state.categoryFormStart !== null && input && input.value.trim() !== state.categoryFormStart;
+}
+function serviceFormSignature() {
+  const form = document.getElementById("service-form"); if (!form) return null;
+  const selected = Array.from(form.querySelectorAll('input[name="service_hymn_ids"]:checked')).map(function (input) { return input.value; }).sort();
+  return JSON.stringify({ title: form.elements.service_title.value.trim(), date: form.elements.service_date.value, hymn_ids: selected });
+}
+function isServiceFormDirty() {
+  const signature = serviceFormSignature();
+  return state.serviceMode === "form" && state.serviceFormStart !== null && signature !== null && signature !== state.serviceFormStart;
 }
 async function renderHymnForm() {
   const content = document.getElementById("admin-content"); if (!content) return;
@@ -502,7 +616,8 @@ root.addEventListener("click", async function (event) {
   } else if (action === "navigate") {
     if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes?")) return;
     if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes?")) return;
-    state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; closeMenu(); renderCurrentView();
+    if (isServiceFormDirty() && !window.confirm("Discard your unsaved service plan changes?")) return;
+    state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.serviceFormStart = null; state.serviceMode = "list"; state.editingServiceId = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; closeMenu(); renderCurrentView();
     const content = document.getElementById("admin-content"); if (content) content.focus({ preventScroll: true });
   } else if (action === "open-hymns") {
     state.activeView = "hymns"; state.hymnMode = "list"; closeMenu(); renderCurrentView();
@@ -528,6 +643,14 @@ root.addEventListener("click", async function (event) {
     await cancelCategoryForm();
   } else if (action === "delete-category") {
     await removeCategoryFromPreview(button.dataset.name);
+  } else if (action === "new-service") {
+    state.activeView = "services"; state.serviceMode = "form"; state.editingServiceId = null; closeMenu(); renderCurrentView();
+  } else if (action === "edit-service") {
+    state.activeView = "services"; state.serviceMode = "form"; state.editingServiceId = button.dataset.id; closeMenu(); renderCurrentView();
+  } else if (action === "cancel-service") {
+    await cancelServiceForm();
+  } else if (action === "delete-service") {
+    await removeServiceFromPreview(button.dataset.id);
   } else if (action === "toggle-menu") {
     state.menuOpen = !state.menuOpen;
     const sidebar = document.getElementById("admin-sidebar"); const toggle = root.querySelector('[data-action="toggle-menu"]'); const backdrop = root.querySelector(".sidebar-backdrop");
@@ -537,7 +660,8 @@ root.addEventListener("click", async function (event) {
   } else if (action === "logout") {
     if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes and exit the preview?")) return;
     if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes and exit the preview?")) return;
-    await logoutAdmin(); state.formStart = null; state.categoryFormStart = null; renderLogin();
+    if (isServiceFormDirty() && !window.confirm("Discard your unsaved service plan changes and exit the preview?")) return;
+    await logoutAdmin(); state.formStart = null; state.categoryFormStart = null; state.serviceFormStart = null; renderLogin();
   }
 });
 
@@ -553,6 +677,8 @@ root.addEventListener("submit", async function (event) {
     finally { submit.disabled = false; submit.removeAttribute("aria-busy"); label.textContent = "Sign in"; }
   } else if (event.target.id === "category-form") {
     event.preventDefault(); await saveCategoryForm(event.submitter);
+  } else if (event.target.id === "service-form") {
+    event.preventDefault(); await saveServiceForm(event.submitter);
   } else if (event.target.id === "hymn-form") {
     event.preventDefault(); const submitter = event.submitter; await saveHymnForm(submitter && submitter.dataset.saveStatus === "published" ? "published" : "draft");
   }
@@ -566,6 +692,7 @@ root.addEventListener("change", function (event) {
   if (event.target.matches('[data-filter="status"]')) { state.statusFilter = event.target.value; refreshHymnRows(); }
   if (event.target.matches('[data-filter="category"]')) { state.categoryFilter = event.target.value; refreshHymnRows(); }
   if (event.target.matches("[data-editor-command]")) runEditorCommand(event.target.dataset.editorTarget, event.target.dataset.editorCommand, event.target.value);
+  if (event.target.matches('input[name="service_hymn_ids"]')) updateServiceHymnCount();
 });
 function rememberEditorSelection(key) {
   const editor = root.querySelector('[data-rich-editor="' + key + '"]'); const selection = window.getSelection();
