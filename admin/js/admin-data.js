@@ -1,116 +1,167 @@
-// Read-only, original demo records for the Phase 2A admin preview.
-// Keep this contract aligned with the public hymnal's bilingual field names.
-const demoHymns = [
+// Phase 2B mock data adapter. This data is isolated to this admin preview and never changes the public hymn bundle.
+// Replace the provider functions with Supabase-backed calls only after Auth and row-level authorization are configured.
+const STORAGE_KEY = "consolation-hymnal-admin-demo-v1";
+const initialDemoHymns = [
   {
-    id: "demo-001",
-    hymn_number: 1,
-    title_en: "Hymn Demo One",
-    title_yoruba: "Yoruba Demo Hymn One",
-    first_line_en: "Sample first line for preview only",
-    first_line_yoruba: "Yoruba demo first line",
-    verses_en: ["Sample verse content for the administration preview."],
-    verses_yoruba: ["Yoruba demo verse content."],
-    chorus_en: "Sample chorus content, kept separate from verses.",
-    chorus_yoruba: "Yoruba demo chorus content, kept separate from verses.",
-    category: "Praise",
-    status: "published",
-    created_at: "2026-09-28T10:00:00.000Z",
-    updated_at: "2026-10-06T13:30:00.000Z",
-    published_at: "2026-10-01T09:00:00.000Z"
+    id: "demo-001", hymn_number: 1, title_en: "Hymn Demo One", title_yoruba: "Yoruba Demo Hymn One",
+    first_line_en: "Sample first line for preview only", first_line_yoruba: "Yoruba demo first line",
+    verses_en: ["Sample verse content for the administration preview."], verses_yoruba: ["Yoruba demo verse content."],
+    chorus_en: "Sample chorus content, kept separate from verses.", chorus_yoruba: "Yoruba demo chorus content, kept separate from verses.",
+    body_html_en: "<p>Sample verse content for the administration preview.</p>", body_html_yoruba: "<p>Yoruba demo verse content.</p>",
+    chorus_html_en: "<p>Sample chorus content, kept separate from verses.</p>", chorus_html_yoruba: "<p>Yoruba demo chorus content, kept separate from verses.</p>",
+    category: "Praise", status: "published", created_at: "2026-09-28T10:00:00.000Z", updated_at: "2026-10-06T13:30:00.000Z", published_at: "2026-10-01T09:00:00.000Z"
   },
   {
-    id: "demo-002",
-    hymn_number: 2,
-    title_en: "Hymn Demo Two",
-    title_yoruba: "Yoruba Demo Hymn Two",
-    first_line_en: "Another sample opening line",
-    first_line_yoruba: "Another Yoruba demo line",
-    verses_en: ["Original sample verse text."],
-    verses_yoruba: [],
-    chorus_en: "Original sample chorus text.",
-    chorus_yoruba: "",
-    category: "Thanksgiving",
-    status: "draft",
-    created_at: "2026-10-02T08:15:00.000Z",
-    updated_at: "2026-10-05T15:45:00.000Z",
-    published_at: null
+    id: "demo-002", hymn_number: 2, title_en: "Hymn Demo Two", title_yoruba: "Yoruba Demo Hymn Two",
+    first_line_en: "Another sample opening line", first_line_yoruba: "Another Yoruba demo line",
+    verses_en: ["Original sample verse text."], verses_yoruba: [], chorus_en: "Original sample chorus text.", chorus_yoruba: "",
+    body_html_en: "<p>Original sample verse text.</p>", body_html_yoruba: "", chorus_html_en: "<p>Original sample chorus text.</p>", chorus_html_yoruba: "",
+    category: "Thanksgiving", status: "draft", created_at: "2026-10-02T08:15:00.000Z", updated_at: "2026-10-05T15:45:00.000Z", published_at: null
   },
   {
-    id: "demo-003",
-    hymn_number: 3,
-    title_en: "Hymn Demo Three",
-    title_yoruba: "",
-    first_line_en: "A third sample first line",
-    first_line_yoruba: "",
-    verses_en: ["Demo content only; no published hymn lyrics."],
-    verses_yoruba: [],
-    chorus_en: "",
-    chorus_yoruba: "",
-    category: "Worship",
-    status: "published",
-    created_at: "2026-09-20T12:00:00.000Z",
-    updated_at: "2026-10-03T09:20:00.000Z",
-    published_at: "2026-09-22T11:00:00.000Z"
+    id: "demo-003", hymn_number: 3, title_en: "Hymn Demo Three", title_yoruba: "",
+    first_line_en: "A third sample first line", first_line_yoruba: "",
+    verses_en: ["Demo content only; no published hymn lyrics."], verses_yoruba: [], chorus_en: "", chorus_yoruba: "",
+    body_html_en: "<p>Demo content only; no published hymn lyrics.</p>", body_html_yoruba: "", chorus_html_en: "", chorus_html_yoruba: "",
+    category: "Worship", status: "published", created_at: "2026-09-20T12:00:00.000Z", updated_at: "2026-10-03T09:20:00.000Z", published_at: "2026-09-22T11:00:00.000Z"
   }
 ];
-
-const demoCategories = ["Praise", "Worship", "Thanksgiving", "Prayer"];
 const demoServicePlans = [
   { id: "service-demo-1", title: "Sunday Service · Demo", date: "2026-10-11", hymn_ids: ["demo-001", "demo-003"] },
   { id: "service-demo-2", title: "Midweek Gathering · Demo", date: "2026-10-14", hymn_ids: ["demo-002"] }
 ];
+let memoryRecords = null;
+let lastStorageMode = null;
 
-function copy(value) {
-  return JSON.parse(JSON.stringify(value));
+function copy(value) { return JSON.parse(JSON.stringify(value)); }
+function readRecords() {
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored !== null) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) { memoryRecords = parsed; return copy(parsed); }
+    }
+  } catch (error) {
+    // Fall through to this page's in-memory copy when browser storage is blocked.
+  }
+  return copy(memoryRecords || initialDemoHymns);
 }
-
+function writeRecords(records) {
+  memoryRecords = copy(records);
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    lastStorageMode = "browser";
+    return "browser";
+  } catch (error) {
+    lastStorageMode = "memory";
+    return "memory";
+  }
+}
+function nowIso() { return new Date().toISOString(); }
+function makeId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return "demo-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9);
+}
 function phaseError(action) {
-  return new Error(action + " is not available in Phase 2A. This preview data is read-only.");
+  return new Error(action + " is reserved for a later phase. The Phase 2B preview includes hymn management only.");
 }
 
 export async function getHymns() {
-  return copy(demoHymns).sort(function (a, b) { return a.hymn_number - b.hymn_number; });
+  return readRecords().sort(function (a, b) { return Number(a.hymn_number) - Number(b.hymn_number); });
 }
-
 export async function getHymn(id) {
-  const hymn = demoHymns.find(function (item) { return item.id === id; });
-  return hymn ? copy(hymn) : null;
+  const record = readRecords().find(function (item) { return item.id === id; });
+  return record ? copy(record) : null;
 }
-
 export async function getDraftHymns() {
-  return copy(demoHymns.filter(function (item) { return item.status === "draft"; }));
+  return readRecords().filter(function (item) { return item.status === "draft"; });
 }
-
 export async function getPublishedHymns() {
-  return copy(demoHymns.filter(function (item) { return item.status === "published"; }));
+  return readRecords().filter(function (item) { return item.status === "published"; });
 }
-
 export async function getDashboardStats() {
+  const hymns = readRecords();
   return {
-    totalHymns: demoHymns.length,
-    publishedHymns: demoHymns.filter(function (item) { return item.status === "published"; }).length,
-    draftHymns: demoHymns.filter(function (item) { return item.status === "draft"; }).length,
-    englishHymns: demoHymns.filter(function (item) { return Boolean(item.title_en); }).length,
-    yorubaHymns: demoHymns.filter(function (item) { return Boolean(item.title_yoruba); }).length,
-    categories: demoCategories.length,
+    totalHymns: hymns.length,
+    publishedHymns: hymns.filter(function (item) { return item.status === "published"; }).length,
+    draftHymns: hymns.filter(function (item) { return item.status === "draft"; }).length,
+    englishHymns: hymns.filter(function (item) { return Boolean(item.title_en); }).length,
+    yorubaHymns: hymns.filter(function (item) { return Boolean(item.title_yoruba); }).length,
+    categories: new Set(hymns.map(function (item) { return item.category; }).filter(Boolean)).size,
     upcomingServicePlans: demoServicePlans.length
   };
 }
-
 export async function getRecentlyUpdatedHymns(limit) {
   const count = Number.isFinite(limit) ? Math.max(0, limit) : 5;
-  return copy(demoHymns.slice().sort(function (a, b) {
+  return readRecords().sort(function (a, b) {
     return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-  }).slice(0, count));
+  }).slice(0, count);
+}
+export async function getUpcomingServicePlans() { return copy(demoServicePlans); }
+export async function getCategories() {
+  const hymns = readRecords();
+  return Array.from(new Set(["Praise", "Worship", "Thanksgiving", "Prayer", "Faith", "Hope", "Communion", "Evangelism"].concat(hymns.map(function (item) { return item.category; }).filter(Boolean)))).sort();
+}
+export function getStorageMode() {
+  if (lastStorageMode) return lastStorageMode;
+  try { window.localStorage.getItem(STORAGE_KEY); return "browser"; }
+  catch (error) { return "memory"; }
 }
 
-export async function getUpcomingServicePlans() {
-  return copy(demoServicePlans);
+function saveRecord(records, record) {
+  const next = records.filter(function (item) { return item.id !== record.id; });
+  next.push(record);
+  const mode = writeRecords(next);
+  return Object.assign(copy(record), { _storage_mode: mode });
+}
+export async function createHymn(data) {
+  const records = readRecords();
+  const number = Number(data.hymn_number);
+  if (records.some(function (item) { return Number(item.hymn_number) === number; })) throw new Error("Hymn number " + number + " is already in use.");
+  const timestamp = nowIso();
+  const record = Object.assign({}, copy(data), {
+    id: makeId(), hymn_number: number, status: data.status === "published" ? "published" : "draft",
+    created_at: timestamp, updated_at: timestamp, published_at: data.status === "published" ? timestamp : null
+  });
+  return saveRecord(records, record);
+}
+export async function updateHymn(id, data) {
+  const records = readRecords();
+  const existing = records.find(function (item) { return item.id === id; });
+  if (!existing) throw new Error("This demo hymn could not be found.");
+  const number = Number(data.hymn_number);
+  if (records.some(function (item) { return item.id !== id && Number(item.hymn_number) === number; })) throw new Error("Hymn number " + number + " is already in use.");
+  const status = data.status === "published" ? "published" : "draft";
+  const timestamp = nowIso();
+  const record = Object.assign({}, existing, copy(data), {
+    id: existing.id, hymn_number: number, status, updated_at: timestamp,
+    published_at: status === "published" ? (existing.published_at || timestamp) : null
+  });
+  return saveRecord(records, record);
+}
+export async function deleteHymn(id) {
+  const records = readRecords();
+  if (!records.some(function (item) { return item.id === id; })) return false;
+  writeRecords(records.filter(function (item) { return item.id !== id; }));
+  return true;
+}
+export async function publishHymn(id) {
+  const hymn = await getHymn(id);
+  if (!hymn) throw new Error("This demo hymn could not be found.");
+  hymn.status = "published";
+  return updateHymn(id, hymn);
+}
+export async function saveHymnAsDraft(id) {
+  const hymn = await getHymn(id);
+  if (!hymn) throw new Error("This demo hymn could not be found.");
+  hymn.status = "draft";
+  hymn.published_at = null;
+  return updateHymn(id, hymn);
 }
 
-// Write methods intentionally fail closed until a real data provider and editor are implemented.
-export async function createHymn() { throw phaseError("createHymn"); }
-export async function updateHymn() { throw phaseError("updateHymn"); }
-export async function deleteHymn() { throw phaseError("deleteHymn"); }
-export async function publishHymn() { throw phaseError("publishHymn"); }
-export async function saveHymnAsDraft() { throw phaseError("saveHymnAsDraft"); }
+export async function createCategory() { throw phaseError("createCategory"); }
+export async function updateCategory() { throw phaseError("updateCategory"); }
+export async function deleteCategory() { throw phaseError("deleteCategory"); }
+export async function createService() { throw phaseError("createService"); }
+export async function updateService() { throw phaseError("updateService"); }
+export async function deleteService() { throw phaseError("deleteService"); }
