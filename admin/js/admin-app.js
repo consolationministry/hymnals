@@ -1,5 +1,5 @@
-import { initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js";
-import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getDraftHymns, getHymn, getHymns, getProgram, getPrograms, getPublishedHymns, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=30";
+import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js?v=31";
+import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getDraftHymns, getHymn, getHymns, getProgram, getPrograms, getPublishedHymns, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=31";
 
 const root = document.getElementById("admin-root");
 const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null };
@@ -103,14 +103,18 @@ function safeEditorContent(value) { return sanitizeRichHtml(value || ""); }
 
 function renderLogin() {
   state.view = "login";
-  root.innerHTML = '<main class="login-layout"><section class="login-brand-panel" aria-label="Church hymnal administration"><div class="brand-lockup"><img src="../assets/demo-church-mark.svg" alt="" width="52" height="52"><span>Consolation Hymnal<br>Administration</span></div><div class="brand-copy"><p class="eyebrow">ADMIN WORKSPACE</p><h1>Care for the hymns that bring us together.</h1><p>A separate workspace for authorised church administrators. The member hymnal remains open to everyone, without an account.</p></div><p class="brand-panel-foot">Consolation Evangelical and Revival Church · “Occupy Till I Come”</p></section><section class="login-side"><div class="login-card"><img class="login-card-mark" src="../assets/demo-church-mark.svg" alt=""><p class="eyebrow" style="color:var(--purple)">ADMIN SIGN IN</p><h2>Welcome back</h2><p class="login-intro">Sign-in is not connected in this foundation phase. The form below is interface-only; credentials are not checked, sent, or saved.</p><div class="notice"><span class="notice-mark" aria-hidden="true">i</span><span>Real administrator access will be added with Supabase Auth and database authorization in a later phase.</span></div><form id="admin-login-form" novalidate><div class="field"><label for="admin-email">Email address</label><input id="admin-email" name="email" type="email" inputmode="email" autocomplete="username" placeholder="name@church.org" required></div><div class="field"><label for="admin-password">Password</label><div class="password-wrap"><input id="admin-password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button class="password-toggle" type="button" data-action="toggle-password" aria-controls="admin-password" aria-label="Show password">Show</button></div></div><p class="form-error" id="login-error" role="alert" aria-live="polite"></p><button class="button button-primary button-wide" id="login-submit" type="submit"><span class="login-button-label">Sign in</span></button></form><button class="button button-quiet" type="button" data-action="preview">Preview dashboard with demo data</button><p class="login-foot">Demo preview can edit a browser-only copy; it is not an authenticated admin session.</p><a class="public-link" href="../">← Open the public hymnal</a></div></section></main>';
+  const backendNotice = ADMIN_AUTH_CONFIGURED
+    ? '<div class="notice"><span class="notice-mark" aria-hidden="true">i</span><span>Only accounts approved in the Supabase admin list can open this workspace. Admin changes are saved to the shared database and do not publish to the member hymnal yet.</span></div>'
+    : '<div class="notice"><span class="notice-mark" aria-hidden="true">!</span><span>Admin sign-in is unavailable until the Supabase setup is completed.</span></div>';
+  root.innerHTML = '<main class="login-layout"><section class="login-brand-panel" aria-label="Church hymnal administration"><div class="brand-lockup"><img src="../assets/demo-church-mark.svg" alt="" width="52" height="52"><span>Consolation Hymnal<br>Administration</span></div><div class="brand-copy"><p class="eyebrow">ADMIN WORKSPACE</p><h1>Care for the hymns that bring us together.</h1><p>A separate workspace for authorised church administrators. The member hymnal remains open to everyone, without an account.</p></div><p class="brand-panel-foot">Consolation Evangelical and Revival Church · “Occupy Till I Come”</p></section><section class="login-side"><div class="login-card"><img class="login-card-mark" src="../assets/demo-church-mark.svg" alt=""><p class="eyebrow" style="color:var(--purple)">ADMIN SIGN IN</p><h2>Welcome back</h2><p class="login-intro">Sign in with your approved administrator account.</p>' + backendNotice + '<form id="admin-login-form" novalidate><div class="field"><label for="admin-email">Email address</label><input id="admin-email" name="email" type="email" inputmode="email" autocomplete="username" placeholder="name@church.org" required></div><div class="field"><label for="admin-password">Password</label><div class="password-wrap"><input id="admin-password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button class="password-toggle" type="button" data-action="toggle-password" aria-controls="admin-password" aria-label="Show password">Show</button></div></div><p class="form-error" id="login-error" role="alert" aria-live="polite"></p><button class="button button-primary button-wide" id="login-submit" type="submit"><span class="login-button-label">Sign in</span></button></form><a class="public-link" href="../">← Open the public hymnal</a></div></section></main>';
 }
 function renderShell() {
   const navMarkup = navigation.map(function (item) {
     return '<button class="nav-item" type="button" data-action="navigate" data-view="' + item.id + '" aria-current="' + (state.activeView === item.id ? "page" : "false") + '"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + iconPaths[item.icon] + '</svg></span><span>' + item.label + '</span></button>';
   }).join("");
-  root.innerHTML = '<div class="admin-shell"><aside class="sidebar" id="admin-sidebar"><div class="sidebar-brand"><img src="../assets/demo-church-mark.svg" alt=""><div><strong>Consolation Hymnal</strong><span>Admin workspace</span></div></div><p class="sidebar-label">Workspace</p><nav class="sidebar-nav" aria-label="Admin sections">' + navMarkup + '</nav><div class="sidebar-bottom"><button class="nav-item" type="button" data-action="logout"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg></span><span>Exit preview</span></button><a class="sidebar-public-link" href="../">View public hymnal ↗</a></div></aside><button class="sidebar-backdrop" type="button" data-action="close-menu" aria-label="Close navigation" hidden></button><main class="admin-main"><header class="topbar"><div class="topbar-left"><button class="mobile-menu-button" type="button" data-action="toggle-menu" aria-label="Open admin navigation" aria-expanded="false" aria-controls="admin-sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><p class="topbar-kicker">Consolation Evangelical and Revival Church</p><p class="topbar-title">Admin workspace</p></div></div><div class="topbar-right"><span class="preview-chip"><span class="preview-dot" aria-hidden="true"></span>Demo preview</span><span class="admin-avatar" aria-label="Demo administrator preview">D</span></div></header><div class="content-wrap" id="admin-content" tabindex="-1"></div><div class="app-toast" id="admin-toast" role="status" aria-live="polite" hidden></div></main></div>';
+  root.innerHTML = '<div class="admin-shell"><aside class="sidebar" id="admin-sidebar"><div class="sidebar-brand"><img src="../assets/demo-church-mark.svg" alt=""><div><strong>Consolation Hymnal</strong><span>Admin workspace</span></div></div><p class="sidebar-label">Workspace</p><nav class="sidebar-nav" aria-label="Admin sections">' + navMarkup + '</nav><div class="sidebar-bottom"><button class="nav-item" type="button" data-action="logout"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg></span><span>Sign out</span></button><a class="sidebar-public-link" href="../">View public hymnal ↗</a></div></aside><button class="sidebar-backdrop" type="button" data-action="close-menu" aria-label="Close navigation" hidden></button><main class="admin-main"><header class="topbar"><div class="topbar-left"><button class="mobile-menu-button" type="button" data-action="toggle-menu" aria-label="Open admin navigation" aria-expanded="false" aria-controls="admin-sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><p class="topbar-kicker">Consolation Evangelical and Revival Church</p><p class="topbar-title">Admin workspace</p></div></div><div class="topbar-right"><span class="preview-chip"><span class="preview-dot" aria-hidden="true"></span>Protected admin</span><span class="admin-avatar" aria-label="Signed-in administrator">A</span></div></header><div class="content-wrap" id="admin-content" tabindex="-1"></div><div class="app-toast" id="admin-toast" role="status" aria-live="polite" hidden></div></main></div>';
   renderCurrentView();
+  getAdminSettings().then(function (settings) { applyAdminTheme(settings.defaultTheme); }).catch(function () { applyAdminTheme("system"); });
 }
 function closeMenu() {
   state.menuOpen = false;
@@ -124,17 +128,18 @@ function closeMenu() {
 function showToast(message) {
   const toast = document.getElementById("admin-toast");
   if (!toast) return;
-  toast.textContent = message; toast.hidden = false;
+  toast.textContent = String(message || "")
+    .replace(/ for this open session only; browser storage is unavailable/g, " in the shared admin database")
+    .replace(/ for this open session only/g, " in the shared admin database")
+    .replace(/ for this session; browser storage is unavailable/g, " in the shared admin database")
+    .replace(/^Saved in this open session only; browser storage is unavailable\./, "Saved in the shared admin database.")
+    .replace(/this browser's demo data only/g, "the shared admin database")
+    .replace(/this browser's demo data/g, "the shared admin database")
+    .replace(/this browser preview/g, "the shared admin database")
+    .replace(/this session; browser storage is unavailable/g, "the shared admin database");
+  toast.hidden = false;
   clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(function () { toast.hidden = true; }, 4200);
-}
-function previewBanner() {
-  const banner = make("section", "preview-banner");
-  banner.setAttribute("aria-label", "Demo preview notice");
-  const mark = make("span", "notice-mark", "!"); mark.setAttribute("aria-hidden", "true");
-  const copy = document.createElement("div");
-  copy.append(make("strong", "", "Demo preview · this browser only"), make("p", "", "Hymn, category, service plan, program, and settings edits are stored only in this browser. Nothing is sent to a server, published to the public hymnal, or protected by real admin sign-in."));
-  banner.append(mark, copy); return banner;
 }
 function renderDashboard() {
   const content = document.getElementById("admin-content");
@@ -142,16 +147,16 @@ function renderDashboard() {
   const heading = make("div", "page-heading");
   const titleBox = document.createElement("div");
   titleBox.append(make("h1", "", "Dashboard"), make("p", "", "A simple overview of the hymnal admin workspace."));
-  heading.append(titleBox); content.append(heading, previewBanner());
+  heading.append(titleBox); content.append(heading);
   getDashboardStats().then(function (stats) {
     if (!document.getElementById("admin-content")) return;
     const cards = [
-      ["Total Hymns", stats.totalHymns, "Local demo records", "book"], ["Published Hymns", stats.publishedHymns, "Demo status only", "check"],
-      ["Draft Hymns", stats.draftHymns, "Demo status only", "clock"], ["English Hymns", stats.englishHymns, "Sample records", "language"],
-      ["Yoruba Hymns", stats.yorubaHymns, "Sample records", "language"], ["Categories", stats.categories, "Preview categories", "layers"],
-      ["Upcoming Service Plans", stats.upcomingServicePlans, "Demo references", "calendar"]
+      ["Total Hymns", stats.totalHymns, "Shared admin database", "book"], ["Published Hymns", stats.publishedHymns, "Admin publication status", "check"],
+      ["Draft Hymns", stats.draftHymns, "Saved drafts", "clock"], ["English Hymns", stats.englishHymns, "English entries", "language"],
+      ["Yoruba Hymns", stats.yorubaHymns, "Yoruba entries", "language"], ["Categories", stats.categories, "Admin categories", "layers"],
+      ["Upcoming Service Plans", stats.upcomingServicePlans, "Saved service plans", "calendar"]
     ];
-    const grid = make("section", "stats-grid"); grid.setAttribute("aria-label", "Demo statistics");
+    const grid = make("section", "stats-grid"); grid.setAttribute("aria-label", "Admin statistics");
     cards.forEach(function (item) {
       const card = make("article", "stat-card");
       const top = make("div", "stat-head"); top.append(make("span", "stat-label", item[0]), icon(item[3], "stat-icon"));
@@ -161,21 +166,21 @@ function renderDashboard() {
     const lower = make("div", "dashboard-lower");
     const recentPanel = make("section", "panel");
     const recentHeader = make("header", "panel-header"); const recentTitle = document.createElement("div");
-    recentTitle.append(make("h2", "", "Recently Updated Hymns"), make("p", "", "Example records from your local preview.")); recentHeader.append(recentTitle); recentPanel.append(recentHeader);
+    recentTitle.append(make("h2", "", "Recently Updated Hymns"), make("p", "", "Latest hymn changes in the admin database.")); recentHeader.append(recentTitle); recentPanel.append(recentHeader);
     const body = make("div", "panel-body"); const tableWrap = make("div", "table-wrap"); const table = make("table", "recent-table");
     table.innerHTML = '<thead><tr><th scope="col">Hymn</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody></tbody>';
     const tbody = table.querySelector("tbody");
     getRecentlyUpdatedHymns(5).then(function (hymns) {
       hymns.forEach(function (hymn) {
         const row = document.createElement("tr"); const cell = document.createElement("td");
-        cell.append(make("span", "hymn-name", hymn.title_en), make("span", "hymn-number", "Demo #" + String(hymn.hymn_number).padStart(2, "0")));
+        cell.append(make("span", "hymn-name", hymn.title_en), make("span", "hymn-number", "Hymn #" + String(hymn.hymn_number).padStart(2, "0")));
         const statusCell = document.createElement("td"); statusCell.append(make("span", "status-pill " + (hymn.status === "published" ? "status-published" : "status-draft"), hymn.status === "published" ? "Published" : "Draft"));
         const dateCell = document.createElement("td"); const date = new Date(hymn.updated_at);
         dateCell.textContent = Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(date);
         row.append(cell, statusCell, dateCell); tbody.append(row);
       });
-    }).catch(function () { tbody.innerHTML = '<tr><td colspan="3">Demo data is unavailable.</td></tr>'; });
-    tableWrap.append(table); body.append(tableWrap, make("p", "demo-caption", "Sample placeholders only; these are not live church records.")); recentPanel.append(body);
+    }).catch(function () { tbody.innerHTML = '<tr><td colspan="3">Hymn records are unavailable.</td></tr>'; });
+    tableWrap.append(table); body.append(tableWrap); recentPanel.append(body);
     const actionsPanel = make("section", "panel"); const actionsHeader = make("header", "panel-header"); const actionsTitle = document.createElement("div");
     actionsTitle.append(make("h2", "", "Quick Actions"), make("p", "", "Shortcuts for hymnal management.")); actionsHeader.append(actionsTitle); actionsPanel.append(actionsHeader);
     const actionsBody = make("div", "panel-body"); const actions = [["Add New Hymn", "plus", "new-hymn"], ["Manage Hymns", "book", "open-hymns"], ["Manage Categories", "layers", "navigate", "categories"], ["Create Service Plan", "calendar", "navigate", "services"], ["Manage Upcoming Programs", "calendar", "navigate", "programs"]];
@@ -185,17 +190,17 @@ function renderDashboard() {
       if (item[3]) button.dataset.view = item[3];
       button.append(icon(item[1], "quick-action-icon"), make("span", "", item[0]), make("span", "quick-arrow", "›")); list.append(button);
     });
-    actionsBody.append(list, make("p", "demo-caption", "Hymn, category, service, and program planning are available in this browser preview. Settings holds admin-only workspace preferences.")); actionsPanel.append(actionsBody);
+    actionsBody.append(list, make("p", "demo-caption", "Changes in this workspace are saved to Supabase and are not published to the member hymnal yet.")); actionsPanel.append(actionsBody);
     lower.append(recentPanel, actionsPanel); content.append(lower);
-  }).catch(function () { content.append(make("section", "list-empty", "Dashboard preview data could not be loaded.")); });
+  }).catch(function () { content.append(make("section", "list-empty", "Admin data could not be loaded. Check the backend setup and connection.")); });
 }
 function renderPlaceholder(view) {
   const content = document.getElementById("admin-content"); content.replaceChildren();
   const item = navigation.find(function (entry) { return entry.id === view; }); const title = item ? item.label : "Dashboard";
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
-  headingContent.append(make("h1", "", title), make("p", "", "This section is reserved for a later phase.")); heading.append(headingContent); content.append(heading, previewBanner());
+  headingContent.append(make("h1", "", title), make("p", "", "This section is not part of the current admin workflow.")); heading.append(headingContent); content.append(heading);
   const card = make("section", "placeholder-card"); const inner = make("div", "placeholder-inner");
-  inner.append(icon(item ? item.icon : "grid", "placeholder-icon"), make("h2", "", "Coming in the next phase"), make("p", "", "Phase 2D adds service planning. Settings remain separate future work."));
+  inner.append(icon(item ? item.icon : "grid", "placeholder-icon"), make("h2", "", "Not available"), make("p", "", "This admin section has not been implemented."));
   const back = make("button", "button button-secondary", "Back to dashboard"); back.type = "button"; back.dataset.action = "navigate"; back.dataset.view = "dashboard";
   inner.append(back); card.append(inner); content.append(card);
 }
@@ -206,7 +211,7 @@ async function renderCategoryWorkspace() {
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
   headingContent.append(make("h1", "", "Categories"), make("p", "", "Create and organize the category labels used by hymns."));
   const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-category"; addButton.append(icon("plus", ""), document.createTextNode(" Add Category"));
-  heading.append(headingContent, addButton); content.append(heading, previewBanner());
+  heading.append(headingContent, addButton); content.append(heading);
   try {
     const results = await Promise.all([getCategories(), getHymns()]);
     const categories = results[0]; const hymns = results[1];
@@ -214,7 +219,7 @@ async function renderCategoryWorkspace() {
     hymns.forEach(function (hymn) { if (hymn.category) counts.set(hymn.category, (counts.get(hymn.category) || 0) + 1); });
     if (!categories.length) {
       const empty = make("section", "list-empty", "");
-      empty.append(make("h2", "", "No categories yet"), make("p", "", "Add a category to organize hymns in this browser preview."));
+      empty.append(make("h2", "", "No categories yet"), make("p", "", "Add a category to organize hymns in the shared admin database."));
       const firstAdd = make("button", "button button-primary category-empty-action", "Add your first category"); firstAdd.type = "button"; firstAdd.dataset.action = "new-category"; empty.append(firstAdd); content.append(empty); return;
     }
     const rows = categories.map(function (category) {
@@ -230,7 +235,7 @@ async function renderCategoryWorkspace() {
     table.innerHTML = '<table class="hymn-table category-table"><thead><tr><th scope="col">Category</th><th scope="col">Hymns</th><th scope="col">Actions</th></tr></thead><tbody>' + rows + '</tbody></table>';
     content.append(table);
   } catch (error) {
-    content.append(make("section", "list-empty", "Category preview data could not be loaded."));
+    content.append(make("section", "list-empty", "Categories could not be loaded from the admin database."));
   }
 }
 function renderCategoryForm() {
@@ -238,10 +243,10 @@ function renderCategoryForm() {
   content.replaceChildren();
   const editing = state.editingCategoryName !== null; const currentName = editing ? state.editingCategoryName : "";
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
-  headingContent.append(make("h1", "", editing ? "Edit Category" : "Add Category"), make("p", "", editing ? "Rename the category used by any hymns in this browser preview." : "Create a category for organizing demo hymns."));
-  heading.append(headingContent); content.append(heading, previewBanner());
+  headingContent.append(make("h1", "", editing ? "Edit Category" : "Add Category"), make("p", "", editing ? "Rename a category used by existing hymns." : "Create a category for organizing hymns."));
+  heading.append(headingContent); content.append(heading);
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", editing ? "Edit category form" : "Add category form");
-  panel.innerHTML = '<form id="category-form" novalidate><h2 class="form-section-title">Category details</h2><p class="form-section-help">Category changes are saved only in this browser preview. Renaming a category also updates demo hymns that use it.</p><div class="admin-field"><label for="category-name">Category name <span aria-hidden="true">*</span></label><input class="form-input" id="category-name" name="category_name" type="text" maxlength="60" autocomplete="off" value="' + escapeHtml(currentName) + '" required><p class="field-hint">Use up to 60 characters. Category names must be unique.</p></div><div id="category-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-category">Cancel</button><button class="button button-primary" type="submit">Save Category</button></div></div></form>';
+  panel.innerHTML = '<form id="category-form" novalidate><h2 class="form-section-title">Category details</h2><p class="form-section-help">Category changes are saved to the shared database. Renaming updates the category reference on its existing hymns.</p><div class="admin-field"><label for="category-name">Category name <span aria-hidden="true">*</span></label><input class="form-input" id="category-name" name="category_name" type="text" maxlength="60" autocomplete="off" value="' + escapeHtml(currentName) + '" required><p class="field-hint">Use up to 60 characters. Category names must be unique.</p></div><div id="category-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-category">Cancel</button><button class="button button-primary" type="submit">Save Category</button></div></div></form>';
   content.append(panel); state.categoryFormStart = currentName;
   const input = document.getElementById("category-name"); if (!editing && input) input.focus({ preventScroll: true });
 }
@@ -283,7 +288,7 @@ async function cancelCategoryForm() {
 async function removeCategoryFromPreview(name) {
   const hymns = await getHymns();
   if (hymns.some(function (hymn) { return hymn.category === name; })) { showToast("Reassign the hymns in this category before deleting it."); return; }
-  if (!window.confirm('Delete the category "' + name + '" from this browser demo?')) return;
+  if (!window.confirm('Delete the category "' + name + '" from the admin database?')) return;
   try {
     const mode = await deleteCategory(name);
     if (!mode) { showToast("That category is no longer available."); return; }
@@ -298,7 +303,7 @@ async function renderServiceWorkspace() {
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
   headingContent.append(make("h1", "", "Service Planner"), make("p", "", "Plan services and select the hymns for each gathering."));
   const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-service"; addButton.append(icon("plus", ""), document.createTextNode(" Create Service Plan"));
-  heading.append(headingContent, addButton); content.append(heading, previewBanner());
+  heading.append(headingContent, addButton); content.append(heading);
   try {
     const results = await Promise.all([getServicePlans(), getHymns()]);
     const plans = results[0]; const hymns = results[1]; const hymnById = new Map(hymns.map(function (hymn) { return [hymn.id, hymn]; }));
@@ -322,18 +327,18 @@ async function renderServiceWorkspace() {
     table.innerHTML = '<table class="hymn-table service-table"><thead><tr><th scope="col">Service</th><th scope="col">Date</th><th scope="col">Planned hymns</th><th scope="col">Actions</th></tr></thead><tbody>' + rows + '</tbody></table>';
     content.append(table);
   } catch (error) {
-    content.append(make("section", "list-empty", "Service plan preview data could not be loaded."));
+    content.append(make("section", "list-empty", "Service plans could not be loaded from the admin database."));
   }
 }
 async function renderServiceForm() {
   const content = document.getElementById("admin-content"); if (!content) return;
   const existing = state.editingServiceId ? await getServicePlan(state.editingServiceId) : null;
-  if (state.editingServiceId && !existing) { state.serviceMode = "list"; state.editingServiceId = null; showToast("That demo service plan is no longer available."); return renderServiceWorkspace(); }
+  if (state.editingServiceId && !existing) { state.serviceMode = "list"; state.editingServiceId = null; showToast("That service plan is no longer available."); return renderServiceWorkspace(); }
   const hymns = await getHymns(); const selectedIds = existing ? existing.hymn_ids || [] : [];
   content.replaceChildren();
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
   headingContent.append(make("h1", "", existing ? "Edit Service Plan" : "Create Service Plan"), make("p", "", existing ? "Update the service details and selected hymns." : "Choose a date and the hymns for this service."));
-  heading.append(headingContent); content.append(heading, previewBanner());
+  heading.append(headingContent); content.append(heading);
   const options = hymns.map(function (hymn) {
     const checked = selectedIds.includes(hymn.id) ? " checked" : "";
     const headingText = "Hymn #" + hymn.hymn_number + " · " + (hymn.title_en || hymn.title_yoruba || "Untitled hymn");
@@ -343,6 +348,8 @@ async function renderServiceForm() {
   const now = new Date(); const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit service plan form" : "Create service plan form");
   panel.innerHTML = '<form id="service-form" novalidate><h2 class="form-section-title">Service details</h2><p class="form-section-help">Plans are saved only in this browser preview. They do not publish changes to the public hymnal.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="service-title">Service name <span aria-hidden="true">*</span></label><input class="form-input" id="service-title" name="service_title" type="text" maxlength="100" value="' + escapeHtml(existing ? existing.title : "") + '" placeholder="Sunday service" required></div><div class="admin-field"><label for="service-date">Service date <span aria-hidden="true">*</span></label><input class="form-input" id="service-date" name="service_date" type="date" min="' + today + '" value="' + escapeHtml(existing ? existing.date : "") + '" required></div></div><section class="service-hymn-section" aria-labelledby="service-hymn-heading"><div class="service-hymn-heading"><div><h2 id="service-hymn-heading" tabindex="-1">Choose hymns</h2><p>Select at least one hymn for this service.</p></div><span class="service-hymn-count" id="service-hymn-count" aria-live="polite"></span></div><div class="service-hymn-picker">' + (options || '<p class="service-empty-hymns">No demo hymns are available yet. Add a hymn before creating a service plan.</p>') + '</div></section><div id="service-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-service">Cancel</button><button class="button button-primary" type="submit">Save Service Plan</button></div></div></form>';
+  panel.innerHTML = panel.innerHTML.replace("Plans are saved only in this browser preview. They do not publish changes to the public hymnal.", "Plans are saved to the shared database and remain admin-only until the public app is connected.")
+    .replace("No demo hymns are available yet.", "No hymns are available yet.");
   content.append(panel); state.serviceFormStart = serviceFormSignature(); updateServiceHymnCount();
   const first = document.getElementById("service-title"); if (!existing && first) first.focus({ preventScroll: true });
 }
@@ -387,7 +394,7 @@ async function cancelServiceForm() {
 }
 async function removeServiceFromPreview(id) {
   const service = await getServicePlan(id); if (!service) { showToast("That demo service plan is no longer available."); return; }
-  if (!window.confirm('Delete the service plan "' + service.title + '" from this browser demo?')) return;
+  if (!window.confirm('Delete the service plan "' + service.title + '" from the admin database?')) return;
   try {
     const mode = await deleteService(id);
     if (!mode) { showToast("That service plan could not be found."); return; }
@@ -402,7 +409,7 @@ async function renderProgramWorkspace() {
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
   headingContent.append(make("h1", "", "Upcoming Programs"), make("p", "", "Prepare church program announcements and review responses when the app is connected."));
   const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-program"; addButton.append(icon("plus", ""), document.createTextNode(" Add Program"));
-  heading.append(headingContent, addButton); content.append(heading, previewBanner());
+  heading.append(headingContent, addButton); content.append(heading);
   const note = make("section", "program-analytics-note");
   note.append(make("strong", "", "Views and attendance responses are not connected yet."), make("p", "", "This phase builds the admin workflow only. Counts will become real after the public app and backend are connected."));
   content.append(note);
@@ -444,7 +451,7 @@ async function renderProgramWorkspace() {
     });
     content.append(list);
   } catch (error) {
-    content.append(make("section", "list-empty", "Program preview data could not be loaded."));
+    content.append(make("section", "list-empty", "Programs could not be loaded from the admin database."));
   }
 }
 function formatProgramDateRange(startDate, endDate) {
@@ -457,16 +464,19 @@ function formatProgramDateRange(startDate, endDate) {
 async function renderProgramForm() {
   const content = document.getElementById("admin-content"); if (!content) return;
   const existing = state.editingProgramId ? await getProgram(state.editingProgramId) : null;
-  if (state.editingProgramId && !existing) { state.programMode = "list"; state.editingProgramId = null; showToast("That demo program is no longer available."); return renderProgramWorkspace(); }
+  if (state.editingProgramId && !existing) { state.programMode = "list"; state.editingProgramId = null; showToast("That program is no longer available."); return renderProgramWorkspace(); }
   state.programFlyerUrl = existing ? existing.flyerDataUrl || "" : "";
   content.replaceChildren();
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
   headingContent.append(make("h1", "", existing ? "Edit Program" : "Add Upcoming Program"), make("p", "", existing ? "Update the program details and response wording." : "Add the event details that will later appear in the connected hymnal app."));
   const cancel = make("button", "button button-secondary", "Cancel"); cancel.type = "button"; cancel.dataset.action = "cancel-program";
-  heading.append(headingContent, cancel); content.append(heading, previewBanner());
+  heading.append(headingContent, cancel); content.append(heading);
   const program = existing || { title: "", venue: "", startDate: "", endDate: "", responseQuestion: "Will you be available for this program?", yesLabel: "Yes, I’ll be there", noLabel: "Not this time" };
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit program form" : "Add program form");
   panel.innerHTML = '<form id="program-form" novalidate><h2 class="form-section-title">Program details</h2><p class="form-section-help">Program changes stay in this browser preview and are not published to the public app in this phase.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="program-title">Program name <span aria-hidden="true">*</span></label><input class="form-input" id="program-title" name="title" type="text" maxlength="120" placeholder="Annual Thanksgiving Service" value="' + escapeHtml(program.title) + '" required></div><div class="admin-field"><label for="program-venue">Venue <span aria-hidden="true">*</span></label><input class="form-input" id="program-venue" name="venue" type="text" maxlength="160" placeholder="Church auditorium" value="' + escapeHtml(program.venue) + '" required></div><div class="admin-field"><label for="program-start-date">From <span aria-hidden="true">*</span></label><input class="form-input" id="program-start-date" name="startDate" type="date" value="' + escapeHtml(program.startDate) + '" required></div><div class="admin-field"><label for="program-end-date">To <span class="optional-label">optional</span></label><input class="form-input" id="program-end-date" name="endDate" type="date" value="' + escapeHtml(program.endDate || "") + '"><p class="field-hint">Leave this blank for a one-day program.</p></div></div><section class="program-flyer-section" aria-labelledby="program-flyer-heading"><h2 id="program-flyer-heading">Program flyer</h2><p>Upload a PNG, JPEG, or WebP image. The preview keeps the full flyer visible without cropping.</p><label class="button button-secondary flyer-upload-button" for="program-flyer-input">Choose flyer</label><input class="visually-hidden" id="program-flyer-input" type="file" accept="image/png,image/jpeg,image/webp"><div id="program-flyer-preview" class="program-flyer-preview" aria-live="polite"></div><p class="field-hint">Large images are resized proportionally for this browser preview. A server-backed upload will be added later.</p><p id="program-flyer-error" class="form-error" role="alert" aria-live="polite"></p></section><section class="program-response-section"><h2>Attendance response</h2><p>Set the question and the wording shown on the two response buttons.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="program-response-question">Question shown to users</label><input class="form-input" id="program-response-question" name="responseQuestion" type="text" maxlength="120" value="' + escapeHtml(program.responseQuestion) + '" required></div><div class="admin-field"><label for="program-yes-label">Yes button</label><input class="form-input" id="program-yes-label" name="yesLabel" type="text" maxlength="48" value="' + escapeHtml(program.yesLabel) + '" required></div><div class="admin-field"><label for="program-no-label">No button</label><input class="form-input" id="program-no-label" name="noLabel" type="text" maxlength="48" value="' + escapeHtml(program.noLabel) + '" required></div></div></section><div id="program-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-program" data-id="' + escapeHtml(existing.id) + '">Delete Program</button>' : "") + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-program">Cancel</button><button class="button button-primary" type="submit">Save Program</button></div></div></form>';
+  panel.innerHTML = panel.innerHTML
+    .replace("Program changes stay in this browser preview and are not published to the public app in this phase.", "Program changes are saved to the shared database and are not published to the public app yet.")
+    .replace("Large images are resized proportionally for this browser preview. A server-backed upload will be added later.", "Large images are resized proportionally before they are stored with this program.");
   content.append(panel);
   updateProgramFlyerPreview(state.programFlyerUrl);
   state.programFormStart = programFormSignature();
@@ -559,7 +569,7 @@ async function cancelProgramForm() {
 }
 async function removeProgramFromPreview(id) {
   const program = await getProgram(id); if (!program) { showToast("That demo program is no longer available."); return; }
-  if (!window.confirm('Delete the program "' + program.title + '" from this browser demo?')) return;
+  if (!window.confirm('Delete the program "' + program.title + '" from the admin database?')) return;
   try {
     const mode = await deleteProgram(id);
     if (!mode) { showToast("That program could not be found."); return; }
@@ -572,8 +582,8 @@ async function renderSettingsWorkspace() {
   const content = document.getElementById("admin-content"); if (!content) return;
   content.replaceChildren();
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
-  headingContent.append(make("h1", "", "Settings"), make("p", "", "Admin-only preferences for this browser workspace."));
-  heading.append(headingContent); content.append(heading, previewBanner());
+  headingContent.append(make("h1", "", "Settings"), make("p", "", "Admin-only preferences saved in Supabase."));
+  heading.append(headingContent); content.append(heading);
   try {
     const results = await Promise.all([getCategories(), getAdminSettings(), getDailyQuoteSettings()]);
     const categories = results[0]; const settings = results[1]; const quoteSettings = results[2];
@@ -587,16 +597,20 @@ async function renderSettingsWorkspace() {
     appearancePanel.innerHTML = '<header class="panel-header"><div><h2>Appearance</h2><p>Set the default theme for the admin web app.</p></div></header><div class="panel-body"><div class="theme-setting-row"><div><strong>Dark theme</strong><p id="theme-current-description">' + (themeMode === "system" ? "Following device theme (currently " + getSystemTheme() + ")." : (themeMode === "dark" ? "Dark theme is set for this admin workspace." : "Light theme is set for this admin workspace.")) + '</p></div><button type="button" id="admin-theme-switch" class="theme-switch-control" role="switch" aria-label="Dark theme" aria-checked="' + String(darkEnabled) + '" data-action="toggle-admin-theme"><span class="theme-switch-track" aria-hidden="true"><span></span></span></button></div><div class="theme-system-row"><span>Let this device choose light or dark.</span><button type="button" class="button button-secondary" data-action="use-system-theme" aria-pressed="' + String(themeMode === "system") + '">Use device theme</button></div></div>';
     const statusPanel = make("section", "panel settings-status");
     const statusHeader = make("header", "panel-header", ""); const statusTitle = document.createElement("div");
-    statusTitle.append(make("h2", "", "Preview status"), make("p", "", "What this settings page can change today.")); statusHeader.append(statusTitle);
+    statusTitle.append(make("h2", "", "Backend status"), make("p", "", "What is connected in this phase.")); statusHeader.append(statusTitle);
     const statusBody = make("div", "panel-body", "");
     const statusList = make("ul", "settings-status-list", "");
-    statusList.append(make("li", "", "Program announcements and preferences are saved in this browser only."), make("li", "", "Nothing is published to the public hymnal in this phase."), make("li", "", "Real analytics, admin authorization, and server-backed storage come in a later phase."));
+    statusList.append(make("li", "", "Administrator access and admin records are protected by Supabase Auth and row-level security."), make("li", "", "Hymns, categories, service plans, programs, and settings are saved to the shared database."), make("li", "", "Public-site publishing, app responses, and program analytics are not connected yet."));
     statusBody.append(statusList); statusPanel.append(statusHeader, statusBody);
     const grid = make("div", "settings-grid", ""); grid.append(panel, appearancePanel, statusPanel); content.append(grid);
     const programSettings = make("section", "panel settings-module");
     programSettings.innerHTML = '<header class="panel-header"><div><h2>Upcoming programs</h2><p>Create and edit event announcements, flyers, and attendance wording.</p></div></header><div class="panel-body"><p class="settings-module-copy">The program manager is available in the admin menu. View counts and attendance totals will appear after the public app and backend are connected.</p><button class="button button-secondary" type="button" data-action="navigate" data-view="programs">Open Upcoming Programs</button></div>';
     const quotePanel = make("section", "panel settings-module quote-settings");
     quotePanel.innerHTML = '<header class="panel-header"><div><h2>Daily Scripture Quote</h2><p>Choose the scripture sources and when the quote should refresh.</p></div></header><div class="panel-body"><form id="daily-quote-form" novalidate><label class="quote-enable-row"><input id="daily-quote-enabled" name="enabled" type="checkbox"' + (quoteSettings.enabled ? " checked" : "") + '><span><strong>Enable the quote feature</strong><small>Controls the planned quote feature in the member hymnal.</small></span></label><fieldset class="quote-source-fieldset"><legend>Allowed Bible books</legend><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Psalms"' + (quoteSettings.books.includes("Psalms") ? " checked" : "") + '><span>Psalms</span></label><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Proverbs"' + (quoteSettings.books.includes("Proverbs") ? " checked" : "") + '><span>Proverbs</span></label></fieldset><div class="admin-field"><label for="quote-refresh-mode">When should a new quote be generated?</label><select class="form-select" id="quote-refresh-mode" name="refreshMode"><option value="on-open"' + (quoteSettings.refreshMode === "on-open" ? " selected" : "") + '>Every time a user opens the app</option><option value="daily"' + (quoteSettings.refreshMode === "daily" ? " selected" : "") + '>Once per day</option></select><p class="field-hint">This preference is saved in the browser preview; the public quote will be wired in the backend phase.</p></div><div class="quote-provider-notice"><strong>Groq connection · Not configured</strong><p>Add the Groq API key as a server secret in the backend phase. It should never be entered or stored in this browser page.</p></div><div id="quote-settings-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-primary" type="submit">Save Quote Settings</button></div></div></form></div>';
+    quotePanel.innerHTML = quotePanel.innerHTML.replace(
+      "This preference is saved in the browser preview; the public quote will be wired in the backend phase.",
+      "These preferences are saved to Supabase. Quote generation and display in the member app are separate work."
+    ).replace("Add the Groq API key as a server secret in the backend phase.", "Add the Groq API key as a server secret when quote generation is implemented.");
     const modules = make("div", "settings-modules-grid"); modules.append(programSettings, quotePanel); content.append(modules);
     state.settingsFormStart = settings.defaultHymnCategory || "";
     state.quoteSettingsFormStart = quoteSettingsFormSignature();
@@ -666,9 +680,9 @@ async function renderHymnList() {
   const content = document.getElementById("admin-content"); if (!content) return;
   content.replaceChildren();
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
-  headingContent.append(make("h1", "", "Hymns"), make("p", "", "Search and manage the bilingual demo hymn library."));
+  headingContent.append(make("h1", "", "Hymns"), make("p", "", "Search and manage the bilingual hymn library."));
   const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-hymn"; addButton.append(icon("plus", ""), document.createTextNode(" Add New Hymn"));
-  heading.append(headingContent, addButton); content.append(heading, previewBanner());
+  heading.append(headingContent, addButton); content.append(heading);
   const controls = make("section", "hymn-toolbar");
   const left = make("div", "hymn-toolbar-left");
   const search = make("input", "hymn-search"); search.type = "search"; search.id = "hymn-search"; search.placeholder = "Search number, title, first line, category…"; search.setAttribute("aria-label", "Search hymns"); search.dataset.filter = "search"; search.value = state.search;
@@ -678,7 +692,7 @@ async function renderHymnList() {
   status.innerHTML = '<option value="">All statuses</option><option value="draft">Drafts</option><option value="published">Published</option>'; status.value = state.statusFilter;
   const category = make("select", "filter-select"); category.setAttribute("aria-label", "Filter by category"); category.dataset.filter = "category"; category.innerHTML = await categoryOptions(state.categoryFilter, true);
   filters.append(status, category); controls.append(left, filters); content.append(controls);
-  content.append(make("p", "hymn-results-label", "Loading demo hymns…"));
+  content.append(make("p", "hymn-results-label", "Loading hymns…"));
   const tableWrap = make("div", "hymn-table-wrap"); tableWrap.id = "hymn-table-wrap";
   tableWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody id="hymn-table-body"></tbody></table>';
   content.append(tableWrap);
@@ -694,7 +708,7 @@ async function refreshHymnRows() {
     if (!query) return true;
     return [hymn.hymn_number, hymn.title_en, hymn.title_yoruba, hymn.first_line_en, hymn.first_line_yoruba, hymn.category].join(" ").toLowerCase().includes(query);
   });
-  const label = root.querySelector(".hymn-results-label"); if (label) label.textContent = matching.length + (matching.length === 1 ? " demo hymn" : " demo hymns");
+  const label = root.querySelector(".hymn-results-label"); if (label) label.textContent = matching.length + (matching.length === 1 ? " hymn" : " hymns");
   const tableWrap = document.getElementById("hymn-table-wrap"); if (!tableWrap) return;
   if (!matching.length) {
     tableWrap.className = "list-empty";
@@ -779,7 +793,7 @@ function applyAdminTheme(theme) {
 async function renderHymnForm() {
   const content = document.getElementById("admin-content"); if (!content) return;
   const existing = state.editingHymnId ? await getHymn(state.editingHymnId) : null;
-  if (state.editingHymnId && !existing) { state.hymnMode = "list"; showToast("That demo hymn is no longer available."); return renderHymnList(); }
+  if (state.editingHymnId && !existing) { state.hymnMode = "list"; showToast("That hymn is no longer available."); return renderHymnList(); }
   const results = await Promise.all([getCategories(), getAdminSettings()]);
   const categories = results[0]; const settings = results[1];
   const hymn = existing || { hymn_number: "", title_en: "", title_yoruba: "", first_line_en: "", first_line_yoruba: "", category: "", verses_en: [], verses_yoruba: [], chorus_en: "", chorus_yoruba: "", body_html_en: "", body_html_yoruba: "", chorus_html_en: "", chorus_html_yoruba: "", status: "draft" };
@@ -790,8 +804,7 @@ async function renderHymnForm() {
   const yorubaBody = hymn.body_html_yoruba || escapeLines(hymn.verses_yoruba);
   const englishChorus = hymn.chorus_html_en || (hymn.chorus_en ? "<p>" + escapeHtml(hymn.chorus_en) + "</p>" : "");
   const yorubaChorus = hymn.chorus_html_yoruba || (hymn.chorus_yoruba ? "<p>" + escapeHtml(hymn.chorus_yoruba) + "</p>" : "");
-  content.innerHTML = '<div class="page-heading"><div><h1>' + (existing ? "Edit Hymn" : "Add New Hymn") + '</h1><p>' + (existing ? "Edit the demo record and choose whether to keep it as a draft or mark it published." : "Create a local demo record. New hymns start as drafts unless you publish the preview status.") + '</p></div><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button></div>';
-  content.append(previewBanner());
+  content.innerHTML = '<div class="page-heading"><div><h1>' + (existing ? "Edit Hymn" : "Add New Hymn") + '</h1><p>' + (existing ? "Edit the hymn in the shared admin database." : "Create a hymn record. New hymns start as drafts unless you mark them published.") + '</p></div><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button></div>';
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit hymn form" : "Add hymn form");
   panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn number, English title, category, and at least one opening line and verse are required. Yoruba text is optional.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number <span aria-hidden="true">*</span></label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="hymn-category">Category <span aria-hidden="true">*</span></label><select class="form-select" id="hymn-category" name="category" required>' + categoryHtml + '</select></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use one paragraph for each verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use one paragraph for each verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div></section><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
   content.append(panel);
@@ -848,7 +861,7 @@ async function confirmDeleteHymn(hymn) {
   const dialog = document.createElement("dialog"); dialog.className = "confirm-dialog"; dialog.setAttribute("aria-labelledby", "delete-hymn-title");
   const inner = make("div", "confirm-dialog-inner");
   inner.append(make("h2", "", "Are you sure you want to delete this hymn?"));
-  const details = document.createElement("p"); details.append(document.createTextNode("You are deleting "), make("strong", "", "Hymn #" + hymn.hymn_number + " — " + hymn.title_en), document.createTextNode(" from this browser's demo data. This does not change the public hymnal."));
+  const details = document.createElement("p"); details.append(document.createTextNode("You are deleting "), make("strong", "", "Hymn #" + hymn.hymn_number + " — " + hymn.title_en), document.createTextNode(" from the admin database. This does not change the public hymnal."));
   const actions = make("div", "confirm-dialog-actions");
   const cancel = make("button", "button button-secondary", "Cancel"); cancel.type = "button";
   const remove = make("button", "button button-danger", "Delete"); remove.type = "button";
@@ -883,8 +896,6 @@ root.addEventListener("click", async function (event) {
   if (action === "toggle-password") {
     const input = document.getElementById("admin-password"); if (!input) return;
     const show = input.type === "password"; input.type = show ? "text" : "password"; button.textContent = show ? "Hide" : "Show"; button.setAttribute("aria-label", show ? "Hide password" : "Show password");
-  } else if (action === "preview") {
-    state.view = "preview"; state.activeView = "dashboard"; closeMenu(); renderShell();
   } else if (action === "navigate") {
     if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes?")) return;
     if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes?")) return;
@@ -954,13 +965,13 @@ root.addEventListener("click", async function (event) {
   } else if (action === "close-menu") {
     closeMenu();
   } else if (action === "logout") {
-    if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes and exit the preview?")) return;
-    if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes and exit the preview?")) return;
-    if (isServiceFormDirty() && !window.confirm("Discard your unsaved service plan changes and exit the preview?")) return;
-    if (isProgramFormDirty() && !window.confirm("Discard your unsaved program changes and exit the preview?")) return;
-    if (isSettingsFormDirty() && !window.confirm("Discard your unsaved workspace preference and exit the preview?")) return;
-    if (isQuoteSettingsFormDirty() && !window.confirm("Discard your unsaved quote settings and exit the preview?")) return;
-    await logoutAdmin(); state.formStart = null; state.categoryFormStart = null; state.serviceFormStart = null; state.programFormStart = null; state.programFlyerUrl = ""; state.quoteSettingsFormStart = null; state.settingsFormStart = null; renderLogin();
+    if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes and sign out?")) return;
+    if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes and sign out?")) return;
+    if (isServiceFormDirty() && !window.confirm("Discard your unsaved service plan changes and sign out?")) return;
+    if (isProgramFormDirty() && !window.confirm("Discard your unsaved program changes and sign out?")) return;
+    if (isSettingsFormDirty() && !window.confirm("Discard your unsaved workspace preference and sign out?")) return;
+    if (isQuoteSettingsFormDirty() && !window.confirm("Discard your unsaved quote settings and sign out?")) return;
+    await logoutAdmin(); state.authStatus = { configured: true, authenticated: false, admin: null }; state.formStart = null; state.categoryFormStart = null; state.serviceFormStart = null; state.programFormStart = null; state.programFlyerUrl = ""; state.quoteSettingsFormStart = null; state.settingsFormStart = null; renderLogin();
   }
 });
 
@@ -971,8 +982,16 @@ root.addEventListener("submit", async function (event) {
     feedback.textContent = "";
     if (!email.value.trim() || !email.validity.valid || !password.value) { feedback.textContent = "Enter a valid email address and password to continue."; (!email.value.trim() || !email.validity.valid ? email : password).focus(); return; }
     submit.disabled = true; submit.setAttribute("aria-busy", "true"); label.textContent = "Checking…";
-    try { await loginAdmin(email.value.trim(), password.value); }
-    catch (error) { feedback.textContent = error && error.message ? error.message : "Sign-in is not available in this phase."; }
+     try {
+       const admin = await loginAdmin(email.value.trim(), password.value);
+       password.value = "";
+       const importResult = await initializeAdminData();
+       state.authStatus = { configured: true, authenticated: true, admin: admin };
+       state.activeView = "dashboard";
+       renderShell();
+       if (importResult.imported) showToast(importResult.imported + " existing hymns imported to the shared admin database.");
+     }
+     catch (error) { feedback.textContent = error && error.message ? error.message : "Admin sign-in failed."; }
     finally { submit.disabled = false; submit.removeAttribute("aria-busy"); label.textContent = "Sign in"; }
   } else if (event.target.id === "category-form") {
     event.preventDefault(); await saveCategoryForm(event.submitter);
@@ -1044,6 +1063,23 @@ window.addEventListener("beforeunload", function (event) {
   if (isFormDirty() || isSettingsFormDirty() || isQuoteSettingsFormDirty() || isProgramFormDirty()) { event.preventDefault(); event.returnValue = ""; }
 });
 
-getAdminSettings().then(function (settings) { applyAdminTheme(settings.defaultTheme); }).catch(function () { applyAdminTheme("system"); });
-initializeAdminAuth().then(function (result) { state.authStatus = result; }).catch(function () { state.authStatus = null; });
 renderLogin();
+initializeAdminAuth().then(async function (result) {
+  state.authStatus = result;
+  if (!result.authenticated) return;
+  try {
+    const importResult = await initializeAdminData();
+    state.activeView = "dashboard";
+    renderShell();
+    if (importResult.imported) showToast(importResult.imported + " existing hymns imported to the shared admin database.");
+  } catch (error) {
+    state.authStatus = { configured: true, authenticated: false, admin: null };
+    await logoutAdmin();
+    renderLogin();
+    const feedback = document.getElementById("login-error");
+    if (feedback) feedback.textContent = error && error.message ? error.message : "The admin workspace could not connect to Supabase.";
+  }
+}).catch(function () {
+  state.authStatus = null;
+  renderLogin();
+});

@@ -49,6 +49,17 @@ create table if not exists public.hymns (
   verses_yoruba text[] not null default '{}',
   chorus_en text not null default '',
   chorus_yoruba text not null default '',
+  keywords text[] not null default '{}',
+  author_en text not null default '',
+  source_hymnal text not null default '',
+  source_publication_year integer,
+  source_hymn_number integer,
+  source_first_line_en text not null default '',
+  source_hymnary_url text not null default '',
+  lyrics_source_url text not null default '',
+  copyright_status text not null default '',
+  copyright_basis text not null default '',
+  yoruba_status text not null default '',
   body_html_en text not null default '',
   body_html_yoruba text not null default '',
   chorus_html_en text not null default '',
@@ -167,7 +178,10 @@ begin
 
   insert into public.hymns (
     hymn_number, title_en, title_yoruba, first_line_en, first_line_yoruba,
-    verses_en, verses_yoruba, chorus_en, chorus_yoruba,
+    verses_en, verses_yoruba, chorus_en, chorus_yoruba, keywords, author_en,
+    source_hymnal, source_publication_year, source_hymn_number,
+    source_first_line_en, source_hymnary_url, lyrics_source_url,
+    copyright_status, copyright_basis, yoruba_status,
     body_html_en, body_html_yoruba, chorus_html_en, chorus_html_yoruba,
     category, status, published_at
   )
@@ -176,6 +190,11 @@ begin
     coalesce(source.first_line_en, ''), coalesce(source.first_line_yoruba, ''),
     coalesce(source.verses_en, '{}'::text[]), coalesce(source.verses_yoruba, '{}'::text[]),
     coalesce(source.chorus_en, ''), coalesce(source.chorus_yoruba, ''),
+    coalesce(source.keywords, '{}'::text[]), coalesce(source.author_en, ''),
+    coalesce(source.source_hymnal, ''), source.source_publication_year, source.source_hymn_number,
+    coalesce(source.source_first_line_en, ''), coalesce(source.source_hymnary_url, ''),
+    coalesce(source.lyrics_source_url, ''), coalesce(source.copyright_status, ''),
+    coalesce(source.copyright_basis, ''), coalesce(source.yoruba_status, ''),
     coalesce(source.body_html_en, ''), coalesce(source.body_html_yoruba, ''),
     coalesce(source.chorus_html_en, ''), coalesce(source.chorus_html_yoruba, ''),
     btrim(source.category), 'published', now()
@@ -183,7 +202,10 @@ begin
     hymn_number integer, title_en text, title_yoruba text,
     first_line_en text, first_line_yoruba text,
     verses_en text[], verses_yoruba text[],
-    chorus_en text, chorus_yoruba text,
+    chorus_en text, chorus_yoruba text, keywords text[], author_en text,
+    source_hymnal text, source_publication_year integer, source_hymn_number integer,
+    source_first_line_en text, source_hymnary_url text, lyrics_source_url text,
+    copyright_status text, copyright_basis text, yoruba_status text,
     body_html_en text, body_html_yoruba text,
     chorus_html_en text, chorus_html_yoruba text,
     category text

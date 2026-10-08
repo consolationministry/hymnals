@@ -1,174 +1,36 @@
-// Phase 2B mock data adapter. This data is isolated to this admin preview and never changes the public hymn bundle.
-// Replace the provider functions with Supabase-backed calls only after Auth and row-level authorization are configured.
-const STORAGE_KEY = "consolation-hymnal-admin-demo-v1";
-const CATEGORY_STORAGE_KEY = "consolation-hymnal-admin-categories-v1";
-const SERVICE_STORAGE_KEY = "consolation-hymnal-admin-services-v1";
-const SETTINGS_STORAGE_KEY = "consolation-hymnal-admin-settings-v1";
-const PROGRAM_STORAGE_KEY = "consolation-hymnal-admin-programs-v1";
-const QUOTE_SETTINGS_STORAGE_KEY = "consolation-hymnal-admin-daily-quote-v1";
-const initialAdminSettings = { defaultHymnCategory: "Praise", defaultTheme: "system" };
-const initialDailyQuoteSettings = { enabled: true, books: ["Psalms", "Proverbs"], refreshMode: "on-open" };
-const initialDemoCategories = ["Praise", "Worship", "Thanksgiving", "Prayer", "Faith", "Hope", "Communion", "Evangelism"];
-const initialDemoHymns = [
-  {
-    id: "demo-001", hymn_number: 1, title_en: "Hymn Demo One", title_yoruba: "Yoruba Demo Hymn One",
-    first_line_en: "Sample first line for preview only", first_line_yoruba: "Yoruba demo first line",
-    verses_en: ["Sample verse content for the administration preview."], verses_yoruba: ["Yoruba demo verse content."],
-    chorus_en: "Sample chorus content, kept separate from verses.", chorus_yoruba: "Yoruba demo chorus content, kept separate from verses.",
-    body_html_en: "<p>Sample verse content for the administration preview.</p>", body_html_yoruba: "<p>Yoruba demo verse content.</p>",
-    chorus_html_en: "<p>Sample chorus content, kept separate from verses.</p>", chorus_html_yoruba: "<p>Yoruba demo chorus content, kept separate from verses.</p>",
-    category: "Praise", status: "published", created_at: "2026-09-28T10:00:00.000Z", updated_at: "2026-10-06T13:30:00.000Z", published_at: "2026-10-01T09:00:00.000Z"
-  },
-  {
-    id: "demo-002", hymn_number: 2, title_en: "Hymn Demo Two", title_yoruba: "Yoruba Demo Hymn Two",
-    first_line_en: "Another sample opening line", first_line_yoruba: "Another Yoruba demo line",
-    verses_en: ["Original sample verse text."], verses_yoruba: [], chorus_en: "Original sample chorus text.", chorus_yoruba: "",
-    body_html_en: "<p>Original sample verse text.</p>", body_html_yoruba: "", chorus_html_en: "<p>Original sample chorus text.</p>", chorus_html_yoruba: "",
-    category: "Thanksgiving", status: "draft", created_at: "2026-10-02T08:15:00.000Z", updated_at: "2026-10-05T15:45:00.000Z", published_at: null
-  },
-  {
-    id: "demo-003", hymn_number: 3, title_en: "Hymn Demo Three", title_yoruba: "",
-    first_line_en: "A third sample first line", first_line_yoruba: "",
-    verses_en: ["Demo content only; no published hymn lyrics."], verses_yoruba: [], chorus_en: "", chorus_yoruba: "",
-    body_html_en: "<p>Demo content only; no published hymn lyrics.</p>", body_html_yoruba: "", chorus_html_en: "", chorus_html_yoruba: "",
-    category: "Worship", status: "published", created_at: "2026-09-20T12:00:00.000Z", updated_at: "2026-10-03T09:20:00.000Z", published_at: "2026-09-22T11:00:00.000Z"
-  }
-];
-const demoServicePlans = [
-  { id: "service-demo-1", title: "Sunday Service · Demo", date: "2026-10-11", hymn_ids: ["demo-001", "demo-003"] },
-  { id: "service-demo-2", title: "Midweek Gathering · Demo", date: "2026-10-14", hymn_ids: ["demo-002"] }
-];
-let memoryRecords = null;
-let memoryCategories = null;
-let memoryServices = null;
-let memoryAdminSettings = null;
-let memoryPrograms = null;
-let memoryDailyQuoteSettings = null;
-let lastStorageMode = null;
+import { hymns as repositoryHymns } from "../../data/public-domain-hymns.js";
+import { requireAdmin } from "./admin-auth.js?v=31";
+import { supabaseRequest } from "./supabase-client.js?v=31";
 
+const GLOBAL_ROW_ID = "global";
+const DAILY_QUOTE_BOOKS = ["Psalms", "Proverbs"];
+
+async function adminRequest(path, options) {
+  await requireAdmin();
+  return supabaseRequest(path, options);
+}
+
+function asArray(value) { return Array.isArray(value) ? value : []; }
+function firstRow(value) { return asArray(value)[0] || null; }
 function copy(value) { return JSON.parse(JSON.stringify(value)); }
-function readRecords() {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored !== null) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) { memoryRecords = parsed; return copy(parsed); }
-    }
-  } catch (error) {
-    // Fall through to this page's in-memory copy when browser storage is blocked.
-  }
-  return copy(memoryRecords || initialDemoHymns);
+function nowIso() { return new Date().toISOString(); }
+
+function escapeHtml(value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, function (character) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[character];
+  });
 }
-function writeRecords(records) {
-  memoryRecords = copy(records);
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-    lastStorageMode = "browser";
-    return "browser";
-  } catch (error) {
-    lastStorageMode = "memory";
-    return "memory";
-  }
+
+function paragraphHtml(lines) {
+  return asArray(lines).map(function (line) { return "<p>" + escapeHtml(line) + "</p>"; }).join("");
 }
-function readCategoryRecords() {
-  try {
-    const stored = window.localStorage.getItem(CATEGORY_STORAGE_KEY);
-    if (stored !== null) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        const seen = new Set(); const clean = [];
-        parsed.forEach(function (item) {
-          if (typeof item !== "string") return;
-          const name = item.trim(); const key = name.toLowerCase();
-          if (name && !seen.has(key)) { seen.add(key); clean.push(name); }
-        });
-        memoryCategories = clean; return copy(clean);
-      }
-    }
-  } catch (error) {
-    // Fall through to this page's in-memory category copy when browser storage is blocked.
-  }
-  return copy(memoryCategories || initialDemoCategories);
-}
-function writeCategoryRecords(categories) {
-  memoryCategories = copy(categories);
-  try {
-    window.localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(categories));
-    lastStorageMode = "browser"; return "browser";
-  } catch (error) { lastStorageMode = "memory"; return "memory"; }
-}
-function readServiceRecords() {
-  try {
-    const stored = window.localStorage.getItem(SERVICE_STORAGE_KEY);
-    if (stored !== null) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) { memoryServices = parsed; return copy(parsed); }
-    }
-  } catch (error) {
-    // Fall through to this page's in-memory service plan copy when browser storage is blocked.
-  }
-  return copy(memoryServices || demoServicePlans);
-}
-function writeServiceRecords(records) {
-  memoryServices = copy(records);
-  try {
-    window.localStorage.setItem(SERVICE_STORAGE_KEY, JSON.stringify(records));
-    lastStorageMode = "browser"; return "browser";
-  } catch (error) { lastStorageMode = "memory"; return "memory"; }
-}
-function readProgramRecords() {
-  try {
-    const stored = window.localStorage.getItem(PROGRAM_STORAGE_KEY);
-    if (stored !== null) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) { memoryPrograms = parsed; return copy(parsed); }
-    }
-  } catch (error) {
-    // Fall through to the in-memory copy when browser storage is blocked.
-  }
-  return copy(memoryPrograms || []);
-}
-function writeProgramRecords(records) {
-  memoryPrograms = copy(records);
-  try {
-    window.localStorage.setItem(PROGRAM_STORAGE_KEY, JSON.stringify(records));
-    lastStorageMode = "browser"; return "browser";
-  } catch (error) { lastStorageMode = "memory"; return "memory"; }
-}
-function readDailyQuoteSettings() {
-  try {
-    const stored = window.localStorage.getItem(QUOTE_SETTINGS_STORAGE_KEY);
-    if (stored !== null) {
-      const parsed = JSON.parse(stored);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        const books = Array.isArray(parsed.books) ? parsed.books.filter(function (book, index, values) {
-          return ["Psalms", "Proverbs"].includes(book) && values.indexOf(book) === index;
-        }) : initialDailyQuoteSettings.books;
-        memoryDailyQuoteSettings = {
-          enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : initialDailyQuoteSettings.enabled,
-          books: books,
-          refreshMode: ["on-open", "daily"].includes(parsed.refreshMode) ? parsed.refreshMode : initialDailyQuoteSettings.refreshMode
-        };
-        return copy(memoryDailyQuoteSettings);
-      }
-    }
-  } catch (error) {
-    // Fall through to the in-memory copy when browser storage is blocked.
-  }
-  return copy(memoryDailyQuoteSettings || initialDailyQuoteSettings);
-}
-function writeDailyQuoteSettings(settings) {
-  memoryDailyQuoteSettings = copy(settings);
-  try {
-    window.localStorage.setItem(QUOTE_SETTINGS_STORAGE_KEY, JSON.stringify(memoryDailyQuoteSettings));
-    lastStorageMode = "browser"; return "browser";
-  } catch (error) { lastStorageMode = "memory"; return "memory"; }
-}
+
 function validDate(value) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(value + "T00:00:00.000Z");
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
+
 function normalizeProgramData(value) {
   const data = value || {};
   const title = typeof data.title === "string" ? data.title.trim() : "";
@@ -193,263 +55,375 @@ function normalizeProgramData(value) {
   if (responseQuestion.length > 120) throw new Error("The availability question must be 120 characters or fewer.");
   if (!yesLabel || !noLabel) throw new Error("Enter both response button labels.");
   if (yesLabel.length > 48 || noLabel.length > 48) throw new Error("Response button labels must be 48 characters or fewer.");
-  return { title: title, venue: venue, startDate: startDate, endDate: endDate, flyerDataUrl: flyerDataUrl, responseQuestion: responseQuestion, yesLabel: yesLabel, noLabel: noLabel };
+  return { title, venue, startDate, endDate, flyerDataUrl, responseQuestion, yesLabel, noLabel };
 }
-function normalizeServiceData(value) {
-  const data = value || {}; const title = typeof data.title === "string" ? data.title.trim() : "";
+
+function toProgramRow(value) {
+  return {
+    title: value.title,
+    venue: value.venue,
+    start_date: value.startDate,
+    end_date: value.endDate || null,
+    flyer_data_url: value.flyerDataUrl || "",
+    response_question: value.responseQuestion,
+    yes_label: value.yesLabel,
+    no_label: value.noLabel
+  };
+}
+
+function fromProgramRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    venue: row.venue,
+    startDate: row.start_date,
+    endDate: row.end_date || "",
+    flyerDataUrl: row.flyer_data_url || "",
+    responseQuestion: row.response_question,
+    yesLabel: row.yes_label,
+    noLabel: row.no_label,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
+}
+
+function normalizeServiceData(value, knownHymnIds) {
+  const data = value || {};
+  const title = typeof data.title === "string" ? data.title.trim() : "";
   const date = typeof data.date === "string" ? data.date : "";
   if (!title) throw new Error("Enter a service name.");
   if (title.length > 100) throw new Error("Service names must be 100 characters or fewer.");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Choose a valid service date.");
-  const parsedDate = new Date(date + "T00:00:00.000Z");
-  if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) throw new Error("Choose a valid service date.");
-  const hymnIds = Array.isArray(data.hymn_ids) ? Array.from(new Set(data.hymn_ids.map(function (id) { return String(id); }))) : [];
+  if (!validDate(date)) throw new Error("Choose a valid service date.");
+  const hymnIds = Array.isArray(data.hymn_ids) ? Array.from(new Set(data.hymn_ids.map(String))) : [];
   if (!hymnIds.length) throw new Error("Select at least one hymn for this service.");
-  const knownHymnIds = new Set(readRecords().map(function (hymn) { return hymn.id; }));
-  if (hymnIds.some(function (id) { return !knownHymnIds.has(id); })) throw new Error("A selected demo hymn could not be found. Refresh the hymn list and try again.");
-  return { title: title, date: date, hymn_ids: hymnIds };
-}
-function readAdminSettings() {
-  try {
-    const stored = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (stored !== null) {
-      const parsed = JSON.parse(stored);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        memoryAdminSettings = { defaultHymnCategory: typeof parsed.defaultHymnCategory === "string" ? parsed.defaultHymnCategory : initialAdminSettings.defaultHymnCategory, defaultTheme: ["system", "light", "dark"].includes(parsed.defaultTheme) ? parsed.defaultTheme : initialAdminSettings.defaultTheme };
-        return copy(memoryAdminSettings);
-      }
-    }
-  } catch (error) {
-    // Fall through to this page's in-memory workspace preferences when browser storage is blocked.
+  if (hymnIds.some(function (id) { return !knownHymnIds.has(id); })) {
+    throw new Error("A selected hymn could not be found. Refresh the hymn list and try again.");
   }
-  return copy(memoryAdminSettings || initialAdminSettings);
+  return { title, date, hymn_ids: hymnIds };
 }
-function writeAdminSettings(settings) {
-  memoryAdminSettings = { defaultHymnCategory: settings.defaultHymnCategory || "", defaultTheme: settings.defaultTheme || "system" };
-  try {
-    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(memoryAdminSettings));
-    lastStorageMode = "browser"; return "browser";
-  } catch (error) { lastStorageMode = "memory"; return "memory"; }
+
+function normalizeHymnData(value, existing) {
+  const data = value || {};
+  const hymnNumber = Number(data.hymn_number);
+  const category = typeof data.category === "string" ? data.category.trim() : "";
+  if (!Number.isInteger(hymnNumber) || hymnNumber < 1) throw new Error("Enter a valid hymn number.");
+  if (!category) throw new Error("Choose a category for this hymn.");
+  const status = data.status === "published" ? "published" : "draft";
+  const record = Object.assign({}, existing || {}, copy(data), {
+    hymn_number: hymnNumber,
+    category,
+    status,
+    updated_at: nowIso(),
+    published_at: status === "published" ? ((existing && existing.published_at) || nowIso()) : null
+  });
+  delete record.id;
+  delete record.created_at;
+  delete record._storage_mode;
+  return record;
 }
-function allCategoryNames() {
-  const names = readCategoryRecords().concat(readRecords().map(function (item) { return typeof item.category === "string" ? item.category.trim() : ""; }).filter(Boolean));
-  return Array.from(new Set(names)).sort(function (a, b) { return a.localeCompare(b); });
-}
-function validateCategoryName(value) {
-  if (typeof value !== "string") throw new Error("Enter a category name.");
-  const name = value.trim();
-  if (!name) throw new Error("Enter a category name.");
-  if (name.length > 60) throw new Error("Category names must be 60 characters or fewer.");
-  return name;
-}
-function nowIso() { return new Date().toISOString(); }
-function makeId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  return "demo-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9);
+
+export async function initializeAdminData() {
+  const stateRows = await adminRequest("rest/v1/backend_state?select=initial_hymns_imported_at&id=eq." + GLOBAL_ROW_ID);
+  const state = firstRow(stateRows);
+  if (!state || state.initial_hymns_imported_at) return { imported: 0 };
+
+  const existing = await adminRequest("rest/v1/hymns?select=id&limit=1");
+  if (existing.length) return { imported: 0 };
+
+  const importRows = repositoryHymns.map(function (hymn) {
+    const versesEn = asArray(hymn.verses_en);
+    const versesYoruba = asArray(hymn.verses_yoruba);
+    const row = {
+      hymn_number: Number(hymn.hymn_number),
+      title_en: hymn.title_en || "",
+      title_yoruba: hymn.title_yoruba || "",
+      first_line_en: hymn.first_line_en || "",
+      first_line_yoruba: hymn.first_line_yoruba || "",
+      verses_en: versesEn,
+      verses_yoruba: versesYoruba,
+      chorus_en: hymn.chorus_en || "",
+      chorus_yoruba: hymn.chorus_yoruba || "",
+      keywords: asArray(hymn.keywords),
+      author_en: hymn.author_en || "",
+      source_hymnal: hymn.source_hymnal || "",
+      source_publication_year: hymn.source_publication_year || null,
+      source_hymn_number: hymn.source_hymn_number || null,
+      source_first_line_en: hymn.source_first_line_en || "",
+      source_hymnary_url: hymn.source_hymnary_url || "",
+      lyrics_source_url: hymn.lyrics_source_url || "",
+      copyright_status: hymn.copyright_status || "",
+      copyright_basis: hymn.copyright_basis || "",
+      yoruba_status: hymn.yoruba_status || "",
+      body_html_en: paragraphHtml(versesEn),
+      body_html_yoruba: paragraphHtml(versesYoruba),
+      chorus_html_en: paragraphHtml(hymn.chorus_en ? [hymn.chorus_en] : []),
+      chorus_html_yoruba: paragraphHtml(hymn.chorus_yoruba ? [hymn.chorus_yoruba] : []),
+      category: hymn.category || "Praise"
+    };
+    return row;
+  });
+  const imported = await adminRequest("rest/v1/rpc/seed_hymns_if_empty", {
+    method: "POST",
+    body: { p_hymns: importRows }
+  });
+  return { imported: Number(imported) || 0 };
 }
 
 export async function getHymns() {
-  return readRecords().sort(function (a, b) { return Number(a.hymn_number) - Number(b.hymn_number); });
+  return adminRequest("rest/v1/hymns?select=*&order=hymn_number.asc");
 }
+
 export async function getHymn(id) {
-  const record = readRecords().find(function (item) { return item.id === id; });
-  return record ? copy(record) : null;
+  const rows = await adminRequest("rest/v1/hymns?select=*&id=eq." + encodeURIComponent(id) + "&limit=1");
+  return firstRow(rows);
 }
+
 export async function getDraftHymns() {
-  return readRecords().filter(function (item) { return item.status === "draft"; });
+  return adminRequest("rest/v1/hymns?select=*&status=eq.draft&order=hymn_number.asc");
 }
+
 export async function getPublishedHymns() {
-  return readRecords().filter(function (item) { return item.status === "published"; });
+  return adminRequest("rest/v1/hymns?select=*&status=eq.published&order=hymn_number.asc");
 }
+
 export async function getDashboardStats() {
-  const hymns = readRecords();
-  const upcomingServices = await getUpcomingServicePlans();
+  const results = await Promise.all([getHymns(), getUpcomingServicePlans(), getCategories()]);
+  const hymns = results[0];
   return {
     totalHymns: hymns.length,
     publishedHymns: hymns.filter(function (item) { return item.status === "published"; }).length,
     draftHymns: hymns.filter(function (item) { return item.status === "draft"; }).length,
     englishHymns: hymns.filter(function (item) { return Boolean(item.title_en); }).length,
     yorubaHymns: hymns.filter(function (item) { return Boolean(item.title_yoruba); }).length,
-    categories: allCategoryNames().length,
-    upcomingServicePlans: upcomingServices.length
+    categories: results[2].length,
+    upcomingServicePlans: results[1].length
   };
 }
+
 export async function getRecentlyUpdatedHymns(limit) {
-  const count = Number.isFinite(limit) ? Math.max(0, limit) : 5;
-  return readRecords().sort(function (a, b) {
-    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-  }).slice(0, count);
+  const count = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 5;
+  return adminRequest("rest/v1/hymns?select=*&order=updated_at.desc&limit=" + count);
 }
+
+function getToday() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
 export async function getUpcomingServicePlans() {
-  const now = new Date(); const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  return readServiceRecords().filter(function (plan) { return typeof plan.date === "string" && plan.date >= today; }).sort(function (a, b) { return a.date.localeCompare(b.date); });
+  return adminRequest("rest/v1/service_plans?select=*&date=gte." + getToday() + "&order=date.asc");
 }
+
 export async function getServicePlans() {
-  return readServiceRecords().sort(function (a, b) { return String(a.date || "").localeCompare(String(b.date || "")); });
+  return adminRequest("rest/v1/service_plans?select=*&order=date.asc");
 }
+
 export async function getServicePlan(id) {
-  const plan = readServiceRecords().find(function (item) { return item.id === id; });
-  return plan ? copy(plan) : null;
+  const rows = await adminRequest("rest/v1/service_plans?select=*&id=eq." + encodeURIComponent(id) + "&limit=1");
+  return firstRow(rows);
 }
+
 export async function getCategories() {
-  return allCategoryNames();
+  const rows = await adminRequest("rest/v1/categories?select=name&order=name.asc");
+  return rows.map(function (row) { return row.name; });
 }
+
 export async function getAdminSettings() {
-  const settings = readAdminSettings(); const categories = allCategoryNames();
-  if (settings.defaultHymnCategory && !categories.includes(settings.defaultHymnCategory)) settings.defaultHymnCategory = categories[0] || "";
-  return settings;
+  const rows = await adminRequest("rest/v1/admin_settings?select=*&id=eq." + GLOBAL_ROW_ID + "&limit=1");
+  const row = firstRow(rows);
+  return {
+    defaultHymnCategory: row && row.default_hymn_category || "",
+    defaultTheme: row && row.default_theme || "system"
+  };
 }
+
 export async function updateAdminSettings(value) {
-  const current = readAdminSettings();
-  const category = value && typeof value.defaultHymnCategory === "string" ? value.defaultHymnCategory.trim() : current.defaultHymnCategory;
-  const theme = value && typeof value.defaultTheme === "string" ? value.defaultTheme : current.defaultTheme;
-  if (category && !allCategoryNames().includes(category)) throw new Error("Choose a category that still exists.");
+  const data = value || {};
+  const current = await getAdminSettings();
+  const category = typeof data.defaultHymnCategory === "string" ? data.defaultHymnCategory.trim() : current.defaultHymnCategory;
+  const theme = typeof data.defaultTheme === "string" ? data.defaultTheme : current.defaultTheme;
+  const categories = await getCategories();
+  if (category && !categories.includes(category)) throw new Error("Choose a category that still exists.");
   if (!["system", "light", "dark"].includes(theme)) throw new Error("Choose light, dark, or device theme.");
-  return writeAdminSettings({ defaultHymnCategory: category, defaultTheme: theme });
+  await adminRequest("rest/v1/admin_settings?id=eq." + GLOBAL_ROW_ID, {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: { default_hymn_category: category || null, default_theme: theme }
+  });
+  return "remote";
 }
+
 export async function getDailyQuoteSettings() {
-  return readDailyQuoteSettings();
+  const rows = await adminRequest("rest/v1/daily_quote_settings?select=*&id=eq." + GLOBAL_ROW_ID + "&limit=1");
+  const row = firstRow(rows);
+  const books = row && Array.isArray(row.books) ? row.books.filter(function (book) { return DAILY_QUOTE_BOOKS.includes(book); }) : DAILY_QUOTE_BOOKS;
+  return {
+    enabled: row ? Boolean(row.enabled) : true,
+    books: books.length ? books : DAILY_QUOTE_BOOKS.slice(),
+    refreshMode: row && ["on-open", "daily"].includes(row.refresh_mode) ? row.refresh_mode : "on-open"
+  };
 }
+
 export async function updateDailyQuoteSettings(value) {
   const data = value || {};
   const books = Array.isArray(data.books) ? Array.from(new Set(data.books.filter(function (book) {
-    return book === "Psalms" || book === "Proverbs";
+    return DAILY_QUOTE_BOOKS.includes(book);
   }))) : [];
-  const refreshMode = data.refreshMode;
   if (!books.length) throw new Error("Choose Psalms, Proverbs, or both as quote sources.");
-  if (!["on-open", "daily"].includes(refreshMode)) throw new Error("Choose when a new quote should be generated.");
+  if (!["on-open", "daily"].includes(data.refreshMode)) throw new Error("Choose when a new quote should be generated.");
   if (typeof data.enabled !== "boolean") throw new Error("Choose whether the daily quote feature is enabled.");
-  return writeDailyQuoteSettings({ enabled: data.enabled, books: books, refreshMode: refreshMode });
-}
-export function getStorageMode() {
-  if (lastStorageMode) return lastStorageMode;
-  try { window.localStorage.getItem(STORAGE_KEY); return "browser"; }
-  catch (error) { return "memory"; }
+  await adminRequest("rest/v1/daily_quote_settings?id=eq." + GLOBAL_ROW_ID, {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: { enabled: data.enabled, books, refresh_mode: data.refreshMode }
+  });
+  return "remote";
 }
 
-function saveRecord(records, record) {
-  const next = records.filter(function (item) { return item.id !== record.id; });
-  next.push(record);
-  const mode = writeRecords(next);
-  return Object.assign(copy(record), { _storage_mode: mode });
-}
+export function getStorageMode() { return "remote"; }
+
 export async function createHymn(data) {
-  const records = readRecords();
-  const number = Number(data.hymn_number);
-  if (records.some(function (item) { return Number(item.hymn_number) === number; })) throw new Error("Hymn number " + number + " is already in use.");
-  const timestamp = nowIso();
-  const record = Object.assign({}, copy(data), {
-    id: makeId(), hymn_number: number, status: data.status === "published" ? "published" : "draft",
-    created_at: timestamp, updated_at: timestamp, published_at: data.status === "published" ? timestamp : null
+  const record = normalizeHymnData(data);
+  const rows = await adminRequest("rest/v1/hymns?select=*", {
+    method: "POST",
+    prefer: "return=representation",
+    body: record
   });
-  return saveRecord(records, record);
+  return Object.assign(firstRow(rows) || {}, { _storage_mode: "remote" });
 }
+
 export async function updateHymn(id, data) {
-  const records = readRecords();
-  const existing = records.find(function (item) { return item.id === id; });
-  if (!existing) throw new Error("This demo hymn could not be found.");
-  const number = Number(data.hymn_number);
-  if (records.some(function (item) { return item.id !== id && Number(item.hymn_number) === number; })) throw new Error("Hymn number " + number + " is already in use.");
-  const status = data.status === "published" ? "published" : "draft";
-  const timestamp = nowIso();
-  const record = Object.assign({}, existing, copy(data), {
-    id: existing.id, hymn_number: number, status, updated_at: timestamp,
-    published_at: status === "published" ? (existing.published_at || timestamp) : null
+  const existing = await getHymn(id);
+  if (!existing) throw new Error("This hymn could not be found.");
+  const record = normalizeHymnData(data, existing);
+  const rows = await adminRequest("rest/v1/hymns?id=eq." + encodeURIComponent(id) + "&select=*", {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: record
   });
-  return saveRecord(records, record);
+  const updated = firstRow(rows);
+  if (!updated) throw new Error("This hymn could not be updated.");
+  return Object.assign(updated, { _storage_mode: "remote" });
 }
+
 export async function deleteHymn(id) {
-  const records = readRecords();
-  if (!records.some(function (item) { return item.id === id; })) return false;
-  writeRecords(records.filter(function (item) { return item.id !== id; }));
+  await adminRequest("rest/v1/hymns?id=eq." + encodeURIComponent(id), { method: "DELETE" });
   return true;
 }
+
 export async function publishHymn(id) {
   const hymn = await getHymn(id);
-  if (!hymn) throw new Error("This demo hymn could not be found.");
-  hymn.status = "published";
-  return updateHymn(id, hymn);
+  if (!hymn) throw new Error("This hymn could not be found.");
+  return updateHymn(id, Object.assign({}, hymn, { status: "published" }));
 }
+
 export async function saveHymnAsDraft(id) {
   const hymn = await getHymn(id);
-  if (!hymn) throw new Error("This demo hymn could not be found.");
-  hymn.status = "draft";
-  hymn.published_at = null;
-  return updateHymn(id, hymn);
+  if (!hymn) throw new Error("This hymn could not be found.");
+  return updateHymn(id, Object.assign({}, hymn, { status: "draft", published_at: null }));
 }
 
 export async function createCategory(value) {
-  const name = validateCategoryName(value);
-  if (allCategoryNames().some(function (category) { return category.toLowerCase() === name.toLowerCase(); })) throw new Error("A category with that name already exists.");
-  const categories = readCategoryRecords(); categories.push(name);
-  return writeCategoryRecords(categories);
+  const name = typeof value === "string" ? value.trim() : "";
+  if (!name || name.length > 60) throw new Error("Category names must be between 1 and 60 characters.");
+  await adminRequest("rest/v1/categories", {
+    method: "POST",
+    prefer: "return=representation",
+    body: { name }
+  });
+  return "remote";
 }
+
 export async function updateCategory(currentName, value) {
-  const name = validateCategoryName(value); const available = allCategoryNames();
-  if (!available.includes(currentName)) throw new Error("This demo category could not be found.");
-  if (available.some(function (category) { return category !== currentName && category.toLowerCase() === name.toLowerCase(); })) throw new Error("A category with that name already exists.");
-  const categories = readCategoryRecords(); const index = categories.indexOf(currentName);
-  if (index >= 0) categories[index] = name; else categories.push(name);
-  const records = readRecords(); let changed = false; const timestamp = nowIso();
-  const updated = records.map(function (item) {
-    if (item.category !== currentName) return item;
-    changed = true; return Object.assign({}, item, { category: name, updated_at: timestamp });
+  const name = typeof value === "string" ? value.trim() : "";
+  if (!name || name.length > 60) throw new Error("Category names must be between 1 and 60 characters.");
+  const rows = await adminRequest("rest/v1/categories?name=eq." + encodeURIComponent(currentName) + "&select=name", {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: { name }
   });
-  if (changed) writeRecords(updated);
-  const settings = readAdminSettings();
-  if (settings.defaultHymnCategory === currentName) { settings.defaultHymnCategory = name; writeAdminSettings(settings); }
-  return writeCategoryRecords(categories);
+  if (!rows.length) throw new Error("This category could not be found.");
+  return "remote";
 }
+
 export async function deleteCategory(value) {
-  const name = validateCategoryName(value);
-  if (!allCategoryNames().includes(name)) return false;
-  if (readRecords().some(function (item) { return item.category === name; })) throw new Error("Reassign the hymns in this category before deleting it.");
-  const categories = readCategoryRecords().filter(function (category) { return category !== name; });
-  const settings = readAdminSettings();
-  if (settings.defaultHymnCategory === name) { settings.defaultHymnCategory = categories.slice().sort(function (a, b) { return a.localeCompare(b); })[0] || ""; writeAdminSettings(settings); }
-  return writeCategoryRecords(categories);
+  const name = typeof value === "string" ? value.trim() : "";
+  try {
+    await adminRequest("rest/v1/categories?name=eq." + encodeURIComponent(name), { method: "DELETE" });
+    return true;
+  } catch (error) {
+    if (error && (error.code === "23503" || error.code === "23514")) {
+      throw new Error("Reassign the hymns in this category before deleting it.");
+    }
+    throw error;
+  }
 }
+
 export async function createService(value) {
-  const data = normalizeServiceData(value); const timestamp = nowIso();
-  const plan = Object.assign({}, data, { id: makeId(), created_at: timestamp, updated_at: timestamp });
-  const plans = readServiceRecords(); plans.push(plan);
-  return writeServiceRecords(plans);
-}
-export async function updateService(id, value) {
-  const plans = readServiceRecords(); const existing = plans.find(function (item) { return item.id === id; });
-  if (!existing) throw new Error("This demo service plan could not be found.");
-  const data = normalizeServiceData(value); const updated = Object.assign({}, existing, data, { id: existing.id, updated_at: nowIso() });
-  return writeServiceRecords(plans.map(function (item) { return item.id === id ? updated : item; }));
-}
-export async function deleteService(id) {
-  const plans = readServiceRecords();
-  if (!plans.some(function (item) { return item.id === id; })) return false;
-  return writeServiceRecords(plans.filter(function (item) { return item.id !== id; }));
-}
-export async function getPrograms() {
-  return readProgramRecords().sort(function (a, b) {
-    return String(a.startDate || "").localeCompare(String(b.startDate || "")) || String(b.updated_at || "").localeCompare(String(a.updated_at || ""));
+  const hymns = await getHymns();
+  const data = normalizeServiceData(value, new Set(hymns.map(function (hymn) { return hymn.id; })));
+  const rows = await adminRequest("rest/v1/service_plans?select=*", {
+    method: "POST",
+    prefer: "return=representation",
+    body: data
   });
+  return firstRow(rows);
 }
+
+export async function updateService(id, value) {
+  const hymns = await getHymns();
+  const data = normalizeServiceData(value, new Set(hymns.map(function (hymn) { return hymn.id; })));
+  const rows = await adminRequest("rest/v1/service_plans?id=eq." + encodeURIComponent(id) + "&select=*", {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: data
+  });
+  const updated = firstRow(rows);
+  if (!updated) throw new Error("This service plan could not be found.");
+  return updated;
+}
+
+export async function deleteService(id) {
+  await adminRequest("rest/v1/service_plans?id=eq." + encodeURIComponent(id), { method: "DELETE" });
+  return true;
+}
+
+export async function getPrograms() {
+  const rows = await adminRequest("rest/v1/programs?select=*&order=start_date.asc,updated_at.desc");
+  return rows.map(fromProgramRow);
+}
+
 export async function getProgram(id) {
-  const program = readProgramRecords().find(function (item) { return item.id === id; });
-  return program ? copy(program) : null;
+  const rows = await adminRequest("rest/v1/programs?select=*&id=eq." + encodeURIComponent(id) + "&limit=1");
+  return fromProgramRow(firstRow(rows));
 }
+
 export async function createProgram(value) {
-  const data = normalizeProgramData(value); const timestamp = nowIso();
-  const record = Object.assign({}, data, { id: makeId(), created_at: timestamp, updated_at: timestamp });
-  const programs = readProgramRecords(); programs.push(record);
-  return Object.assign(copy(record), { _storage_mode: writeProgramRecords(programs) });
+  const data = normalizeProgramData(value);
+  const rows = await adminRequest("rest/v1/programs?select=*", {
+    method: "POST",
+    prefer: "return=representation",
+    body: toProgramRow(data)
+  });
+  const record = fromProgramRow(firstRow(rows));
+  if (!record) throw new Error("The program could not be saved.");
+  return Object.assign(record, { _storage_mode: "remote" });
 }
+
 export async function updateProgram(id, value) {
-  const programs = readProgramRecords(); const existing = programs.find(function (item) { return item.id === id; });
-  if (!existing) throw new Error("This demo program could not be found.");
-  const data = normalizeProgramData(value); const updated = Object.assign({}, existing, data, { id: existing.id, updated_at: nowIso() });
-  const mode = writeProgramRecords(programs.map(function (item) { return item.id === id ? updated : item; }));
-  return Object.assign(copy(updated), { _storage_mode: mode });
+  const data = normalizeProgramData(value);
+  const rows = await adminRequest("rest/v1/programs?id=eq." + encodeURIComponent(id) + "&select=*", {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: toProgramRow(data)
+  });
+  const record = fromProgramRow(firstRow(rows));
+  if (!record) throw new Error("This program could not be found.");
+  return Object.assign(record, { _storage_mode: "remote" });
 }
+
 export async function deleteProgram(id) {
-  const programs = readProgramRecords();
-  if (!programs.some(function (item) { return item.id === id; })) return false;
-  return writeProgramRecords(programs.filter(function (item) { return item.id !== id; }));
+  await adminRequest("rest/v1/programs?id=eq." + encodeURIComponent(id), { method: "DELETE" });
+  return true;
 }
