@@ -20,4 +20,6 @@ The browser uses only the Supabase project URL and a publishable key. Row-level 
 
 ## Existing data and scope
 
-The initial import preserves the repository's existing hymn numbers, English/Yoruba fields, categories, and lyric sources. It does not change the bundled public website or Android app. Admin edits are stored in Supabase; publishing them to the public web/mobile experience is a later phase.
+The initial import preserves the repository's existing hymn numbers, English/Yoruba fields, categories, and lyric sources. Admin edits are stored in Supabase. The public web and Android apps now request only hymns marked `published`; until public read access is configured, they safely use the bundled collection or the last successful published list cached on that device. Draft hymns are not returned to the member app.
+
+Service plans, programs, and admin preferences remain admin-only in this phase. Their public display and member responses will be implemented separately.
