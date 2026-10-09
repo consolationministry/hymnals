@@ -1,6 +1,6 @@
 import { readLocal, writeLocal } from "./local-store.js";
 
-const FAVORITES_KEY = "cerc-hymnal-favorites-v2";
+const FAVORITES_KEY = "cerc-hymnal-cac-favorites-v1";
 
 export function getFavorites() {
   const ids = readLocal(FAVORITES_KEY, []);

@@ -1,4 +1,4 @@
-import { hymns as repositoryHymns } from "../../data/public-domain-hymns.js";
+import { hymns as repositoryHymns } from "../../data/cac-hymns.js";
 import { requireAdmin } from "./admin-auth.js?v=31";
 import { supabaseRequest } from "./supabase-client.js?v=31";
 
