@@ -141,10 +141,26 @@ button { -webkit-tap-highlight-color: transparent; }
 .about-copy { margin: 9px 0 0; color: var(--muted); font-size: .9rem; }
 .settings-actions { display: flex; justify-content: flex-end; margin: 0 0 18px; }
 .settings-save { min-width: 168px; }
-.bottom-nav { position: fixed; z-index: 10; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); width: min(100%, 1080px); margin: 0 auto; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: blur(14px); }
-.nav-item { display: grid; place-items: center; gap: 2px; min-height: 57px; padding: 5px 2px; border: 0; border-radius: 13px; color: var(--muted); background: transparent; font-size: .67rem; font-weight: 700; cursor: pointer; }
+.bottom-nav { position: fixed; z-index: 10; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); width: min(100%, 1080px); margin: 0 auto; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: blur(14px); }
+.nav-item { display: grid; place-items: center; gap: 2px; min-height: 57px; padding: 5px 2px; border: 0; border-radius: 13px; color: var(--muted); background: transparent; font-size: .62rem; font-weight: 700; cursor: pointer; }
 .nav-item svg { width: 22px; height: 22px; }
 .nav-item[aria-current="page"] { color: var(--accent); background: var(--accent-soft); }
+.public-content-section { margin: 26px 0; }
+.public-program-list, .public-service-list { display: grid; gap: 12px; }
+.public-program-card, .public-service-card { overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 5px 18px rgba(45, 28, 57, .045); }
+.public-program-flyer { display: block; width: 100%; max-height: 340px; object-fit: contain; background: var(--surface-soft); }
+.public-content-card-copy { padding: 15px 17px 17px; }
+.public-content-date { margin: 0 0 5px; color: var(--accent); font-size: .82rem; font-weight: 800; }
+.public-content-card-copy h3, .public-service-card h3 { margin: 0; font-family: var(--font-reading); font-size: 1.13rem; line-height: 1.3; }
+.public-content-venue { margin: 5px 0 0; color: var(--muted); }
+.public-service-card { padding: 16px 17px; }
+.public-service-card h3 { margin-bottom: 10px; }
+.public-service-hymns { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.public-service-hymn { display: flex; align-items: baseline; gap: 9px; width: 100%; padding: 8px 0; border: 0; border-top: 1px solid var(--line); color: var(--ink); background: transparent; text-align: left; cursor: pointer; }
+.public-service-hymn span { min-width: 32px; color: var(--accent); font-size: .82rem; font-weight: 800; }
+.public-service-hymn:hover { color: var(--accent); }
+.public-content-empty, .public-content-unavailable { margin: 0; padding: 15px 17px; border: 1px dashed var(--line); border-radius: 15px; color: var(--muted); background: var(--surface); }
+.public-content-unavailable { margin-top: 8px; border-style: solid; font-size: .88rem; }
 .toast { position: fixed; z-index: 30; right: 16px; bottom: calc(93px + env(safe-area-inset-bottom)); left: 16px; width: max-content; max-width: min(480px, calc(100vw - 32px)); margin: 0 auto; padding: 12px 17px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--surface); box-shadow: var(--shadow); font-size: .9rem; font-weight: 650; text-align: center; }
 .toast.is-visible { animation: toast-in .18s ease both; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }

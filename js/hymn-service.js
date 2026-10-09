@@ -1,9 +1,10 @@
-import { hymns } from "../data/public-domain-hymns.js";
+import { hymns } from "../data/cac-hymns.js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
 
-const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-v1";
+const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-cac-v2";
 const PUBLIC_HYMN_COLUMNS = [
+  "id",
   "hymn_number",
   "title_en",
   "title_yoruba",
@@ -25,6 +26,10 @@ const PUBLIC_HYMN_COLUMNS = [
   "status"
 ].join(",");
 
+const BUNDLED_SOURCE_LABELS = new Map(hymns.map(function (hymn) {
+  return [Number(hymn.hymn_number), hymn.source_number_label];
+}));
+
 function asString(value) {
   return typeof value === "string" ? value : "";
 }
@@ -43,6 +48,7 @@ function normalizePublishedRows(rows) {
     })
     .map(function (row) {
       return {
+        id: asString(row.id),
         hymn_number: Number(row.hymn_number),
         title_en: asString(row.title_en),
         title_yoruba: asString(row.title_yoruba),
@@ -56,6 +62,7 @@ function normalizePublishedRows(rows) {
         keywords: asStringArray(row.keywords),
         author_en: asString(row.author_en),
         source_hymnal: asString(row.source_hymnal),
+        source_number_label: asString(row.source_number_label) || BUNDLED_SOURCE_LABELS.get(Number(row.hymn_number)) || String(row.source_hymn_number || row.hymn_number),
         source_publication_year: row.source_publication_year || null,
         source_hymn_number: row.source_hymn_number || null,
         source_first_line_en: asString(row.source_first_line_en),
@@ -91,6 +98,7 @@ async function fetchPublishedHymns() {
     if (!response.ok) return null;
     const rows = normalizePublishedRows(await response.json());
     if (rows === null) return null;
+    if (rows.length && rows.some(function (row) { return !/\bCAC\b/i.test(row.source_hymnal); })) return null;
     writeLocal(PUBLISHED_HYMNS_CACHE_KEY, rows);
     return rows;
   } catch (error) {

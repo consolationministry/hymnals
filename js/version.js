@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.1.11";
+export const APP_VERSION = "1.1.12";
 export const ANDROID_RELEASES_API = "https://api.github.com/repos/consolationministry/hymnals/releases/latest";
 
 export function isNewerVersion(candidate, current) {

@@ -11,6 +11,9 @@ export function searchHymns(hymns, query, category) {
     const fields = [
       hymn.hymn_number,
       String(hymn.hymn_number).padStart(2, "0"),
+      hymn.source_hymn_number,
+      hymn.source_number_label,
+      hymn.source_hymnal,
       hymn.title_en,
       hymn.title_yoruba,
       hymn.first_line_en,
