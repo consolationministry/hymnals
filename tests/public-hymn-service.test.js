@@ -76,10 +76,21 @@ test("a legacy remote Pentecostal catalog is ignored in favor of the bundled CAC
   assert.equal(hymns[0].source_hymnal, "Christ Apostolic Church Gospel Hymn Book");
 });
 
-test("a successful empty published result does not resurrect bundled hymns", async () => {
+test("a successful empty published result falls back to bundled CAC hymns", async () => {
   installStorage();
   globalThis.fetch = async function () { return response([]); };
-  assert.deepEqual(await getAllHymns(), []);
+  const hymns = await getAllHymns();
+  assert.equal(hymns.length, 1998);
+  assert.equal(hymns[0].source_hymnal, "Christ Apostolic Church Gospel Hymn Book");
+});
+
+test("an empty cached catalog falls back to bundled CAC hymns when the backend is unavailable", async () => {
+  const values = installStorage();
+  values.set("cerc-published-hymns-cac-v2", JSON.stringify([]));
+  globalThis.fetch = async function () { return response({ message: "not authorized" }, 401); };
+  const hymns = await getAllHymns();
+  assert.equal(hymns.length, 1998);
+  assert.equal(hymns[0].source_hymnal, "Christ Apostolic Church Gospel Hymn Book");
 });
 
 test("cached CAC hymns are used when the public backend is unavailable", async () => {
