@@ -15,6 +15,49 @@ function firstRow(value) { return asArray(value)[0] || null; }
 function copy(value) { return JSON.parse(JSON.stringify(value)); }
 function nowIso() { return new Date().toISOString(); }
 
+function isMeterTitle(title) {
+  return /^(?:\d+\.)+\d*(?:\s*[d&.]+\s*(?:ref\.?|chorus)?)?$/i.test(String(title || "").trim());
+}
+
+function firstHymnLine(verses) {
+  const first = asArray(verses).find(function (verse) { return typeof verse === "string" && verse.trim(); });
+  return String(first || "").split(/\r?\n/)[0].trim();
+}
+
+function normalizeAdminHymn(row) {
+  const hymn = Object.assign({}, row);
+  if (!isMeterTitle(hymn.title_en)) return hymn;
+  const verses = asArray(hymn.verses_en);
+  const firstVerseLine = firstHymnLine(verses);
+  const lyricLine = firstHymnLine(isMeterTitle(firstVerseLine) ? verses.slice(1) : verses);
+  if (!lyricLine) return hymn;
+  hymn.title_en = lyricLine;
+  hymn.first_line_en = lyricLine;
+  hymn.source_first_line_en = lyricLine;
+  return hymn;
+}
+
+function normalizeAdminHymns(rows) {
+  const hymns = asArray(rows).map(normalizeAdminHymn);
+  const isEnglishGospelHymn = function (hymn) {
+    return /\bGHB\b|Gospel Hymn Book/i.test(String(hymn.source_hymnal || ""));
+  };
+  const duplicate = hymns.find(function (hymn) {
+    return isEnglishGospelHymn(hymn) && Number(hymn.source_hymn_number) === 110;
+  });
+  const canonical = hymns.find(function (hymn) {
+    return isEnglishGospelHymn(hymn) && Number(hymn.source_hymn_number) === 86;
+  });
+  function comparableLine(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+  }
+  if (duplicate && canonical && comparableLine(duplicate.first_line_en) && comparableLine(duplicate.first_line_en) === comparableLine(canonical.first_line_en)) {
+    canonical.keywords = Array.from(new Set(asArray(canonical.keywords).concat("110")));
+    return hymns.filter(function (hymn) { return hymn !== duplicate; });
+  }
+  return hymns;
+}
+
 function escapeHtml(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, function (character) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[character];
@@ -171,20 +214,21 @@ export async function initializeAdminData() {
 }
 
 export async function getHymns() {
-  return adminRequest("rest/v1/hymns?select=*&order=hymn_number.asc");
+  return normalizeAdminHymns(await adminRequest("rest/v1/hymns?select=*&order=hymn_number.asc"));
 }
 
 export async function getHymn(id) {
   const rows = await adminRequest("rest/v1/hymns?select=*&id=eq." + encodeURIComponent(id) + "&limit=1");
-  return firstRow(rows);
+  const hymn = firstRow(rows);
+  return hymn ? normalizeAdminHymn(hymn) : null;
 }
 
 export async function getDraftHymns() {
-  return adminRequest("rest/v1/hymns?select=*&status=eq.draft&order=hymn_number.asc");
+  return normalizeAdminHymns(await adminRequest("rest/v1/hymns?select=*&status=eq.draft&order=hymn_number.asc"));
 }
 
 export async function getPublishedHymns() {
-  return adminRequest("rest/v1/hymns?select=*&status=eq.published&order=hymn_number.asc");
+  return normalizeAdminHymns(await adminRequest("rest/v1/hymns?select=*&status=eq.published&order=hymn_number.asc"));
 }
 
 export async function getDashboardStats() {
@@ -203,7 +247,7 @@ export async function getDashboardStats() {
 
 export async function getRecentlyUpdatedHymns(limit) {
   const count = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 5;
-  return adminRequest("rest/v1/hymns?select=*&order=updated_at.desc&limit=" + count);
+  return normalizeAdminHymns(await adminRequest("rest/v1/hymns?select=*&order=updated_at.desc&limit=" + count));
 }
 
 function getToday() {

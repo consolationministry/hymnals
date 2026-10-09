@@ -6,6 +6,8 @@ import {
   deleteProgram,
   getProgram,
   getPrograms,
+  getHymns,
+  getHymn,
   getDailyQuoteSettings,
   initializeAdminData,
   updateDailyQuoteSettings,
@@ -25,6 +27,7 @@ function response(body, status = 200) {
 function installBackend(options) {
   const opts = options || {};
   const programs = [];
+  const hymnRows = Array.isArray(opts.hymnRows) ? opts.hymnRows : [];
   let daily = { id: "global", enabled: true, books: ["Psalms", "Proverbs"], refresh_mode: "on-open" };
   let importedRows = [];
   let importMarker = Object.prototype.hasOwnProperty.call(opts, "importMarker") ? opts.importMarker : "2026-10-01T00:00:00.000Z";
@@ -52,7 +55,11 @@ function installBackend(options) {
     if (url.pathname.endsWith("/rest/v1/backend_state")) {
       return response([{ initial_hymns_imported_at: importMarker }]);
     }
-    if (url.pathname.endsWith("/rest/v1/hymns") && method === "GET") return response([]);
+    if (url.pathname.endsWith("/rest/v1/hymns") && method === "GET") {
+      const idFilter = url.searchParams.get("id");
+      const id = idFilter && idFilter.startsWith("eq.") ? idFilter.slice(3) : "";
+      return response(hymnRows.filter(function (hymn) { return !id || hymn.id === id; }));
+    }
     if (url.pathname.endsWith("/rest/v1/rpc/seed_hymns_if_empty")) {
       importedRows = JSON.parse(init.body).p_hymns;
       return response(importedRows.length);
@@ -158,5 +165,19 @@ test("first authorized admin setup imports all repository hymns once", async () 
   assert.equal(backend.importedRows[0].status, undefined);
   assert.equal(backend.importedRows[0].author_en, repositoryHymns[0].author_en || "");
   assert.match(backend.importedRows[0].body_html_en, /^<p>/);
+  await logoutAdmin();
+});
+
+test("admin hymn lists and editor normalize meter titles and merge duplicate entries", async () => {
+  installBackend({ hymnRows: [
+    { id: "hymn-86", hymn_number: 99, source_hymn_number: 86, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "7.7.5.", first_line_en: "7.7.5.", source_first_line_en: "7.7.5.", verses_en: ["7.7.5.\nScripture reference", "Three in One, and One in Three,\nRuler of the earth and sea,"], keywords: [] },
+    { id: "hymn-110", hymn_number: 123, source_hymn_number: 110, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "7.7.5", first_line_en: "7.7.5", source_first_line_en: "7.7.5", verses_en: ["7.7.5\nScripture reference", "Three in one, and One in Three,\nRuler of the earth and sea,"], keywords: [] }
+  ] });
+  await signIn();
+  const hymns = await getHymns();
+  assert.equal(hymns.length, 1);
+  assert.equal(hymns[0].title_en, "Three in One, and One in Three,");
+  assert.ok(hymns[0].keywords.includes("110"));
+  assert.equal((await getHymn("hymn-86")).title_en, "Three in One, and One in Three,");
   await logoutAdmin();
 });
