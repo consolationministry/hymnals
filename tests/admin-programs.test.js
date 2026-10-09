@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { hymns as repositoryHymns } from "../data/cac-hymns.js";
 import {
   createProgram,
   deleteProgram,
@@ -151,11 +152,11 @@ test("first authorized admin setup imports all repository hymns once", async () 
   const backend = installBackend({ importMarker: null });
   await signIn();
   const result = await initializeAdminData();
-  assert.equal(result.imported, 197);
-  assert.equal(backend.importedRows.length, 197);
-  assert.equal(backend.importedRows[0].title_en, "More About Jesus");
+  assert.equal(result.imported, repositoryHymns.length);
+  assert.equal(backend.importedRows.length, repositoryHymns.length);
+  assert.equal(backend.importedRows[0].title_en, repositoryHymns[0].title_en);
   assert.equal(backend.importedRows[0].status, undefined);
-  assert.equal(backend.importedRows[0].author_en, "E. E. Hewitt");
+  assert.equal(backend.importedRows[0].author_en, repositoryHymns[0].author_en || "");
   assert.match(backend.importedRows[0].body_html_en, /^<p>/);
   await logoutAdmin();
 });

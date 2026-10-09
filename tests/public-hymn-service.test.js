@@ -65,7 +65,8 @@ test("published CAC hymns load from the shared backend in hymn-number order", as
 });
 
 test("a legacy remote Pentecostal catalog is ignored in favor of the bundled CAC books", async () => {
-  installStorage();
+  const values = installStorage();
+  values.set("cerc-published-hymns-cac-v2", "null");
   globalThis.fetch = async function () {
     return response([{ hymn_number: 1, title_en: "Old hymn", source_hymnal: "Pentecostal Hymns No. 1", status: "published", verses_en: ["Old verse"] }]);
   };
