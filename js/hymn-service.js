@@ -40,22 +40,40 @@ function asStringArray(value) {
   }) : [];
 }
 
+function isMeterTitle(title) {
+  return /^(?:\d+\.)+\d*(?:\s*[d&.]+\s*(?:ref\.?|chorus)?)?$/i.test(title);
+}
+
+function firstLine(verses) {
+  const first = Array.isArray(verses) ? verses.find(function (line) { return typeof line === "string" && line.trim(); }) : "";
+  return String(first || "").split(/\r?\n/)[0].trim();
+}
+
+function normalizedOpeningLine(value) {
+  return asString(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
 function normalizePublishedRows(rows) {
   if (!Array.isArray(rows)) return null;
-  return rows
+  const normalized = rows
     .filter(function (row) {
       return row && row.status === "published" && Number.isInteger(Number(row.hymn_number)) && Number(row.hymn_number) > 0;
     })
     .map(function (row) {
+      const versesEn = asStringArray(row.verses_en);
+      const titleEn = asString(row.title_en);
+      const hasMeterTitle = isMeterTitle(titleEn);
+      const firstVerseLine = firstLine(versesEn);
+      const lyricLine = firstLine(hasMeterTitle && isMeterTitle(firstVerseLine) ? versesEn.slice(1) : versesEn);
       return {
         id: asString(row.id),
         hymn_number: Number(row.hymn_number),
-        title_en: asString(row.title_en),
+        title_en: hasMeterTitle ? lyricLine : titleEn,
         title_yoruba: asString(row.title_yoruba),
-        first_line_en: asString(row.first_line_en),
+        first_line_en: hasMeterTitle ? lyricLine : asString(row.first_line_en),
         first_line_yoruba: asString(row.first_line_yoruba),
         category: asString(row.category),
-        verses_en: asStringArray(row.verses_en),
+        verses_en: versesEn,
         verses_yoruba: asStringArray(row.verses_yoruba),
         chorus_en: asString(row.chorus_en),
         chorus_yoruba: asString(row.chorus_yoruba),
@@ -64,14 +82,29 @@ function normalizePublishedRows(rows) {
         source_hymnal: asString(row.source_hymnal),
         source_number_label: asString(row.source_number_label) || BUNDLED_SOURCE_LABELS.get(Number(row.hymn_number)) || String(row.source_hymn_number || row.hymn_number),
         source_publication_year: row.source_publication_year || null,
-        source_hymn_number: row.source_hymn_number || null,
-        source_first_line_en: asString(row.source_first_line_en),
+        source_hymn_number: row.source_hymn_number ? Number(row.source_hymn_number) : null,
+        source_first_line_en: hasMeterTitle ? lyricLine : asString(row.source_first_line_en),
         source_hymnary_url: asString(row.source_hymnary_url),
         lyrics_source_url: asString(row.lyrics_source_url),
         status: "published"
       };
     })
     .sort(function (a, b) { return a.hymn_number - b.hymn_number; });
+
+  const isEnglishGospelHymn = function (hymn) {
+    return /\bGHB\b|Gospel Hymn Book/i.test(hymn.source_hymnal);
+  };
+  const duplicate = normalized.find(function (hymn) {
+    return isEnglishGospelHymn(hymn) && hymn.source_hymn_number === 110;
+  });
+  const canonical = normalized.find(function (hymn) {
+    return isEnglishGospelHymn(hymn) && hymn.source_hymn_number === 86;
+  });
+  if (duplicate && canonical && normalizedOpeningLine(duplicate.first_line_en) === normalizedOpeningLine(canonical.first_line_en)) {
+    canonical.keywords = Array.from(new Set(canonical.keywords.concat("110")));
+    return normalized.filter(function (hymn) { return hymn !== duplicate; });
+  }
+  return normalized;
 }
 
 async function fetchPublishedHymns() {

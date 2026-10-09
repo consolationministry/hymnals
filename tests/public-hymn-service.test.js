@@ -27,11 +27,23 @@ test("bundled CAC collections are complete, distinct, and use unique app IDs", a
   installStorage();
   globalThis.fetch = async function () { throw new Error("offline"); };
   const hymns = await getAllHymns();
-  assert.equal(hymns.length, 1998);
-  assert.equal(hymns.filter(function (hymn) { return hymn.verses_en.length > 0; }).length, 1001);
+  assert.equal(hymns.length, 1997);
+  assert.equal(hymns.filter(function (hymn) { return hymn.verses_en.length > 0; }).length, 1000);
   assert.equal(hymns.filter(function (hymn) { return hymn.verses_yoruba.length > 0; }).length, 997);
   assert.equal(new Set(hymns.map(function (hymn) { return hymn.hymn_number; })).size, hymns.length);
   assert.equal(hymns[0].source_number_label, "1");
+});
+
+test("meter-only English titles use the first lyric line and duplicate 110 is merged into 86", () => {
+  const english = bundledHymns.filter(function (hymn) { return hymn.verses_en.length > 0; });
+  const hymn10 = english.find(function (hymn) { return hymn.source_hymn_number === 10 && hymn.source_number_label === "10"; });
+  const hymn86 = english.find(function (hymn) { return hymn.source_number_label === "86"; });
+  assert.equal(hymn10.title_en, "Holy Father, hear me");
+  assert.equal(hymn10.first_line_en, hymn10.title_en);
+  assert.ok(english.every(function (hymn) { return !/^(?:\d+\.)+\d*(?:\s*[d&.]+\s*(?:ref\.?|chorus)?)?$/i.test(hymn.title_en); }));
+  assert.ok(hymn86.keywords.includes("110"));
+  assert.equal(english.some(function (hymn) { return hymn.source_number_label === "110"; }), false);
+  assert.equal(english.find(function (hymn) { return hymn.source_number_label === "111"; }).hymn_number, 124);
 });
 
 test("repeated source numbers are disambiguated without treating the books as translations", () => {
@@ -65,6 +77,22 @@ test("published CAC hymns load from the shared backend in hymn-number order", as
   assert.match(request.url, /hymn_number\.asc/);
 });
 
+test("published English meter titles and the duplicate hymn are normalized", async () => {
+  installStorage();
+  globalThis.fetch = async function () {
+    return response([
+      { hymn_number: 99, source_hymn_number: 86, title_en: "7.7.5.", first_line_en: "7.7.5.", source_first_line_en: "7.7.5.", source_hymnal: "CAC GHB", status: "published", verses_en: ["7.7.5.\nScripture reference", "Three in One, and One in Three,\nRuler of the earth and sea,"] },
+      { hymn_number: 123, source_hymn_number: 110, title_en: "7.7.5", first_line_en: "7.7.5", source_first_line_en: "7.7.5", source_hymnal: "CAC GHB", status: "published", verses_en: ["7.7.5\nScripture reference", "Three in one, and One in Three,\nRuler of the earth and sea,"] }
+    ]);
+  };
+
+  const hymns = await getAllHymns();
+  assert.equal(hymns.length, 1);
+  assert.equal(hymns[0].title_en, "Three in One, and One in Three,");
+  assert.equal(hymns[0].first_line_en, hymns[0].title_en);
+  assert.ok(hymns[0].keywords.includes("110"));
+});
+
 test("a legacy remote Pentecostal catalog is ignored in favor of the bundled CAC books", async () => {
   const values = installStorage();
   values.set("cerc-published-hymns-cac-v2", "null");
@@ -72,7 +100,7 @@ test("a legacy remote Pentecostal catalog is ignored in favor of the bundled CAC
     return response([{ hymn_number: 1, title_en: "Old hymn", source_hymnal: "Pentecostal Hymns No. 1", status: "published", verses_en: ["Old verse"] }]);
   };
   const hymns = await getAllHymns();
-  assert.equal(hymns.length, 1998);
+  assert.equal(hymns.length, 1997);
   assert.equal(hymns[0].source_hymnal, "Christ Apostolic Church Gospel Hymn Book");
 });
 
@@ -81,7 +109,7 @@ test("a successful empty published result falls back to bundled CAC hymns", asyn
   values.set("cerc-published-hymns-cac-v2", "null");
   globalThis.fetch = async function () { return response([]); };
   const hymns = await getAllHymns();
-  assert.equal(hymns.length, 1998);
+  assert.equal(hymns.length, 1997);
   assert.equal(hymns[0].source_hymnal, "Christ Apostolic Church Gospel Hymn Book");
 });
 
@@ -90,7 +118,7 @@ test("an empty cached catalog falls back to bundled CAC hymns when the backend i
   values.set("cerc-published-hymns-cac-v2", JSON.stringify([]));
   globalThis.fetch = async function () { return response({ message: "not authorized" }, 401); };
   const hymns = await getAllHymns();
-  assert.equal(hymns.length, 1998);
+  assert.equal(hymns.length, 1997);
   assert.equal(hymns[0].source_hymnal, "Christ Apostolic Church Gospel Hymn Book");
 });
 

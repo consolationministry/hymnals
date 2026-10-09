@@ -6,11 +6,11 @@ The website and Android app use the same mobile-first HTML, CSS, JavaScript, and
 
 - Home, Hymn Library, Reader, Favorites, and Settings
 - Search by hymn number, title, keyword, first line, or lyrics
-- Separate CAC Gospel Hymn Book (English, 1,001 hymns) and CAC Yoruba Hymn Book (Yorùbá, 997 hymns)
+- Separate CAC Gospel Hymn Book (English, 1,000 distinct hymns shown) and CAC Yoruba Hymn Book (Yorùbá, 997 hymns)
 - Favorites and reading preferences stored locally on the device
 - Light, dark, and system appearance modes; adjustable text size and accent
 - Sharing through the device share sheet when available
-- 1,001 English and 997 Yorùbá hymns bundled for offline reading
+- 1,000 distinct English and 997 Yorùbá hymns bundled for offline reading
 - Offline-capable web app with a service-worker update prompt
 - Android app update checks, APK download, and Android installer handoff
 - A separate, administrator-only web workspace at `/admin/`
@@ -66,6 +66,6 @@ The static website and service worker are in the repository root and can be publ
 
 ## Hymn text and rights
 
-The app includes the CAC Gospel Hymn Book in English (1,001 entries) and the CAC Yoruba Hymn Book (997 entries), kept as separate collections because their numbering is not a verified translation mapping. Printed hymn numbers are preserved; V marks entries that the source identifies as part of its Various section. The app maintainer confirmed permission to republish the selected lyrics. The upstream HymnFlow repository is marked GPL-2.0 for its software; that does not itself describe a separate lyric-text license. Source details are in `data/SOURCES.md`.
+The app includes 1,000 distinct English hymns from the CAC Gospel Hymn Book and 997 Yorùbá hymns from the CAC Yoruba Hymn Book, kept as separate collections because their numbering is not a verified translation mapping. Meter-only English headings use each hymn’s opening lyric line as its title. The duplicated English hymn at source number 110 is merged with the same hymn at number 86; searching for 110 still finds it. Printed hymn numbers are preserved; V marks entries that the source identifies as part of its Various section. The app maintainer confirmed permission to republish the selected lyrics. The upstream HymnFlow repository is marked GPL-2.0 for its software; that does not itself describe a separate lyric-text license. Source details are in `data/SOURCES.md`.
 
 Member favorites and reading preferences are stored only in the current browser/device; they do not sync between devices. Members do not need an account. The separate admin account is only for the protected web workspace. Audio and projector mode are not included.
