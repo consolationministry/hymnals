@@ -1,6 +1,7 @@
 -- Let the member web and Android apps read only published hymn content.
 -- Keep drafts and all admin-only tables private to administrators.
 grant select (
+  id,
   hymn_number,
   title_en,
   title_yoruba,

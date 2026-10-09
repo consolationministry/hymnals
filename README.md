@@ -14,12 +14,12 @@ The website and Android app use the same mobile-first HTML, CSS, JavaScript, and
 - Offline-capable web app with a service-worker update prompt
 - Android app update checks, APK download, and Android installer handoff
 - A separate, administrator-only web workspace at `/admin/`
-- A CAC-only published catalog can load from the shared Supabase database in the public web app and Android app
+- Published CAC hymns, upcoming programs, and upcoming service plans can load in the public web app and Android app from Supabase
 
 The Android app includes all current hymnal files in its package and works offline immediately after installation. The web app caches its files after the first successful online visit; that initial visit needs a connection.
-The member web app and Android app use the same interface and public hymn-data service. After applying `supabase/migrations/202610090002_public_published_hymns.sql`, they can read published hymn fields only; drafts and other admin tables remain private. They load the published list only if every row identifies a CAC hymnal; otherwise they use the bundled CAC collection. A valid published list is cached for offline use. Existing Supabase rows are not changed by this repository update, and a populated legacy table still requires an authorized administrator to replace its records.
+The member web app and Android app use the same interface and public content service. After applying migrations `202610090002_public_published_hymns.sql` and `202610090003_public_programs_and_service_plans.sql`, members can read published hymn fields and upcoming program/service-plan display fields only. Draft hymns and admin preferences stay private. The apps load the published hymn list only if every row identifies a CAC hymnal; otherwise they use the bundled CAC collection. Published hymns and the upcoming schedule are cached for offline use. Existing Supabase rows are not changed by these migrations, and a populated legacy hymn table still requires an authorized administrator to replace its records.
 
-The admin workspace is a separate web page at `/admin/`. It requires an approved administrator account and the Supabase setup below. Draft hymns are excluded from the member app. Service plans, programs, and admin preferences remain admin-only until their public features are implemented.
+The admin workspace is a separate web page at `/admin/`. It requires an approved administrator account and the Supabase setup below. Hymn editing, program editing, service-plan editing, and admin preferences stay protected there; only published hymns and upcoming program/service-plan display data appear in the member app. Attendance responses and analytics are not connected.
 
 ## Run locally
 
@@ -54,7 +54,7 @@ The Android app checks the latest non-draft GitHub Release when online. If its t
 
 Signed Android releases are built by `.github/workflows/android-release.yml` when a version tag such as `v1.1.6` is pushed. Configure the GitHub Actions secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`; the workflow decodes the keystore only on the runner, builds the signed APK, and attaches it to the GitHub Release as `consolation-hymnal-android.apk`. Keep the same private keystore for every release, back it up securely, and never commit it.
 
-The release tag must match `package.json` (currently `v1.1.12`). For each later release, update `package.json`, `package-lock.json`, `js/version.js`, and the cache version in `service-worker.js` together. The first official release may not install over earlier debug APKs if their signatures differ; uninstalling a mismatched test build can erase device-local favorites and settings.
+The signed-release workflow keeps `package.json`, `package-lock.json`, `js/version.js`, the service-worker cache, and release tag synchronized when it publishes a signed APK. A pull request or feature-branch build alone does not publish an app update; members receive the update only after the change is merged to `main` and the signed-release workflow completes. The first official release may not install over earlier debug APKs if their signatures differ; uninstalling a mismatched test build can erase device-local favorites and settings.
 
 Older test APKs were produced by a separate debug workflow and may not share the release signing key. If Android rejects the first signed update because the signatures differ, install the signed release once from its GitHub Release; uninstalling a mismatched test build can erase its device-local favorites and settings.
 

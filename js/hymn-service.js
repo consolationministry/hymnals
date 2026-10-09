@@ -4,6 +4,7 @@ import { readLocal, writeLocal } from "./local-store.js";
 
 const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-cac-v2";
 const PUBLIC_HYMN_COLUMNS = [
+  "id",
   "hymn_number",
   "title_en",
   "title_yoruba",
@@ -47,6 +48,7 @@ function normalizePublishedRows(rows) {
     })
     .map(function (row) {
       return {
+        id: asString(row.id),
         hymn_number: Number(row.hymn_number),
         title_en: asString(row.title_en),
         title_yoruba: asString(row.title_yoruba),

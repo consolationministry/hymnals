@@ -17,6 +17,7 @@ const PRECACHE_URLS = [
   "./js/local-store.js",
   "./js/native-updates.js",
   "./js/recent.js",
+  "./js/public-content.js",
   "./js/search.js",
   "./js/settings.js",
   "./js/sharing.js",
