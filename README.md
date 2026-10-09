@@ -17,7 +17,7 @@ The website and Android app use the same mobile-first HTML, CSS, JavaScript, and
 - A CAC-only published catalog can load from the shared Supabase database in the public web app and Android app
 
 The Android app includes all current hymnal files in its package and works offline immediately after installation. The web app caches its files after the first successful online visit; that initial visit needs a connection.
-The member web app and Android app use the same interface and public hymn-data service. When Supabase public read access is configured, they load published hymns only if every row identifies a CAC hymnal; otherwise they use the bundled CAC collection. A valid published list is cached for offline use. Existing Supabase rows are not changed by this repository update, and a populated legacy table still requires an authorized administrator to replace its records.
+The member web app and Android app use the same interface and public hymn-data service. After applying `supabase/migrations/202610090002_public_published_hymns.sql`, they can read published hymn fields only; drafts and other admin tables remain private. They load the published list only if every row identifies a CAC hymnal; otherwise they use the bundled CAC collection. A valid published list is cached for offline use. Existing Supabase rows are not changed by this repository update, and a populated legacy table still requires an authorized administrator to replace its records.
 
 The admin workspace is a separate web page at `/admin/`. It requires an approved administrator account and the Supabase setup below. Draft hymns are excluded from the member app. Service plans, programs, and admin preferences remain admin-only until their public features are implemented.
 
