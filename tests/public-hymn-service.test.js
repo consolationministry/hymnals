@@ -77,7 +77,8 @@ test("a legacy remote Pentecostal catalog is ignored in favor of the bundled CAC
 });
 
 test("a successful empty published result falls back to bundled CAC hymns", async () => {
-  installStorage();
+  const values = installStorage();
+  values.set("cerc-published-hymns-cac-v2", "null");
   globalThis.fetch = async function () { return response([]); };
   const hymns = await getAllHymns();
   assert.equal(hymns.length, 1998);
