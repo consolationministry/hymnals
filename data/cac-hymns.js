@@ -6,6 +6,10 @@ function firstLine(verses) {
   return String(first || "").split(/\r?\n/)[0].trim();
 }
 
+function isMeterTitle(title) {
+  return /^(?:\d+\.)+\d*(?:\s*[d&.]+\s*(?:ref\.?|chorus)?)?$/i.test(title);
+}
+
 function convertCollection(sourceRows, firstId, language) {
   const english = language === "english";
   const sourceAbbr = english ? "CAC GHB" : "CAC YHB";
@@ -19,15 +23,22 @@ function convertCollection(sourceRows, firstId, language) {
     })
     .filter(function (item) { return Number.isInteger(item.sourceNumber) && item.sourceNumber > 0; })
     .sort(function (a, b) { return a.sourceNumber - b.sourceNumber || Number(a.isVarious) - Number(b.isVarious) || a.index - b.index; })
-    .map(function (item, index) {
+    .map(function (item, index) { return { ...item, sortedIndex: index }; })
+    .filter(function (item) {
+      return !(english && item.sourceNumber === 110 && !item.isVarious);
+    })
+    .map(function (item) {
       const verses = Array.isArray(item.record.verses) ? item.record.verses.filter(function (line) { return typeof line === "string" && line.trim(); }) : [];
       const title = typeof item.record.title === "string" ? item.record.title.trim() : "";
-      const first = firstLine(verses);
+      const hasMeterTitle = english && isMeterTitle(title);
+      const first = firstLine(hasMeterTitle ? verses.slice(1) : verses);
+      const displayTitle = hasMeterTitle ? first : title;
       const numberLabel = String(item.sourceNumber) + (item.isVarious ? "V" : "");
+      const duplicateNumberAliases = english && item.sourceNumber === 86 && !item.isVarious ? ["110"] : [];
       return {
-        hymn_number: firstId + index,
-        title_en: english ? title : "",
-        title_yoruba: english ? "" : title,
+        hymn_number: firstId + item.sortedIndex,
+        title_en: english ? displayTitle : "",
+        title_yoruba: english ? "" : displayTitle,
         first_line_en: english ? first : "",
         first_line_yoruba: english ? "" : first,
         category: sourceAbbr,
@@ -35,7 +46,7 @@ function convertCollection(sourceRows, firstId, language) {
         verses_yoruba: english ? [] : verses,
         chorus_en: english && typeof item.record.chorus === "string" ? item.record.chorus : "",
         chorus_yoruba: !english && typeof item.record.chorus === "string" ? item.record.chorus : "",
-        keywords: [sourceAbbr, numberLabel, title].filter(Boolean),
+        keywords: [sourceAbbr, numberLabel, ...duplicateNumberAliases, displayTitle].filter(Boolean),
         author_en: typeof item.record.author === "string" ? item.record.author : "Christ Apostolic Church (CAC) Worldwide",
         source_hymnal: sourceHymnal,
         source_publication_year: null,
