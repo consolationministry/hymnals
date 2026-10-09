@@ -77,6 +77,22 @@ test("published CAC hymns load from the shared backend in hymn-number order", as
   assert.match(request.url, /hymn_number\.asc/);
 });
 
+test("published English meter titles and the duplicate hymn are normalized", async () => {
+  installStorage();
+  globalThis.fetch = async function () {
+    return response([
+      { hymn_number: 99, source_hymn_number: 86, title_en: "7.7.5.", first_line_en: "7.7.5.", source_first_line_en: "7.7.5.", source_hymnal: "CAC GHB", status: "published", verses_en: ["7.7.5.\nScripture reference", "Three in One, and One in Three,\nRuler of the earth and sea,"] },
+      { hymn_number: 123, source_hymn_number: 110, title_en: "7.7.5", first_line_en: "7.7.5", source_first_line_en: "7.7.5", source_hymnal: "CAC GHB", status: "published", verses_en: ["7.7.5\nScripture reference", "Three in one, and One in Three,\nRuler of the earth and sea,"] }
+    ]);
+  };
+
+  const hymns = await getAllHymns();
+  assert.equal(hymns.length, 1);
+  assert.equal(hymns[0].title_en, "Three in One, and One in Three,");
+  assert.equal(hymns[0].first_line_en, hymns[0].title_en);
+  assert.ok(hymns[0].keywords.includes("110"));
+});
+
 test("a legacy remote Pentecostal catalog is ignored in favor of the bundled CAC books", async () => {
   const values = installStorage();
   values.set("cerc-published-hymns-cac-v2", "null");
