@@ -2,15 +2,38 @@ name: Android signed release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
+    paths:
+      - 'admin/**'
+      - 'assets/**'
+      - 'android/**'
+      - 'css/**'
+      - 'data/**'
+      - 'js/**'
+      - 'public/**'
+      - 'scripts/**'
+      - 'supabase/**'
+      - 'tests/**'
+      - 'index.html'
+      - 'manifest.webmanifest'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.json'
+      - 'service-worker.js'
+      - 'vite.config.js'
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release:
+    if: github.ref == 'refs/heads/main'
     name: Build and publish signed Android APK
     runs-on: ubuntu-latest
 
@@ -18,23 +41,54 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Verify tag matches app version
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync } from "node:fs";
-
-          const version = JSON.parse(readFileSync("package.json", "utf8")).version;
-          const expectedTag = `v${version}`;
-          if (process.env.GITHUB_REF_NAME !== expectedTag) {
-            throw new Error(`Release tag ${process.env.GITHUB_REF_NAME} must match ${expectedTag}.`);
-          }
-          NODE
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+
+      - name: Bump app version and update metadata
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+
+          const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+          const lockfile = JSON.parse(readFileSync("package-lock.json", "utf8"));
+          const current = packageJson.version;
+          const parts = current.split(".").map(Number);
+          if (parts.length !== 3 || parts.some((part) => !Number.isSafeInteger(part) || part < 0)) {
+            throw new Error("package.json must have a numeric major.minor.patch version.");
+          }
+          let [major, minor, patch] = parts;
+          if (patch < 999) patch += 1;
+          else if (minor < 999) { minor += 1; patch = 0; }
+          else { major += 1; minor = 0; patch = 0; }
+          const next = [major, minor, patch].join(".");
+
+          if (!lockfile.packages || !lockfile.packages[""]) {
+            throw new Error("package-lock.json is missing its root package metadata.");
+          }
+          lockfile.version = next;
+          lockfile.packages[""].version = next;
+          const versionPath = "js/version.js";
+          const versionSource = readFileSync(versionPath, "utf8");
+          const oldVersion = 'APP_VERSION = "' + current + '";';
+          if (!versionSource.includes(oldVersion)) {
+            throw new Error("js/version.js does not match package.json; refusing an unsafe version bump.");
+          }
+          const cachePath = "service-worker.js";
+          const worker = readFileSync(cachePath, "utf8");
+          const oldCacheName = 'consolation-hymnal-' + current;
+          if (!worker.includes(oldCacheName)) {
+            throw new Error("service-worker.js cache version does not match package.json.");
+          }
+          writeFileSync("package.json", JSON.stringify({ ...packageJson, version: next }, null, 2) + "\n");
+          writeFileSync("package-lock.json", JSON.stringify(lockfile, null, 2) + "\n");
+          writeFileSync(versionPath, versionSource.replace(oldVersion, 'APP_VERSION = "' + next + '";'));
+          writeFileSync(cachePath, worker.replace(oldCacheName, 'consolation-hymnal-' + next));
+          appendFileSync(process.env.GITHUB_ENV, "APP_VERSION=" + next + "\n");
+          console.log("Prepared app release " + next + ".");
+          NODE
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -70,7 +124,7 @@ jobs:
           }
           if (count > 0) {
             writeFileSync(lockfilePath, normalized);
-            console.log(`Normalized ${count} package URLs for GitHub Actions.`);
+            console.log("Normalized " + count + " package URLs for GitHub Actions.");
           }
           NODE
 
@@ -89,39 +143,21 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
-          set -euo pipefail
-          : "${ANDROID_KEYSTORE_BASE64:?Missing ANDROID_KEYSTORE_BASE64 secret}"
-          encoded="$(printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]')"
-          if [[ "$encoded" == data:*base64,* ]]; then
-            encoded="${encoded#*,}"
-          fi
-          encoded="$(printf '%s' "$encoded" | tr '_-' '/+')"
-          case $((${#encoded} % 4)) in
-            0) ;;
-            2) encoded="${encoded}==" ;;
-            3) encoded="${encoded}=" ;;
-            *)
-              echo "ANDROID_KEYSTORE_BASE64 is not valid Base64." >&2
-              exit 1
-              ;;
-          esac
-          case "$encoded" in
-            *[!A-Za-z0-9+/=]*)
-              echo "ANDROID_KEYSTORE_BASE64 contains invalid characters." >&2
-              exit 1
-              ;;
-          esac
-          keystore_path="$RUNNER_TEMP/consolation-hymnal-release.jks"
-          if ! printf '%s' "$encoded" | base64 --decode > "$keystore_path"; then
-            echo "ANDROID_KEYSTORE_BASE64 could not be decoded; replace it with the keystore's Base64 contents." >&2
-            exit 1
-          fi
-          if [[ ! -s "$keystore_path" ]]; then
-            echo "Decoded Android keystore is empty." >&2
-            exit 1
-          fi
-          chmod 600 "$keystore_path"
-          echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+          node --input-type=module <<'NODE'
+          import { appendFileSync, writeFileSync } from "node:fs";
+          import path from "node:path";
+
+          let encoded = (process.env.ANDROID_KEYSTORE_BASE64 || "").replace(/\s/g, "");
+          encoded = encoded.replace(/^data:[^,]*base64,/, "").replace(/-/g, "+").replace(/_/g, "/");
+          if (!encoded || /[^A-Za-z0-9+/=]/.test(encoded)) {
+            throw new Error("ANDROID_KEYSTORE_BASE64 is missing or invalid.");
+          }
+          const keystore = Buffer.from(encoded, "base64");
+          if (!keystore.length) throw new Error("Decoded Android keystore is empty.");
+          const keystorePath = path.join(process.env.RUNNER_TEMP, "consolation-hymnal-release.jks");
+          writeFileSync(keystorePath, keystore, { mode: 0o600 });
+          appendFileSync(process.env.GITHUB_ENV, "ANDROID_KEYSTORE_PATH=" + keystorePath + "\n");
+          NODE
 
       - name: Prepare Android version and signing config
         run: node scripts/prepare-android.mjs
@@ -133,18 +169,30 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          : "${ANDROID_KEYSTORE_PASSWORD:?Missing ANDROID_KEYSTORE_PASSWORD secret}"
-          : "${ANDROID_KEY_ALIAS:?Missing ANDROID_KEY_ALIAS secret}"
-          : "${ANDROID_KEY_PASSWORD:?Missing ANDROID_KEY_PASSWORD secret}"
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo "Missing ANDROID_KEYSTORE_PASSWORD secret." >&2; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo "Missing ANDROID_KEY_ALIAS secret." >&2; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo "Missing ANDROID_KEY_PASSWORD secret." >&2; exit 1; }
           cd android
           ./gradlew assembleRelease
           mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/consolation-hymnal-android.apk
 
-      - name: Create GitHub Release and attach APK
+      - name: Commit version, create tag, and publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json js/version.js service-worker.js
+          git commit -m "Release v$APP_VERSION"
+          git tag "v$APP_VERSION"
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
+            echo "main advanced during the build; no version commit or tag was pushed. Push again to release the latest app." >&2
+            exit 1
+          fi
+          git push --atomic origin HEAD:refs/heads/main "refs/tags/v$APP_VERSION"
+          gh release create "v$APP_VERSION" \
             android/app/build/outputs/apk/release/consolation-hymnal-android.apk \
-            --title "Consolation Hymnal $GITHUB_REF_NAME" \
-            --notes "Signed Android update for version ${GITHUB_REF_NAME#v}."
+            --title "Consolation Hymnal v$APP_VERSION" \
+            --notes "Signed Android update for version $APP_VERSION."
