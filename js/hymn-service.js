@@ -130,7 +130,7 @@ async function fetchPublishedHymns() {
     );
     if (!response.ok) return null;
     const rows = normalizePublishedRows(await response.json());
-    if (rows === null || rows.length === 0) return null;
+    if (rows === null) return null;
     if (rows.some(function (row) { return !/\bCAC\b/i.test(row.source_hymnal); })) return null;
     writeLocal(PUBLISHED_HYMNS_CACHE_KEY, rows);
     return rows;
@@ -144,7 +144,7 @@ export async function getAllHymns() {
   if (published !== null) return published;
 
   const cached = normalizePublishedRows(readLocal(PUBLISHED_HYMNS_CACHE_KEY, null));
-  if (cached && cached.length > 0) return cached;
+  if (cached !== null) return cached;
   return hymns.slice().sort(function (a, b) { return a.hymn_number - b.hymn_number; });
 }
 
