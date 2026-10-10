@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getUpcomingMemberContent } from "../js/public-content.js";
+import { getMemberContent } from "../js/public-content.js";
 
 function installStorage() {
   const values = new Map();
@@ -11,8 +11,8 @@ function installStorage() {
       removeItem(key) { values.delete(key); }
     }
   };
-  values.set("cerc-public-programs-v1", "null");
-  values.set("cerc-public-service-plans-v1", "null");
+  values.set("cerc-public-programs-v2", "null");
+  values.set("cerc-public-service-plans-v2", "null");
   return values;
 }
 
@@ -24,7 +24,7 @@ function response(body, status = 200) {
   };
 }
 
-test("loads upcoming public programs and service plans through read-only requests", async () => {
+test("loads past and future public programs and service plans through read-only requests", async () => {
   installStorage();
   const requests = [];
   globalThis.fetch = async function (url, options) {
@@ -41,10 +41,10 @@ test("loads upcoming public programs and service plans through read-only request
     ]);
   };
 
-  const content = await getUpcomingMemberContent("2026-10-09");
+  const content = await getMemberContent();
 
-  assert.deepEqual(content.programs.map(function (item) { return item.id; }), ["event-1"]);
-  assert.deepEqual(content.servicePlans.map(function (item) { return item.id; }), ["plan-1"]);
+  assert.deepEqual(content.programs.map(function (item) { return item.id; }), ["event-1", "event-past"]);
+  assert.deepEqual(content.servicePlans.map(function (item) { return item.id; }), ["plan-1", "plan-past"]);
   assert.equal(content.programsAvailable, true);
   assert.equal(content.servicePlansAvailable, true);
   assert.equal(requests.length, 2);
@@ -52,19 +52,21 @@ test("loads upcoming public programs and service plans through read-only request
   const plansRequest = requests.find(function (request) { return request.url.pathname.endsWith("/service_plans"); });
   assert.equal(programsRequest.options.method, "GET");
   assert.match(programsRequest.url.searchParams.get("select"), /flyer_data_url/);
-  assert.match(programsRequest.url.searchParams.get("or"), /start_date\.gte\.2026-10-09/);
-  assert.equal(plansRequest.url.searchParams.get("date"), "gte.2026-10-09");
+  assert.equal(programsRequest.url.searchParams.get("or"), null);
+  assert.equal(programsRequest.url.searchParams.get("order"), "start_date.desc");
+  assert.equal(plansRequest.url.searchParams.get("date"), null);
+  assert.equal(plansRequest.url.searchParams.get("order"), "date.desc");
   assert.match(plansRequest.url.searchParams.get("select"), /hymn_ids/);
 });
 
 test("uses cached public content when the public database is unavailable", async () => {
   const values = installStorage();
-  values.set("cerc-public-programs-v1", JSON.stringify([
+  values.set("cerc-public-programs-v2", JSON.stringify([
     { id: "event-1", title: "Upcoming Event", venue: "Church Hall", start_date: "2026-10-20", end_date: null }
   ]));
   globalThis.fetch = async function () { return response({ message: "public read is not enabled" }, 403); };
 
-  const content = await getUpcomingMemberContent("2026-10-09");
+  const content = await getMemberContent();
 
   assert.deepEqual(content.programs.map(function (item) { return item.id; }), ["event-1"]);
   assert.equal(content.programsAvailable, false);
