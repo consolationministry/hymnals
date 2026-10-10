@@ -8,11 +8,12 @@ import {
   getPrograms,
   getHymns,
   getHymn,
+  moveAllPublishedHymnsToDrafts,
   getDailyQuoteSettings,
   initializeAdminData,
   updateDailyQuoteSettings,
   updateProgram
-} from "../admin/js/admin-data.js?v=31";
+} from "../admin/js/admin-data.js?v=33";
 import { clearSession } from "../admin/js/supabase-client.js?v=31";
 import { loginAdmin, logoutAdmin } from "../admin/js/admin-auth.js?v=31";
 
@@ -27,10 +28,11 @@ function response(body, status = 200) {
 function installBackend(options) {
   const opts = options || {};
   const programs = [];
-  const hymnRows = Array.isArray(opts.hymnRows) ? opts.hymnRows : [];
+  const hymnRows = Array.isArray(opts.hymnRows) ? opts.hymnRows.slice() : [];
+  const categories = Array.isArray(opts.categories) ? opts.categories.slice() : [];
+  const hymnListOffsets = [];
   let daily = { id: "global", enabled: true, books: ["Psalms", "Proverbs"], refresh_mode: "on-open" };
   let importedRows = [];
-  let importMarker = Object.prototype.hasOwnProperty.call(opts, "importMarker") ? opts.importMarker : "2026-10-01T00:00:00.000Z";
   globalThis.window = { localStorage: {
     getItem(key) { return this.values && this.values.get(key) || null; },
     setItem(key, value) { if (!this.values) this.values = new Map(); this.values.set(key, String(value)); },
@@ -52,17 +54,49 @@ function installBackend(options) {
       return response([{ user_id: "admin-uuid" }]);
     }
     if (url.pathname.endsWith("/auth/v1/logout")) return response(null, 204);
-    if (url.pathname.endsWith("/rest/v1/backend_state")) {
-      return response([{ initial_hymns_imported_at: importMarker }]);
+    if (url.pathname.endsWith("/rest/v1/categories")) {
+      if (method === "GET") return response(categories.map(function (name) { return { name }; }));
+      if (method === "POST") {
+        const row = JSON.parse(init.body);
+        if (!categories.includes(row.name)) categories.push(row.name);
+        return response([{ name: row.name }], 201);
+      }
     }
     if (url.pathname.endsWith("/rest/v1/hymns") && method === "GET") {
       const idFilter = url.searchParams.get("id");
       const id = idFilter && idFilter.startsWith("eq.") ? idFilter.slice(3) : "";
-      return response(hymnRows.filter(function (hymn) { return !id || hymn.id === id; }));
+      const statusFilter = url.searchParams.get("status");
+      const status = statusFilter && statusFilter.startsWith("eq.") ? statusFilter.slice(3) : "";
+      const filtered = hymnRows.filter(function (hymn) {
+        return (!id || hymn.id === id) && (!status || hymn.status === status);
+      });
+      if (id) return response(filtered);
+      const offset = Number(url.searchParams.get("offset")) || 0;
+      const limit = Number(url.searchParams.get("limit")) || filtered.length;
+      hymnListOffsets.push(offset);
+      return response(filtered.slice(offset, offset + limit));
     }
-    if (url.pathname.endsWith("/rest/v1/rpc/seed_hymns_if_empty")) {
-      importedRows = JSON.parse(init.body).p_hymns;
-      return response(importedRows.length);
+    if (url.pathname.endsWith("/rest/v1/hymns") && method === "POST") {
+      const batch = Array.isArray(JSON.parse(init.body)) ? JSON.parse(init.body) : [JSON.parse(init.body)];
+      const inserted = [];
+      batch.forEach(function (hymn) {
+        if (hymnRows.some(function (current) { return current.hymn_number === hymn.hymn_number; })) return;
+        const row = Object.assign({ id: "hymn-" + hymn.hymn_number }, hymn);
+        hymnRows.push(row);
+        importedRows.push(row);
+        inserted.push(row);
+      });
+      return response(inserted, 201);
+    }
+    if (url.pathname.endsWith("/rest/v1/hymns") && method === "PATCH") {
+      const idFilter = url.searchParams.get("id") || "";
+      const matchedIds = idFilter.startsWith("in.(")
+        ? idFilter.slice(4, -1).split(",").map(decodeURIComponent)
+        : idFilter.startsWith("eq.") ? [idFilter.slice(3)] : [];
+      const changes = JSON.parse(init.body);
+      const updated = hymnRows.filter(function (hymn) { return matchedIds.includes(hymn.id); });
+      updated.forEach(function (hymn) { Object.assign(hymn, changes); });
+      return response(updated);
     }
     if (url.pathname.endsWith("/rest/v1/programs")) {
       const idFilter = url.searchParams.get("id");
@@ -95,8 +129,9 @@ function installBackend(options) {
   };
   return {
     programs,
+    hymnRows,
+    hymnListOffsets,
     get importedRows() { return importedRows; },
-    set importMarker(value) { importMarker = value; }
   };
 }
 
@@ -155,16 +190,46 @@ test("daily quote preferences persist to the shared backend and require a source
   await logoutAdmin();
 });
 
-test("first authorized admin setup imports all repository hymns once", async () => {
-  const backend = installBackend({ importMarker: null });
+test("admin setup fills a partial catalog without overwriting existing records and imports new hymns as drafts", async () => {
+  const existing = { id: "existing-hymn-1", hymn_number: repositoryHymns[0].hymn_number, title_en: "Existing reviewed title", status: "published", category: repositoryHymns[0].category };
+  const backend = installBackend({ hymnRows: [existing] });
   await signIn();
   const result = await initializeAdminData();
-  assert.equal(result.imported, repositoryHymns.length);
-  assert.equal(backend.importedRows.length, repositoryHymns.length);
-  assert.equal(backend.importedRows[0].title_en, repositoryHymns[0].title_en);
-  assert.equal(backend.importedRows[0].status, undefined);
-  assert.equal(backend.importedRows[0].author_en, repositoryHymns[0].author_en || "");
+  assert.equal(result.imported, repositoryHymns.length - 1);
+  assert.equal(backend.hymnRows.length, repositoryHymns.length);
+  assert.equal(backend.hymnRows[0].title_en, "Existing reviewed title");
+  assert.equal(backend.hymnRows[0].status, "published");
+  assert.equal(backend.importedRows.length, repositoryHymns.length - 1);
+  assert.equal(backend.importedRows[0].status, "draft");
+  assert.equal(backend.importedRows[0].published_at, null);
+  assert.equal(backend.importedRows[0].author_en, repositoryHymns[1].author_en || "");
   assert.match(backend.importedRows[0].body_html_en, /^<p>/);
+  assert.equal((await initializeAdminData()).imported, 0);
+  await logoutAdmin();
+});
+
+test("admin hymn lists paginate beyond the backend's first 100 rows", async () => {
+  const rows = Array.from({ length: 205 }, function (_, index) {
+    return { id: "page-" + index, hymn_number: index + 1, title_en: "Hymn " + (index + 1), first_line_en: "First line " + (index + 1), category: "Praise", status: index % 2 ? "draft" : "published" };
+  });
+  const backend = installBackend({ hymnRows: rows });
+  await signIn();
+  const hymns = await getHymns();
+  assert.equal(hymns.length, 205);
+  assert.deepEqual(backend.hymnListOffsets, [0, 100, 200]);
+  await logoutAdmin();
+});
+
+test("moving published hymns to Drafts updates every published row", async () => {
+  const backend = installBackend({ hymnRows: [
+    { id: "published-1", hymn_number: 1, status: "published" },
+    { id: "published-2", hymn_number: 2, status: "published" },
+    { id: "already-draft", hymn_number: 3, status: "draft" }
+  ] });
+  await signIn();
+  assert.equal(await moveAllPublishedHymnsToDrafts(), 2);
+  assert.deepEqual(backend.hymnRows.map(function (hymn) { return hymn.status; }), ["draft", "draft", "draft"]);
+  assert.equal(backend.hymnRows[0].published_at, null);
   await logoutAdmin();
 });
 

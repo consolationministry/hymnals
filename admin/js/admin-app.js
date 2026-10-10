@@ -1,11 +1,12 @@
 import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js?v=31";
-import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getDraftHymns, getHymn, getHymns, getProgram, getPrograms, getPublishedHymns, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=32";
+import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=33";
 
 const root = document.getElementById("admin-root");
 const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null };
 const navigation = [
   { id: "dashboard", label: "Dashboard", icon: "grid" },
   { id: "hymns", label: "Hymns", icon: "book" },
+  { id: "drafts", label: "Drafts", icon: "clock" },
   { id: "categories", label: "Categories", icon: "layers" },
   { id: "services", label: "Service Planner", icon: "calendar" },
   { id: "programs", label: "Upcoming Programs", icon: "calendar" },
@@ -659,7 +660,7 @@ async function saveDailyQuoteSettings() {
 function renderCurrentView() {
   root.querySelectorAll(".nav-item[data-view]").forEach(function (button) { button.setAttribute("aria-current", button.dataset.view === state.activeView ? "page" : "false"); });
   if (state.activeView === "dashboard") renderDashboard();
-  else if (state.activeView === "hymns") renderHymnWorkspace();
+  else if (state.activeView === "hymns" || state.activeView === "drafts") renderHymnWorkspace();
   else if (state.activeView === "categories") renderCategoryWorkspace();
   else if (state.activeView === "services") renderServiceWorkspace();
   else if (state.activeView === "programs") renderProgramWorkspace();
@@ -678,18 +679,29 @@ async function renderHymnWorkspace() {
 }
 async function renderHymnList() {
   const content = document.getElementById("admin-content"); if (!content) return;
+  const draftsOnly = state.activeView === "drafts";
   content.replaceChildren();
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
-  headingContent.append(make("h1", "", "Hymns"), make("p", "", "Search and manage the bilingual hymn library."));
+  headingContent.append(make("h1", "", draftsOnly ? "Drafts" : "Hymns"), make("p", "", draftsOnly ? "Review hymns that have not been published." : "Search and manage the bilingual hymn library."));
   const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-hymn"; addButton.append(icon("plus", ""), document.createTextNode(" Add New Hymn"));
-  heading.append(headingContent, addButton); content.append(heading);
+  if (draftsOnly) {
+    const moveButton = make("button", "button button-secondary", "Move published hymns to Drafts");
+    moveButton.type = "button";
+    moveButton.dataset.action = "move-published-to-drafts";
+    heading.append(headingContent, moveButton, addButton);
+  } else {
+    heading.append(headingContent, addButton);
+  }
+  content.append(heading);
   const controls = make("section", "hymn-toolbar");
   const left = make("div", "hymn-toolbar-left");
   const search = make("input", "hymn-search"); search.type = "search"; search.id = "hymn-search"; search.placeholder = "Search number, title, first line, category…"; search.setAttribute("aria-label", "Search hymns"); search.dataset.filter = "search"; search.value = state.search;
   left.append(search);
   const filters = make("div", "hymn-filters");
   const status = make("select", "filter-select"); status.setAttribute("aria-label", "Filter by publication status"); status.dataset.filter = "status";
-  status.innerHTML = '<option value="">All statuses</option><option value="draft">Drafts</option><option value="published">Published</option>'; status.value = state.statusFilter;
+  status.innerHTML = draftsOnly ? '<option value="draft">Drafts only</option>' : '<option value="">All statuses</option><option value="draft">Drafts</option><option value="published">Published</option>';
+  status.value = draftsOnly ? "draft" : state.statusFilter;
+  status.disabled = draftsOnly;
   const category = make("select", "filter-select"); category.setAttribute("aria-label", "Filter by category"); category.dataset.filter = "category"; category.innerHTML = await categoryOptions(state.categoryFilter, true);
   filters.append(status, category); controls.append(left, filters); content.append(controls);
   content.append(make("p", "hymn-results-label", "Loading hymns…"));
@@ -699,11 +711,13 @@ async function renderHymnList() {
   await refreshHymnRows();
 }
 async function refreshHymnRows() {
-  const content = document.getElementById("admin-content"); if (!content || state.activeView !== "hymns" || state.hymnMode !== "list") return;
+  const content = document.getElementById("admin-content"); if (!content || (state.activeView !== "hymns" && state.activeView !== "drafts") || state.hymnMode !== "list") return;
   const hymns = await getHymns();
   const query = state.search.trim().toLowerCase();
+  const draftsOnly = state.activeView === "drafts";
   const matching = hymns.filter(function (hymn) {
-    if (state.statusFilter && hymn.status !== state.statusFilter) return false;
+    const requiredStatus = draftsOnly ? "draft" : state.statusFilter;
+    if (requiredStatus && hymn.status !== requiredStatus) return false;
     if (state.categoryFilter && hymn.category !== state.categoryFilter) return false;
     if (!query) return true;
     return [hymn.hymn_number, hymn.title_en, hymn.title_yoruba, hymn.first_line_en, hymn.first_line_yoruba, hymn.category].join(" ").toLowerCase().includes(query);
@@ -903,14 +917,24 @@ root.addEventListener("click", async function (event) {
     if (isProgramFormDirty() && !window.confirm("Discard your unsaved program changes?")) return;
     if (isSettingsFormDirty() && !window.confirm("Discard your unsaved workspace preference?")) return;
     if (isQuoteSettingsFormDirty() && !window.confirm("Discard your unsaved quote settings?")) return;
-    state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.serviceFormStart = null; state.serviceMode = "list"; state.editingServiceId = null; state.programFormStart = null; state.programMode = "list"; state.editingProgramId = null; state.programFlyerUrl = ""; state.settingsFormStart = null; state.quoteSettingsFormStart = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; closeMenu(); renderCurrentView();
+    state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.serviceFormStart = null; state.serviceMode = "list"; state.editingServiceId = null; state.programFormStart = null; state.programMode = "list"; state.editingProgramId = null; state.programFlyerUrl = ""; state.settingsFormStart = null; state.quoteSettingsFormStart = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; if (state.activeView === "hymns" || state.activeView === "drafts") state.statusFilter = ""; closeMenu(); renderCurrentView();
     const content = document.getElementById("admin-content"); if (content) content.focus({ preventScroll: true });
   } else if (action === "open-hymns") {
-    state.activeView = "hymns"; state.hymnMode = "list"; closeMenu(); renderCurrentView();
+    state.activeView = "hymns"; state.statusFilter = ""; state.hymnMode = "list"; closeMenu(); renderCurrentView();
+  } else if (action === "move-published-to-drafts") {
+    if (!window.confirm("Move every currently published hymn to Drafts? This will remove them from the public member hymnal until you publish them again.")) return;
+    try {
+      const moved = await moveAllPublishedHymnsToDrafts();
+      state.activeView = "drafts";
+      await renderHymnList();
+      showToast(moved ? moved + " hymns moved to Drafts. They are no longer in the member hymnal until republished." : "No published hymns needed moving.");
+    } catch (error) {
+      showToast(error && error.message ? error.message : "Published hymns could not be moved to Drafts.");
+    }
   } else if (action === "new-hymn") {
-    state.activeView = "hymns"; state.hymnMode = "form"; state.editingHymnId = null; closeMenu(); renderCurrentView();
+    state.activeView = "hymns"; state.statusFilter = ""; state.hymnMode = "form"; state.editingHymnId = null; closeMenu(); renderCurrentView();
   } else if (action === "edit-hymn") {
-    state.activeView = "hymns"; state.hymnMode = "form"; state.editingHymnId = button.dataset.id; closeMenu(); renderCurrentView();
+    state.activeView = "hymns"; state.statusFilter = ""; state.hymnMode = "form"; state.editingHymnId = button.dataset.id; closeMenu(); renderCurrentView();
   } else if (action === "cancel-hymn") {
     await cancelHymnForm();
   } else if (action === "delete-hymn") {
@@ -989,7 +1013,7 @@ root.addEventListener("submit", async function (event) {
        state.authStatus = { configured: true, authenticated: true, admin: admin };
        state.activeView = "dashboard";
        renderShell();
-       if (importResult.imported) showToast(importResult.imported + " existing hymns imported to the shared admin database.");
+        if (importResult.imported) showToast(importResult.imported + " missing hymns added to Drafts.");
      }
      catch (error) { feedback.textContent = error && error.message ? error.message : "Admin sign-in failed."; }
     finally { submit.disabled = false; submit.removeAttribute("aria-busy"); label.textContent = "Sign in"; }
@@ -1071,7 +1095,7 @@ initializeAdminAuth().then(async function (result) {
     const importResult = await initializeAdminData();
     state.activeView = "dashboard";
     renderShell();
-    if (importResult.imported) showToast(importResult.imported + " existing hymns imported to the shared admin database.");
+    if (importResult.imported) showToast(importResult.imported + " missing hymns added to Drafts.");
   } catch (error) {
     state.authStatus = { configured: true, authenticated: false, admin: null };
     await logoutAdmin();

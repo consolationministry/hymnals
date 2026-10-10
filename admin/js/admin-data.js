@@ -4,6 +4,9 @@ import { supabaseRequest } from "./supabase-client.js?v=31";
 
 const GLOBAL_ROW_ID = "global";
 const DAILY_QUOTE_BOOKS = ["Psalms", "Proverbs"];
+const HYMNS_PAGE_SIZE = 100;
+const HYMN_CATALOG_SYNC_VERSION = "cac-ghb-yhb-1997-v1";
+const HYMN_CATALOG_SYNC_KEY = "consolation-admin-hymn-catalog-sync";
 
 async function adminRequest(path, options) {
   await requireAdmin();
@@ -14,6 +17,19 @@ function asArray(value) { return Array.isArray(value) ? value : []; }
 function firstRow(value) { return asArray(value)[0] || null; }
 function copy(value) { return JSON.parse(JSON.stringify(value)); }
 function nowIso() { return new Date().toISOString(); }
+
+async function getAllAdminRows(path) {
+  const rows = [];
+  let offset = 0;
+  while (true) {
+    const page = await adminRequest(path + "&limit=" + HYMNS_PAGE_SIZE + "&offset=" + offset);
+    if (!Array.isArray(page)) throw new Error("The admin hymn catalog returned an invalid response.");
+    rows.push.apply(rows, page);
+    if (page.length < HYMNS_PAGE_SIZE) break;
+    offset += page.length;
+  }
+  return rows;
+}
 
 function isMeterTitle(title) {
   return /^(?:\d+\.)+\d*(?:\s*[d&.]+\s*(?:ref\.?|chorus)?)?$/i.test(String(title || "").trim());
@@ -167,13 +183,6 @@ function normalizeHymnData(value, existing) {
 }
 
 export async function initializeAdminData() {
-  const stateRows = await adminRequest("rest/v1/backend_state?select=initial_hymns_imported_at&id=eq." + GLOBAL_ROW_ID);
-  const state = firstRow(stateRows);
-  if (!state || state.initial_hymns_imported_at) return { imported: 0 };
-
-  const existing = await adminRequest("rest/v1/hymns?select=id&limit=1");
-  if (existing.length) return { imported: 0 };
-
   const importRows = repositoryHymns.map(function (hymn) {
     const versesEn = asArray(hymn.verses_en);
     const versesYoruba = asArray(hymn.verses_yoruba);
@@ -202,19 +211,45 @@ export async function initializeAdminData() {
       body_html_yoruba: paragraphHtml(versesYoruba),
       chorus_html_en: paragraphHtml(hymn.chorus_en ? [hymn.chorus_en] : []),
       chorus_html_yoruba: paragraphHtml(hymn.chorus_yoruba ? [hymn.chorus_yoruba] : []),
-      category: hymn.category || "Praise"
+      category: hymn.category || "Praise",
+      status: "draft",
+      published_at: null
     };
     return row;
   });
-  const imported = await adminRequest("rest/v1/rpc/seed_hymns_if_empty", {
-    method: "POST",
-    body: { p_hymns: importRows }
-  });
-  return { imported: Number(imported) || 0 };
+  try {
+    if (window.localStorage.getItem(HYMN_CATALOG_SYNC_KEY) === HYMN_CATALOG_SYNC_VERSION) {
+      return { imported: 0 };
+    }
+  } catch (error) {}
+
+  const categories = await getCategories();
+  const requiredCategories = Array.from(new Set(importRows.map(function (hymn) { return hymn.category; })));
+  for (const category of requiredCategories) {
+    if (!categories.includes(category)) await createCategory(category);
+  }
+
+  const batchSize = 200;
+  const batches = [];
+  for (let index = 0; index < importRows.length; index += batchSize) {
+    batches.push(importRows.slice(index, index + batchSize));
+  }
+  const results = await Promise.all(batches.map(function (batch) {
+    return adminRequest("rest/v1/hymns?on_conflict=hymn_number&select=hymn_number", {
+      method: "POST",
+      prefer: "resolution=ignore-duplicates,return=representation",
+      body: batch
+    });
+  }));
+  const imported = results.reduce(function (total, rows) {
+    return total + (Array.isArray(rows) ? rows.length : 0);
+  }, 0);
+  try { window.localStorage.setItem(HYMN_CATALOG_SYNC_KEY, HYMN_CATALOG_SYNC_VERSION); } catch (error) {}
+  return { imported };
 }
 
 export async function getHymns() {
-  return normalizeAdminHymns(await adminRequest("rest/v1/hymns?select=*&order=hymn_number.asc"));
+  return normalizeAdminHymns(await getAllAdminRows("rest/v1/hymns?select=*&order=hymn_number.asc"));
 }
 
 export async function getHymn(id) {
@@ -224,11 +259,27 @@ export async function getHymn(id) {
 }
 
 export async function getDraftHymns() {
-  return normalizeAdminHymns(await adminRequest("rest/v1/hymns?select=*&status=eq.draft&order=hymn_number.asc"));
+  return normalizeAdminHymns(await getAllAdminRows("rest/v1/hymns?select=*&status=eq.draft&order=hymn_number.asc"));
 }
 
 export async function getPublishedHymns() {
-  return normalizeAdminHymns(await adminRequest("rest/v1/hymns?select=*&status=eq.published&order=hymn_number.asc"));
+  return normalizeAdminHymns(await getAllAdminRows("rest/v1/hymns?select=*&status=eq.published&order=hymn_number.asc"));
+}
+
+export async function moveAllPublishedHymnsToDrafts() {
+  const published = await getAllAdminRows("rest/v1/hymns?select=id&status=eq.published&order=hymn_number.asc");
+  const batchSize = 100;
+  for (let index = 0; index < published.length; index += batchSize) {
+    const ids = published.slice(index, index + batchSize).map(function (hymn) {
+      return encodeURIComponent(hymn.id);
+    });
+    await adminRequest("rest/v1/hymns?id=in.(" + ids.join(",") + ")", {
+      method: "PATCH",
+      prefer: "return=minimal",
+      body: { status: "draft", published_at: null }
+    });
+  }
+  return published.length;
 }
 
 export async function getDashboardStats() {
