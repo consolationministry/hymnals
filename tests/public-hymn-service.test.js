@@ -58,7 +58,7 @@ test("repeated source numbers are disambiguated without treating the books as tr
   assert.ok(yoruba.every(function (hymn) { return hymn.verses_en.length === 0 && hymn.verses_yoruba.length > 0; }));
 });
 
-test("published CAC hymns load from the shared backend in hymn-number order", async () => {
+test("all published hymns load from the shared backend in hymn-number order", async () => {
   installStorage();
   let request;
   globalThis.fetch = async function (url, options) {
@@ -72,10 +72,12 @@ test("published CAC hymns load from the shared backend in hymn-number order", as
   };
 
   const hymns = await getAllHymns();
-  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [3, 9]);
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [3, 5, 9]);
   assert.equal(hymns[0].title_en, "Earlier hymn");
   assert.equal(hymns[0].id, "hymn-3");
   assert.equal(hymns[0].source_number_label, "2V");
+  assert.equal(hymns[1].source_hymnal, "Pentecostal Hymns No. 1");
+  assert.equal(hymns[1].source_number_label, "5");
   assert.equal(request.options.headers.apikey.startsWith("sb_publishable_"), true);
   assert.equal(request.options.headers.authorization, "Bearer " + request.options.headers.apikey);
   assert.match(request.url, /status=eq\.published/);
@@ -98,14 +100,18 @@ test("published English meter titles and the duplicate hymn are normalized", asy
   assert.ok(hymns[0].keywords.includes("110"));
 });
 
-test("legacy non-CAC rows are excluded instead of falling back to bundled hymns", async () => {
+test("published non-CAC hymns are included while drafts remain hidden", async () => {
   const values = installStorage();
   values.set("cerc-published-hymns-cac-v2", "null");
   globalThis.fetch = async function () {
-    return response([{ hymn_number: 1, title_en: "Old hymn", source_hymnal: "Pentecostal Hymns No. 1", status: "published", verses_en: ["Old verse"] }]);
+    return response([
+      { hymn_number: 1, title_en: "Old hymn", source_hymnal: "Pentecostal Hymns No. 1", status: "published", verses_en: ["Old verse"] },
+      { hymn_number: 2, title_en: "Draft hymn", source_hymnal: "Pentecostal Hymns No. 1", status: "draft", verses_en: ["Draft verse"] }
+    ]);
   };
-  assert.deepEqual(await getAllHymns(), []);
-  assert.deepEqual(JSON.parse(values.get("cerc-published-hymns-cac-v2")), []);
+  const hymns = await getAllHymns();
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [1]);
+  assert.deepEqual(JSON.parse(values.get("cerc-published-hymns-cac-v2")).map(function (hymn) { return hymn.hymn_number; }), [1]);
 });
 
 test("a successful empty published result clears old hymns and remains empty offline", async () => {
@@ -128,7 +134,7 @@ test("an empty cached published catalog stays empty when the backend is unavaila
   assert.deepEqual(await getAllHymns(), []);
 });
 
-test("cached CAC hymns are used when the public backend is unavailable", async () => {
+test("cached published hymns are used when the public backend is unavailable", async () => {
   const values = installStorage();
   values.set("cerc-published-hymns-cac-v2", JSON.stringify([
     { hymn_number: 21, title_en: "Previously published", source_hymnal: "CAC GHB", status: "published", verses_en: ["Cached"] }
