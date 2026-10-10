@@ -7,6 +7,7 @@ import {
   getProgram,
   getPrograms,
   getHymns,
+  getDraftHymns,
   getHymn,
   moveAllPublishedHymnsToDrafts,
   getDailyQuoteSettings,
@@ -31,6 +32,7 @@ function installBackend(options) {
   const hymnRows = Array.isArray(opts.hymnRows) ? opts.hymnRows.slice() : [];
   const categories = Array.isArray(opts.categories) ? opts.categories.slice() : [];
   const hymnListOffsets = [];
+  const hymnListRequests = [];
   let daily = { id: "global", enabled: true, books: ["Psalms", "Proverbs"], refresh_mode: "on-open" };
   let importedRows = [];
   globalThis.window = { localStorage: {
@@ -74,6 +76,7 @@ function installBackend(options) {
       const offset = Number(url.searchParams.get("offset")) || 0;
       const limit = Number(url.searchParams.get("limit")) || filtered.length;
       hymnListOffsets.push(offset);
+      hymnListRequests.push({ offset, status, select: url.searchParams.get("select") || "" });
       return response(filtered.slice(offset, offset + limit));
     }
     if (url.pathname.endsWith("/rest/v1/hymns") && method === "POST") {
@@ -131,6 +134,7 @@ function installBackend(options) {
     programs,
     hymnRows,
     hymnListOffsets,
+    hymnListRequests,
     get importedRows() { return importedRows; },
   };
 }
@@ -205,6 +209,21 @@ test("admin setup fills a partial catalog without overwriting existing records a
   assert.equal(backend.importedRows[0].author_en, repositoryHymns[1].author_en || "");
   assert.match(backend.importedRows[0].body_html_en, /^<p>/);
   assert.equal((await initializeAdminData()).imported, 0);
+  await logoutAdmin();
+});
+
+test("draft list filters and paginates every draft using compact hymn rows", async () => {
+  const rows = Array.from({ length: 210 }, function (_, index) {
+    return { id: "draft-page-" + index, hymn_number: index + 1, title_en: "Hymn " + (index + 1), first_line_en: "First line " + (index + 1), category: "Praise", status: index < 205 ? "draft" : "published" };
+  });
+  const backend = installBackend({ hymnRows: rows });
+  await signIn();
+  const drafts = await getDraftHymns();
+  assert.equal(drafts.length, 205);
+  assert.ok(drafts.every(function (hymn) { return hymn.status === "draft"; }));
+  assert.deepEqual(backend.hymnListOffsets, [0, 100, 200]);
+  assert.ok(backend.hymnListRequests.every(function (request) { return request.status === "draft"; }));
+  assert.ok(backend.hymnListRequests.every(function (request) { return request.select.includes("title_en") && !request.select.includes("body_html_en"); }));
   await logoutAdmin();
 });
 
