@@ -3,7 +3,7 @@ import { searchHymns } from "./search.js";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 import { addRecent, getRecentNumbers } from "./recent.js";
 import { getReadingParts } from "./hymn-reading.js";
-import { getUpcomingMemberContent } from "./public-content.js";
+import { getMemberContent } from "./public-content.js";
 import { ACCENT_THEMES, getSettings, saveSettings } from "./settings.js";
 import { shareHymn } from "./sharing.js";
 import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
@@ -256,15 +256,36 @@ function publicDate(value) {
   return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(undefined, { dateStyle: "long" }).format(date);
 }
 
+function publicStatus(startValue, endValue) {
+  const start = String(startValue || "").slice(0, 10);
+  const end = String(endValue || startValue || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return "";
+  const now = new Date();
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0")
+  ].join("-");
+  if (end < today) return "Past";
+  if (start > today) return "Upcoming";
+  return "Current";
+}
+
+function publicStatusBadge(status) {
+  if (!status) return "";
+  return '<span class="public-content-status status-' + status.toLowerCase() + '">' + escapeHtml(status) + '</span>';
+}
+
 function renderPublicPrograms(programs, available) {
   if (!programs.length) {
-    const message = available ? "No upcoming programs have been posted yet." : "Program announcements are unavailable right now. Please try again later.";
+    const message = available ? "No programs have been posted yet." : "Program announcements are unavailable right now. Please try again later.";
     return '<div class="public-content-empty">' + escapeHtml(message) + '</div>';
   }
   return '<div class="public-program-list">' + programs.map(function (program) {
     const title = escapeHtml(program.title);
     const startDate = publicDate(program.start_date);
     const endDate = publicDate(program.end_date);
+    const status = publicStatus(program.start_date, program.end_date);
     const dateLabel = startDate && endDate && program.end_date !== program.start_date
       ? startDate + " – " + endDate
       : startDate;
@@ -273,16 +294,17 @@ function renderPublicPrograms(programs, available) {
       && program.flyer_data_url.length <= 1900000
       ? '<img class="public-program-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
       : "";
-    return '<article class="public-program-card">' + flyer + '<div class="public-content-card-copy"><p class="public-content-date">' + escapeHtml(dateLabel) + '</p><h3>' + title + '</h3><p class="public-content-venue">' + escapeHtml(program.venue || "") + '</p></div></article>';
+    return '<article class="public-program-card">' + flyer + '<div class="public-content-card-copy"><p class="public-content-date">' + publicStatusBadge(status) + '<span>' + escapeHtml(dateLabel) + '</span></p><h3>' + title + '</h3><p class="public-content-venue">' + escapeHtml(program.venue || "") + '</p></div></article>';
   }).join("") + '</div>';
 }
 
 function renderPublicServicePlans(plans, available) {
   if (!plans.length) {
-    const message = available ? "No upcoming service plans have been posted yet." : "Service plans are unavailable right now. Please try again later.";
+    const message = available ? "No service plans have been posted yet." : "Service plans are unavailable right now. Please try again later.";
     return '<div class="public-content-empty">' + escapeHtml(message) + '</div>';
   }
   return '<div class="public-service-list">' + plans.map(function (plan) {
+    const status = publicStatus(plan.date, plan.date);
     const hymnLinks = (Array.isArray(plan.hymn_ids) ? plan.hymn_ids : []).map(function (id) {
       return state.hymns.find(function (hymn) { return hymn.id && String(hymn.id) === String(id); });
     }).filter(Boolean);
@@ -291,15 +313,15 @@ function renderPublicServicePlans(plans, available) {
         return '<li><button type="button" class="public-service-hymn" data-action="open-hymn" data-number="' + hymn.hymn_number + '"><span>' + escapeHtml(displayHymnNumber(hymn)) + '</span>' + escapeHtml(currentHymnTitle(hymn)) + '</button></li>';
       }).join("") + '</ol>'
       : '<p class="public-content-unavailable">The selected hymns are not in the published member catalog.</p>';
-    return '<article class="public-service-card"><p class="public-content-date">' + escapeHtml(publicDate(plan.date)) + '</p><h3>' + escapeHtml(plan.title) + '</h3>' + hymns + '</article>';
+    return '<article class="public-service-card"><p class="public-content-date">' + publicStatusBadge(status) + '<span>' + escapeHtml(publicDate(plan.date)) + '</span></p><h3>' + escapeHtml(plan.title) + '</h3>' + hymns + '</article>';
   }).join("") + '</div>';
 }
 
 function renderEvents() {
   const content = state.publicContent || { programs: [], servicePlans: [], programsAvailable: false, servicePlansAvailable: false };
-  return '<section class="page public-events-page">' + pageHeading("Church life", "Upcoming programs and planned service hymns.") +
-    '<section class="public-content-section" aria-labelledby="public-programs-heading"><div class="section-title-row"><div><h2 id="public-programs-heading">Upcoming Programs</h2><p>Church events and announcements.</p></div></div>' + renderPublicPrograms(content.programs, content.programsAvailable) + '</section>' +
-    '<section class="public-content-section" aria-labelledby="public-service-plans-heading"><div class="section-title-row"><div><h2 id="public-service-plans-heading">Service Planner</h2><p>Upcoming services and their published hymns.</p></div></div>' + renderPublicServicePlans(content.servicePlans, content.servicePlansAvailable) + '</section></section>';
+  return '<section class="page public-events-page">' + pageHeading("Church life", "Past and upcoming programs and planned service hymns.") +
+    '<section class="public-content-section" aria-labelledby="public-programs-heading"><div class="section-title-row"><div><h2 id="public-programs-heading">Programs</h2><p>Past and upcoming church events and announcements.</p></div></div>' + renderPublicPrograms(content.programs, content.programsAvailable) + '</section>' +
+    '<section class="public-content-section" aria-labelledby="public-service-plans-heading"><div class="section-title-row"><div><h2 id="public-service-plans-heading">Service Plans</h2><p>Hymns planned for past and upcoming services.</p></div></div>' + renderPublicServicePlans(content.servicePlans, content.servicePlansAvailable) + '</section></section>';
 }
 
 function homeHymn(hymn) {
@@ -604,7 +626,7 @@ if (window.matchMedia) {
 
 async function boot() {
   try {
-    const results = await Promise.all([getAllHymns(), getUpcomingMemberContent()]);
+    const results = await Promise.all([getAllHymns(), getMemberContent()]);
     state.hymns = results[0];
     state.publicContent = results[1];
     render();
