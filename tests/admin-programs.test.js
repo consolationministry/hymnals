@@ -14,7 +14,7 @@ import {
   initializeAdminData,
   updateDailyQuoteSettings,
   updateProgram
-} from "../admin/js/admin-data.js?v=33";
+} from "../admin/js/admin-data.js?v=34";
 import { clearSession } from "../admin/js/supabase-client.js?v=31";
 import { loginAdmin, logoutAdmin } from "../admin/js/admin-auth.js?v=31";
 
