@@ -1,8 +1,8 @@
 import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js?v=31";
-import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=33";
+import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=34";
 
 const root = document.getElementById("admin-root");
-const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null };
+const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null, hymnRowsCache: { hymns: null, drafts: null }, hymnRowsLoading: { hymns: null, drafts: null }, hymnRowsVersion: { hymns: 0, drafts: 0 } };
 const navigation = [
   { id: "dashboard", label: "Dashboard", icon: "grid" },
   { id: "hymns", label: "Hymns", icon: "book" },
@@ -667,6 +667,13 @@ function renderCurrentView() {
   else if (state.activeView === "settings") renderSettingsWorkspace();
   else renderPlaceholder(state.activeView);
 }
+function invalidateHymnRows() {
+  ["hymns", "drafts"].forEach(function (view) {
+    state.hymnRowsCache[view] = null;
+    state.hymnRowsLoading[view] = null;
+    state.hymnRowsVersion[view] += 1;
+  });
+}
 function categoryOptions(selected, includeAll) {
   return getCategories().then(function (categories) {
     const lead = includeAll ? '<option value="">All categories</option>' : '<option value="">Choose a category</option>';
@@ -702,19 +709,56 @@ async function renderHymnList() {
   status.innerHTML = draftsOnly ? '<option value="draft">Drafts only</option>' : '<option value="">All statuses</option><option value="draft">Drafts</option><option value="published">Published</option>';
   status.value = draftsOnly ? "draft" : state.statusFilter;
   status.disabled = draftsOnly;
-  const category = make("select", "filter-select"); category.setAttribute("aria-label", "Filter by category"); category.dataset.filter = "category"; category.innerHTML = await categoryOptions(state.categoryFilter, true);
+  const category = make("select", "filter-select"); category.setAttribute("aria-label", "Filter by category"); category.dataset.filter = "category"; category.innerHTML = '<option value="">All categories</option>';
   filters.append(status, category); controls.append(left, filters); content.append(controls);
-  content.append(make("p", "hymn-results-label", "Loading hymns…"));
+  const resultsLabel = make("p", "hymn-results-label", draftsOnly ? "Loading draft hymns…" : "Loading hymns…");
+  content.append(resultsLabel);
   const tableWrap = make("div", "hymn-table-wrap"); tableWrap.id = "hymn-table-wrap";
   tableWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody id="hymn-table-body"></tbody></table>';
   content.append(tableWrap);
+  const categoriesRequest = categoryOptions(state.categoryFilter, true).then(function (options) {
+    if (category.isConnected) category.innerHTML = options;
+  }).catch(function () {
+    if (category.isConnected) category.innerHTML = '<option value="">All categories</option>';
+  });
   await refreshHymnRows();
-}
+  await categoriesRequest;}
 async function refreshHymnRows() {
-  const content = document.getElementById("admin-content"); if (!content || (state.activeView !== "hymns" && state.activeView !== "drafts") || state.hymnMode !== "list") return;
-  const hymns = await getHymns();
+  const content = document.getElementById("admin-content");
+  if (!content || (state.activeView !== "hymns" && state.activeView !== "drafts") || state.hymnMode !== "list") return;
+  const view = state.activeView;
+  const draftsOnly = view === "drafts";
+  const tableWrap = document.getElementById("hymn-table-wrap");
+  if (!tableWrap) return;
+  let hymns = state.hymnRowsCache[view];
+  if (!Array.isArray(hymns)) {
+    const version = state.hymnRowsVersion[view];
+    let pending = state.hymnRowsLoading[view];
+    if (!pending || pending.version !== version) {
+      pending = { version: version, promise: draftsOnly ? getDraftHymns() : getHymnListRows() };
+      state.hymnRowsLoading[view] = pending;
+    }
+    try {
+      hymns = await pending.promise;
+      if (state.hymnRowsVersion[view] !== version) return refreshHymnRows();
+      state.hymnRowsCache[view] = hymns;
+    } catch (error) {
+      if (state.hymnRowsVersion[view] !== version) return refreshHymnRows();
+      if (state.activeView !== view) return;
+      const label = root.querySelector(".hymn-results-label");
+      if (label) label.textContent = draftsOnly ? "Drafts could not be loaded" : "Hymns could not be loaded";
+      const wrap = document.getElementById("hymn-table-wrap");
+      if (wrap) {
+        wrap.className = "list-empty";
+        wrap.innerHTML = '<h2>Unable to load ' + (draftsOnly ? "drafts" : "hymns") + '</h2><p>' + escapeHtml(error && error.message ? error.message : "Check your connection and try again.") + '</p><button class="button button-secondary" type="button" data-action="retry-hymns">Try again</button>';
+      }
+      return;
+    } finally {
+      if (state.hymnRowsLoading[view] === pending) state.hymnRowsLoading[view] = null;
+    }
+  }
+  if (state.activeView !== view || state.hymnMode !== "list") return;
   const query = state.search.trim().toLowerCase();
-  const draftsOnly = state.activeView === "drafts";
   const matching = hymns.filter(function (hymn) {
     const requiredStatus = draftsOnly ? "draft" : state.statusFilter;
     if (requiredStatus && hymn.status !== requiredStatus) return false;
@@ -723,21 +767,21 @@ async function refreshHymnRows() {
     return [hymn.hymn_number, hymn.title_en, hymn.title_yoruba, hymn.first_line_en, hymn.first_line_yoruba, hymn.category].join(" ").toLowerCase().includes(query);
   });
   const label = root.querySelector(".hymn-results-label"); if (label) label.textContent = matching.length + (matching.length === 1 ? " hymn" : " hymns");
-  const tableWrap = document.getElementById("hymn-table-wrap"); if (!tableWrap) return;
+  const currentWrap = document.getElementById("hymn-table-wrap"); if (!currentWrap) return;
   if (!matching.length) {
-    tableWrap.className = "list-empty";
-    tableWrap.innerHTML = '<h2>No hymns match these filters</h2><p>Try a different search or clear the filters.</p><button class="button button-secondary" type="button" data-action="clear-hymn-filters">Clear filters</button>';
+    currentWrap.className = "list-empty";
+    currentWrap.innerHTML = '<h2>No hymns match these filters</h2><p>Try a different search or clear the filters.</p><button class="button button-secondary" type="button" data-action="clear-hymn-filters">Clear filters</button>';
     return;
   }
-  tableWrap.className = "hymn-table-wrap";
-  tableWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody>' + matching.map(function (hymn) {
+  currentWrap.className = "hymn-table-wrap";
+  currentWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody>' + matching.map(function (hymn) {
     const updated = new Date(hymn.updated_at);
     const date = Number.isNaN(updated.getTime()) ? "—" : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(updated);
     const firstLine = hymn.first_line_en || hymn.first_line_yoruba || "No first line yet";
     const statusClass = hymn.status === "published" ? "status-published" : "status-draft";
     const statusText = hymn.status === "published" ? "Published" : "Draft";
     const nextStatus = hymn.status === "published" ? "draft" : "published";
-    const toggleLabel = nextStatus === "published" ? "Mark published" : "Save as draft";
+    const toggleLabel = draftsOnly ? "Publish" : (nextStatus === "published" ? "Mark published" : "Save as draft");
     return '<tr><td><span class="hymn-row-title">' + escapeHtml(hymn.title_en || "Untitled hymn") + '</span><span class="hymn-row-subtitle">#' + escapeHtml(hymn.hymn_number) + (hymn.title_yoruba ? " · " + escapeHtml(hymn.title_yoruba) : "") + '</span></td><td>' + escapeHtml(firstLine) + '</td><td>' + escapeHtml(hymn.category || "—") + '</td><td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td><td>' + date + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Edit hymn ' + escapeHtml(hymn.hymn_number) + '">Edit</button><button class="row-action" type="button" data-action="set-status" data-id="' + escapeHtml(hymn.id) + '" data-status="' + nextStatus + '">' + toggleLabel + '</button><button class="row-action row-action-danger" type="button" data-action="delete-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Delete hymn ' + escapeHtml(hymn.hymn_number) + '">Delete</button></div></td></tr>';
   }).join("") + '</tbody></table>';
 }
@@ -858,10 +902,11 @@ async function saveHymnForm(status) {
       ? await updateHymn(state.editingHymnId, data)
       : await createHymn(data);
     const mode = saved._storage_mode || getStorageMode();
+    invalidateHymnRows();
     const actionLabel = status === "published" ? "marked published" : "saved as a draft";
     state.hymnMode = "list"; state.editingHymnId = null; state.formStart = null;
     await renderHymnList();
-    showToast(mode === "browser" ? "Hymn " + actionLabel + " in this browser's demo data only; the public hymnal is unchanged." : "Saved for this open session only; browser storage is unavailable.");
+    showToast(mode === "browser" ? "Hymn " + actionLabel + " in this browser's demo data only; the public hymnal is unchanged." : (status === "published" ? "Hymn published." : "Hymn saved to Drafts."));
   } catch (error) {
     showFormErrors([error && error.message ? error.message : "The hymn could not be saved."]);
   }
@@ -884,7 +929,7 @@ async function confirmDeleteHymn(hymn) {
   remove.addEventListener("click", async function () {
     remove.disabled = true;
     try {
-      await deleteHymn(hymn.id); const mode = getStorageMode(); dialog.close();
+      await deleteHymn(hymn.id); const mode = getStorageMode(); invalidateHymnRows(); dialog.close();
       state.hymnMode = "list"; state.editingHymnId = null; state.formStart = null;
       if (state.activeView === "hymns") await renderHymnList(); else renderDashboard();
       showToast(mode === "browser" ? "Hymn #" + hymn.hymn_number + " deleted from this browser's demo data." : "Hymn #" + hymn.hymn_number + " deleted for this open session only.");
@@ -897,10 +942,11 @@ async function setHymnStatus(id, status) {
   try {
     const saved = status === "published" ? await publishHymn(id) : await saveHymnAsDraft(id);
     const mode = saved._storage_mode || getStorageMode();
+    invalidateHymnRows();
     await refreshHymnRows();
     showToast(mode === "browser"
       ? (status === "published" ? "Marked published in this browser's demo data only." : "Saved as a draft in this browser's demo data only.")
-      : "Status changed for this open session only; browser storage is unavailable.");
+      : (status === "published" ? "Hymn published." : "Hymn moved to Drafts."));
   } catch (error) { showToast(error.message || "The status could not be changed."); }
 }
 
@@ -925,6 +971,7 @@ root.addEventListener("click", async function (event) {
     if (!window.confirm("Move every currently published hymn to Drafts? This will remove them from the public member hymnal until you publish them again.")) return;
     try {
       const moved = await moveAllPublishedHymnsToDrafts();
+      invalidateHymnRows();
       state.activeView = "drafts";
       await renderHymnList();
       showToast(moved ? moved + " hymns moved to Drafts. They are no longer in the member hymnal until republished." : "No published hymns needed moving.");
@@ -943,6 +990,9 @@ root.addEventListener("click", async function (event) {
     const hymn = await getHymn(state.editingHymnId); await confirmDeleteHymn(hymn);
   } else if (action === "set-status") {
     await setHymnStatus(button.dataset.id, button.dataset.status);
+  } else if (action === "retry-hymns") {
+    invalidateHymnRows();
+    await refreshHymnRows();
   } else if (action === "clear-hymn-filters") {
     state.search = ""; state.statusFilter = ""; state.categoryFilter = ""; await renderHymnList();
   } else if (action === "new-category") {

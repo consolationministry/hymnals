@@ -5,6 +5,7 @@ import { supabaseRequest } from "./supabase-client.js?v=31";
 const GLOBAL_ROW_ID = "global";
 const DAILY_QUOTE_BOOKS = ["Psalms", "Proverbs"];
 const HYMNS_PAGE_SIZE = 100;
+const ADMIN_HYMN_LIST_COLUMNS = "id,hymn_number,title_en,title_yoruba,first_line_en,first_line_yoruba,verses_en,keywords,source_hymnal,source_hymn_number,source_first_line_en,category,status,updated_at";
 const HYMN_CATALOG_SYNC_VERSION = "cac-ghb-yhb-1997-v1";
 const HYMN_CATALOG_SYNC_KEY = "consolation-admin-hymn-catalog-sync";
 
@@ -252,6 +253,14 @@ export async function getHymns() {
   return normalizeAdminHymns(await getAllAdminRows("rest/v1/hymns?select=*&order=hymn_number.asc"));
 }
 
+function adminHymnListPath(status) {
+  return "rest/v1/hymns?select=" + ADMIN_HYMN_LIST_COLUMNS + (status ? "&status=eq." + encodeURIComponent(status) : "") + "&order=hymn_number.asc";
+}
+
+export async function getHymnListRows() {
+  return normalizeAdminHymns(await getAllAdminRows(adminHymnListPath()));
+}
+
 export async function getHymn(id) {
   const rows = await adminRequest("rest/v1/hymns?select=*&id=eq." + encodeURIComponent(id) + "&limit=1");
   const hymn = firstRow(rows);
@@ -259,7 +268,7 @@ export async function getHymn(id) {
 }
 
 export async function getDraftHymns() {
-  return normalizeAdminHymns(await getAllAdminRows("rest/v1/hymns?select=*&status=eq.draft&order=hymn_number.asc"));
+  return normalizeAdminHymns(await getAllAdminRows(adminHymnListPath("draft")));
 }
 
 export async function getPublishedHymns() {
@@ -283,7 +292,7 @@ export async function moveAllPublishedHymnsToDrafts() {
 }
 
 export async function getDashboardStats() {
-  const results = await Promise.all([getHymns(), getUpcomingServicePlans(), getCategories()]);
+  const results = await Promise.all([getHymnListRows(), getUpcomingServicePlans(), getCategories()]);
   const hymns = results[0];
   return {
     totalHymns: hymns.length,
