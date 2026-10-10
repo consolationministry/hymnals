@@ -25,6 +25,12 @@ const PUBLIC_HYMN_COLUMNS = [
   "status"
 ].join(",");
 
+// Preserve printed "Various" labels without bundling hymn text in the member app.
+const VARIOUS_SOURCE_LABEL_HYMN_NUMBERS = new Set([
+  3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 28,
+  1003, 1005, 1007, 1009, 1010, 1012, 1014, 1016, 1018, 1020, 1022, 1024
+]);
+
 function asString(value) {
   return typeof value === "string" ? value : "";
 }
@@ -75,7 +81,7 @@ function normalizePublishedRows(rows) {
         keywords: asStringArray(row.keywords),
         author_en: asString(row.author_en),
         source_hymnal: asString(row.source_hymnal),
-        source_number_label: asString(row.source_number_label) || String(row.source_hymn_number || row.hymn_number),
+        source_number_label: asString(row.source_number_label) || String(row.source_hymn_number || row.hymn_number) + (VARIOUS_SOURCE_LABEL_HYMN_NUMBERS.has(Number(row.hymn_number)) ? "V" : ""),
         source_publication_year: row.source_publication_year || null,
         source_hymn_number: row.source_hymn_number ? Number(row.source_hymn_number) : null,
         source_first_line_en: hasMeterTitle ? lyricLine : asString(row.source_first_line_en),

@@ -65,7 +65,7 @@ test("published CAC hymns load from the shared backend in hymn-number order", as
     request = { url: String(url), options };
     return response([
       { id: "hymn-9", hymn_number: 9, title_en: "Later hymn", source_hymnal: "CAC GHB", status: "published", verses_en: ["Verse"] },
-      { id: "hymn-3", hymn_number: 3, title_en: "Earlier hymn", source_hymnal: "CAC GHB", status: "published", verses_en: ["First"] },
+      { id: "hymn-3", hymn_number: 3, source_hymn_number: 2, title_en: "Earlier hymn", source_hymnal: "CAC GHB", status: "published", verses_en: ["First"] },
       { id: "legacy-5", hymn_number: 5, title_en: "Legacy hymn", source_hymnal: "Pentecostal Hymns No. 1", status: "published", verses_en: ["Legacy"] },
       { hymn_number: 4, title_en: "Draft hymn", source_hymnal: "CAC GHB", status: "draft", verses_en: ["Hidden"] }
     ]);
@@ -75,7 +75,7 @@ test("published CAC hymns load from the shared backend in hymn-number order", as
   assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [3, 9]);
   assert.equal(hymns[0].title_en, "Earlier hymn");
   assert.equal(hymns[0].id, "hymn-3");
-  assert.ok(hymns[0].source_number_label);
+  assert.equal(hymns[0].source_number_label, "2V");
   assert.equal(request.options.headers.apikey.startsWith("sb_publishable_"), true);
   assert.equal(request.options.headers.authorization, "Bearer " + request.options.headers.apikey);
   assert.match(request.url, /status=eq\.published/);
