@@ -63,6 +63,7 @@ function normalizePublishedRows(rows) {
     .map(function (row) {
       const versesEn = asStringArray(row.verses_en);
       const titleEn = asString(row.title_en);
+      const isCacHymn = /\bCAC\b|Christ Apostolic Church/i.test(asString(row.source_hymnal));
       const hasMeterTitle = isMeterTitle(titleEn);
       const firstVerseLine = firstLine(versesEn);
       const lyricLine = firstLine(hasMeterTitle && isMeterTitle(firstVerseLine) ? versesEn.slice(1) : versesEn);
@@ -81,7 +82,7 @@ function normalizePublishedRows(rows) {
         keywords: asStringArray(row.keywords),
         author_en: asString(row.author_en),
         source_hymnal: asString(row.source_hymnal),
-        source_number_label: asString(row.source_number_label) || String(row.source_hymn_number || row.hymn_number) + (VARIOUS_SOURCE_LABEL_HYMN_NUMBERS.has(Number(row.hymn_number)) ? "V" : ""),
+        source_number_label: asString(row.source_number_label) || String(row.source_hymn_number || row.hymn_number) + (isCacHymn && VARIOUS_SOURCE_LABEL_HYMN_NUMBERS.has(Number(row.hymn_number)) ? "V" : ""),
         source_publication_year: row.source_publication_year || null,
         source_hymn_number: row.source_hymn_number ? Number(row.source_hymn_number) : null,
         source_first_line_en: hasMeterTitle ? lyricLine : asString(row.source_first_line_en),
@@ -132,9 +133,8 @@ async function fetchPublishedHymns() {
     if (!response.ok) return null;
     const rows = normalizePublishedRows(await response.json());
     if (rows === null) return null;
-    const cacRows = rows.filter(function (row) { return /\bCAC\b/i.test(row.source_hymnal); });
-    writeLocal(PUBLISHED_HYMNS_CACHE_KEY, cacRows);
-    return cacRows;
+    writeLocal(PUBLISHED_HYMNS_CACHE_KEY, rows);
+    return rows;
   } catch (error) {
     return null;
   }
