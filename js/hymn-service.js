@@ -1,4 +1,3 @@
-import { hymns } from "../data/cac-hymns.js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
 
@@ -25,10 +24,6 @@ const PUBLIC_HYMN_COLUMNS = [
   "lyrics_source_url",
   "status"
 ].join(",");
-
-const BUNDLED_SOURCE_LABELS = new Map(hymns.map(function (hymn) {
-  return [Number(hymn.hymn_number), hymn.source_number_label];
-}));
 
 function asString(value) {
   return typeof value === "string" ? value : "";
@@ -80,7 +75,7 @@ function normalizePublishedRows(rows) {
         keywords: asStringArray(row.keywords),
         author_en: asString(row.author_en),
         source_hymnal: asString(row.source_hymnal),
-        source_number_label: asString(row.source_number_label) || BUNDLED_SOURCE_LABELS.get(Number(row.hymn_number)) || String(row.source_hymn_number || row.hymn_number),
+        source_number_label: asString(row.source_number_label) || String(row.source_hymn_number || row.hymn_number),
         source_publication_year: row.source_publication_year || null,
         source_hymn_number: row.source_hymn_number ? Number(row.source_hymn_number) : null,
         source_first_line_en: hasMeterTitle ? lyricLine : asString(row.source_first_line_en),
@@ -131,9 +126,9 @@ async function fetchPublishedHymns() {
     if (!response.ok) return null;
     const rows = normalizePublishedRows(await response.json());
     if (rows === null) return null;
-    if (rows.some(function (row) { return !/\bCAC\b/i.test(row.source_hymnal); })) return null;
-    writeLocal(PUBLISHED_HYMNS_CACHE_KEY, rows);
-    return rows;
+    const cacRows = rows.filter(function (row) { return /\bCAC\b/i.test(row.source_hymnal); });
+    writeLocal(PUBLISHED_HYMNS_CACHE_KEY, cacRows);
+    return cacRows;
   } catch (error) {
     return null;
   }
@@ -144,8 +139,7 @@ export async function getAllHymns() {
   if (published !== null) return published;
 
   const cached = normalizePublishedRows(readLocal(PUBLISHED_HYMNS_CACHE_KEY, null));
-  if (cached !== null) return cached;
-  return hymns.slice().sort(function (a, b) { return a.hymn_number - b.hymn_number; });
+  return cached === null ? [] : cached;
 }
 
 export async function getHymnByNumber(number) {
