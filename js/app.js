@@ -3,7 +3,7 @@ import { searchHymns } from "./search.js";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 import { addRecent, getRecentNumbers } from "./recent.js";
 import { getReadingParts } from "./hymn-reading.js";
-import { getMemberContent } from "./public-content.js";
+import { getMemberContent, servicePlanDayLabel } from "./public-content.js";
 import { ACCENT_THEMES, getSettings, saveSettings } from "./settings.js";
 import { shareHymn } from "./sharing.js";
 import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
@@ -283,6 +283,7 @@ function renderPublicPrograms(programs, available) {
   }
   return '<div class="public-program-list">' + programs.map(function (program) {
     const title = escapeHtml(program.title);
+    const startDateValue = String(program.start_date || "").slice(0, 10);
     const startDate = publicDate(program.start_date);
     const endDate = publicDate(program.end_date);
     const status = publicStatus(program.start_date, program.end_date);
@@ -294,7 +295,11 @@ function renderPublicPrograms(programs, available) {
       && program.flyer_data_url.length <= 1900000
       ? '<img class="public-program-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
       : "";
-    return '<article class="public-program-card">' + flyer + '<div class="public-content-card-copy"><p class="public-content-date">' + publicStatusBadge(status) + '<span>' + escapeHtml(dateLabel) + '</span></p><h3>' + title + '</h3><p class="public-content-venue">' + escapeHtml(program.venue || "") + '</p></div></article>';
+    const venue = String(program.venue || "").trim();
+    const details = '<p class="public-content-date">' + publicStatusBadge(status) + '<span>' + escapeHtml(dateLabel) + '</span></p>' +
+      (venue ? '<p class="public-content-venue">' + escapeHtml(venue) + '</p>' : "") +
+      flyer;
+    return '<details class="public-program-card public-schedule-card"><summary class="public-schedule-summary"><span class="public-schedule-main"><span class="public-schedule-title">' + title + '</span><time class="public-schedule-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time></span><span class="public-schedule-chevron" aria-hidden="true"></span></summary><div class="public-schedule-details public-program-details">' + details + '</div></details>';
   }).join("") + '</div>';
 }
 
@@ -304,7 +309,8 @@ function renderPublicServicePlans(plans, available) {
     return '<div class="public-content-empty">' + escapeHtml(message) + '</div>';
   }
   return '<div class="public-service-list">' + plans.map(function (plan) {
-    const status = publicStatus(plan.date, plan.date);
+    const dateValue = String(plan.date || "").slice(0, 10);
+    const dayLabel = servicePlanDayLabel(dateValue) || publicDate(dateValue) || "Service date";
     const hymnLinks = (Array.isArray(plan.hymn_ids) ? plan.hymn_ids : []).map(function (id) {
       return state.hymns.find(function (hymn) { return hymn.id && String(hymn.id) === String(id); });
     }).filter(Boolean);
@@ -313,7 +319,7 @@ function renderPublicServicePlans(plans, available) {
         return '<li><button type="button" class="public-service-hymn" data-action="open-hymn" data-number="' + hymn.hymn_number + '"><span>' + escapeHtml(displayHymnNumber(hymn)) + '</span>' + escapeHtml(currentHymnTitle(hymn)) + '</button></li>';
       }).join("") + '</ol>'
       : '<p class="public-content-unavailable">The selected hymns are not in the published member catalog.</p>';
-    return '<article class="public-service-card"><p class="public-content-date">' + publicStatusBadge(status) + '<span>' + escapeHtml(publicDate(plan.date)) + '</span></p><h3>' + escapeHtml(plan.title) + '</h3>' + hymns + '</article>';
+    return '<details class="public-service-card public-schedule-card"><summary class="public-schedule-summary"><span class="public-schedule-main"><span class="public-schedule-date"><time datetime="' + escapeHtml(dateValue) + '">' + escapeHtml(dayLabel) + '</time></span><span class="public-schedule-title">' + escapeHtml(plan.title) + '</span></span><span class="public-schedule-chevron" aria-hidden="true"></span></summary><div class="public-schedule-details public-service-details">' + hymns + '</div></details>';
   }).join("") + '</div>';
 }
 

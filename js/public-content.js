@@ -4,6 +4,35 @@ import { readLocal, writeLocal } from "./local-store.js";
 const PROGRAMS_CACHE_KEY = "cerc-public-programs-v2";
 const SERVICE_PLANS_CACHE_KEY = "cerc-public-service-plans-v2";
 
+function localDateKey(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+export function servicePlanDayLabel(value, nowValue, locale) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || "").slice(0, 10));
+  if (!match) return "";
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return "";
+
+  const now = nowValue instanceof Date ? nowValue : nowValue ? new Date(nowValue) : new Date();
+  if (!Number.isNaN(now.getTime()) && localDateKey(date) === localDateKey(now)) return "Today’s Service";
+
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(date);
+}
+
 function validPrograms(rows) {
   return rows.filter(function (program) {
     if (!program || typeof program !== "object" || !program.title || !program.start_date) return false;

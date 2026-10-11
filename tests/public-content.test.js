@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getMemberContent } from "../js/public-content.js";
+import { getMemberContent, servicePlanDayLabel } from "../js/public-content.js";
 
 function installStorage() {
   const values = new Map();
@@ -23,6 +23,18 @@ function response(body, status = 200) {
     async json() { return body; }
   };
 }
+
+test("labels a service on the local current date as Today's Service", () => {
+  const today = new Date(2026, 9, 12, 12, 0, 0);
+  assert.equal(servicePlanDayLabel("2026-10-12", today, "en-US"), "Today’s Service");
+});
+
+test("shows a weekday for other valid service dates and rejects invalid dates", () => {
+  const today = new Date(2026, 9, 12, 12, 0, 0);
+  assert.equal(servicePlanDayLabel("2026-10-11", today, "en-US"), "Sunday, Oct 11, 2026");
+  assert.equal(servicePlanDayLabel("2026-02-30", today, "en-US"), "");
+  assert.equal(servicePlanDayLabel("not-a-date", today, "en-US"), "");
+});
 
 test("loads past and future public programs and service plans through read-only requests", async () => {
   installStorage();
