@@ -7,7 +7,7 @@ function firstLine(verses) {
 }
 
 function isMeterTitle(title) {
-  return /^(?:\d+\.)+\d*(?:\s*[d&.]+\s*(?:ref\.?|chorus)?)?$/i.test(title);
+  return /^(?:\d+\.)+\d*(?:\s*[d&.]+\s*(?:ref\.?|chorus)?)?$/i.test(title.replace(/\.{2,}/g, "."));
 }
 
 function convertCollection(sourceRows, firstId, language) {
@@ -35,8 +35,9 @@ function convertCollection(sourceRows, firstId, language) {
       const displayTitle = hasMeterTitle ? first : title;
       const numberLabel = String(item.sourceNumber) + (item.isVarious ? "V" : "");
       const duplicateNumberAliases = english && item.sourceNumber === 86 && !item.isVarious ? ["110"] : [];
+      const storedInternalId = Number(item.record.metadata && item.record.metadata.hymnal_internal_id);
       return {
-        hymn_number: firstId + item.sortedIndex,
+        hymn_number: Number.isInteger(storedInternalId) && storedInternalId > 0 ? storedInternalId : firstId + item.sortedIndex,
         title_en: english ? displayTitle : "",
         title_yoruba: english ? "" : displayTitle,
         first_line_en: english ? first : "",
@@ -62,7 +63,9 @@ function convertCollection(sourceRows, firstId, language) {
     });
 }
 
+const LEGACY_YHB_FIRST_ID = 1002;
+
 export const hymns = [
   ...convertCollection(ghb, 1, "english"),
-  ...convertCollection(yhb, ghb.length + 1, "yoruba")
+  ...convertCollection(yhb, LEGACY_YHB_FIRST_ID, "yoruba")
 ];
