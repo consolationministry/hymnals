@@ -1,5 +1,5 @@
 import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js?v=31";
-import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=34";
+import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=35";
 
 const root = document.getElementById("admin-root");
 const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null, hymnRowsCache: { hymns: null, drafts: null }, hymnRowsLoading: { hymns: null, drafts: null }, hymnRowsVersion: { hymns: 0, drafts: 0 } };
@@ -920,7 +920,9 @@ async function confirmDeleteHymn(hymn) {
   const dialog = document.createElement("dialog"); dialog.className = "confirm-dialog"; dialog.setAttribute("aria-labelledby", "delete-hymn-title");
   const inner = make("div", "confirm-dialog-inner");
   inner.append(make("h2", "", "Are you sure you want to delete this hymn?"));
-  const details = document.createElement("p"); details.append(document.createTextNode("You are deleting "), make("strong", "", "Hymn #" + hymn.hymn_number + " — " + hymn.title_en), document.createTextNode(" from the admin database. This does not change the public hymnal."));
+  const details = document.createElement("p"); details.append(document.createTextNode("You are deleting "), make("strong", "", "Hymn #" + hymn.hymn_number + " — " + hymn.title_en), document.createTextNode(hymn.status === "published"
+    ? " from the shared Supabase database. Because it is published, deleting it also removes it from the public hymnal feed. This is permanent."
+    : " from the shared Supabase database. This is a permanent delete, not a hide action."));
   const actions = make("div", "confirm-dialog-actions");
   const cancel = make("button", "button button-secondary", "Cancel"); cancel.type = "button";
   const remove = make("button", "button button-danger", "Delete"); remove.type = "button";
@@ -932,7 +934,7 @@ async function confirmDeleteHymn(hymn) {
       await deleteHymn(hymn.id); const mode = getStorageMode(); invalidateHymnRows(); dialog.close();
       state.hymnMode = "list"; state.editingHymnId = null; state.formStart = null;
       if (state.activeView === "hymns") await renderHymnList(); else renderDashboard();
-      showToast(mode === "browser" ? "Hymn #" + hymn.hymn_number + " deleted from this browser's demo data." : "Hymn #" + hymn.hymn_number + " deleted for this open session only.");
+      showToast(mode === "browser" ? "Hymn #" + hymn.hymn_number + " deleted from this browser's demo data." : "Hymn #" + hymn.hymn_number + " deleted from the shared Supabase database.");
     } catch (error) { remove.disabled = false; showToast(error.message || "The hymn could not be deleted."); }
   });
   dialog.addEventListener("close", function () { dialog.remove(); });

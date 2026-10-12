@@ -9,12 +9,14 @@ import {
   getHymns,
   getDraftHymns,
   getHymn,
+  getHymnListRows,
+  getRecentlyUpdatedHymns,
   moveAllPublishedHymnsToDrafts,
   getDailyQuoteSettings,
   initializeAdminData,
   updateDailyQuoteSettings,
   updateProgram
-} from "../admin/js/admin-data.js?v=34";
+} from "../admin/js/admin-data.js?v=35";
 import { clearSession } from "../admin/js/supabase-client.js?v=31";
 import { loginAdmin, logoutAdmin } from "../admin/js/admin-auth.js?v=31";
 
@@ -209,6 +211,28 @@ test("admin setup fills a partial catalog without overwriting existing records a
   assert.equal(backend.importedRows[0].author_en, repositoryHymns[1].author_en || "");
   assert.match(backend.importedRows[0].body_html_en, /^<p>/);
   assert.equal((await initializeAdminData()).imported, 0);
+  await logoutAdmin();
+});
+
+test("admin views hide legacy rows outside the current photographed catalog without deleting database rows", async () => {
+  const english = repositoryHymns.find(function (hymn) { return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book"; });
+  const yoruba = repositoryHymns.find(function (hymn) { return hymn.source_hymnal.includes("Yoruba Hymn Book"); });
+  const backend = installBackend({ hymnRows: [
+    { id: "current-english", hymn_number: english.hymn_number, source_hymnal: english.source_hymnal, title_en: english.title_en, status: "published", updated_at: "2026-10-12T00:00:00Z" },
+    { id: "current-yoruba", hymn_number: yoruba.hymn_number, source_hymnal: yoruba.source_hymnal, title_yoruba: yoruba.title_yoruba, status: "draft", updated_at: "2026-10-11T00:00:00Z" },
+    { id: "legacy-english", hymn_number: 99001, source_hymnal: english.source_hymnal, title_en: "Outside the pictured index", status: "published", updated_at: "2026-10-10T00:00:00Z" },
+    { id: "legacy-yoruba", hymn_number: 99002, source_hymnal: yoruba.source_hymnal, title_yoruba: "Outside the current Yoruba catalog", status: "draft", updated_at: "2026-10-09T00:00:00Z" },
+    { id: "custom-collection", hymn_number: 99003, source_hymnal: "Community Hymnal", title_en: "Custom collection hymn", status: "published", updated_at: "2026-10-08T00:00:00Z" }
+  ] });
+  await signIn();
+
+  const hymns = await getHymnListRows();
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.id; }), ["current-english", "current-yoruba", "custom-collection"]);
+  const drafts = await getDraftHymns();
+  assert.deepEqual(drafts.map(function (hymn) { return hymn.id; }), ["current-yoruba"]);
+  const recent = await getRecentlyUpdatedHymns(5);
+  assert.ok(recent.every(function (hymn) { return !hymn.id.startsWith("legacy-"); }));
+  assert.equal(backend.hymnRows.length, 5, "hidden database rows remain intact");
   await logoutAdmin();
 });
 
