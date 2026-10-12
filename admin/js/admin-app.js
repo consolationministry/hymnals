@@ -1,5 +1,6 @@
 import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js?v=31";
-import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=34";
+import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=36";
+import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "./admin-hymn-display.js?v=1";
 
 const root = document.getElementById("admin-root");
 const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null, hymnRowsCache: { hymns: null, drafts: null }, hymnRowsLoading: { hymns: null, drafts: null }, hymnRowsVersion: { hymns: 0, drafts: 0 } };
@@ -174,7 +175,7 @@ function renderDashboard() {
     getRecentlyUpdatedHymns(5).then(function (hymns) {
       hymns.forEach(function (hymn) {
         const row = document.createElement("tr"); const cell = document.createElement("td");
-        cell.append(make("span", "hymn-name", hymn.title_en), make("span", "hymn-number", "Hymn #" + String(hymn.hymn_number).padStart(2, "0")));
+        cell.append(make("span", "hymn-name", adminHymnTitle(hymn)), make("span", "hymn-number", adminHymnNumberLabel(hymn)));
         const statusCell = document.createElement("td"); statusCell.append(make("span", "status-pill " + (hymn.status === "published" ? "status-published" : "status-draft"), hymn.status === "published" ? "Published" : "Draft"));
         const dateCell = document.createElement("td"); const date = new Date(hymn.updated_at);
         dateCell.textContent = Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(date);
@@ -319,7 +320,7 @@ async function renderServiceWorkspace() {
       const dateText = Number.isNaN(date.getTime()) ? dateValue : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(date);
       const selected = (plan.hymn_ids || []).map(function (id) {
         const hymn = hymnById.get(id);
-        return hymn ? "#" + hymn.hymn_number + " · " + (hymn.title_en || hymn.title_yoruba || "Untitled hymn") : "Hymn no longer available";
+        return hymn ? adminHymnNumberLabel(hymn) + " · " + adminHymnTitle(hymn) : "Hymn no longer available";
       });
       const names = selected.length ? selected.join(" · ") : "No hymns selected";
       return '<tr><td><span class="hymn-row-title">' + title + '</span><span class="hymn-row-subtitle">' + selected.length + (selected.length === 1 ? " hymn" : " hymns") + '</span></td><td>' + escapeHtml(dateText) + '</td><td class="service-hymn-summary">' + escapeHtml(names) + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-service" data-id="' + escapedId + '" aria-label="Edit service plan ' + title + '">Edit</button><button class="row-action row-action-danger" type="button" data-action="delete-service" data-id="' + escapedId + '" aria-label="Delete service plan ' + title + '">Delete</button></div></td></tr>';
@@ -342,7 +343,7 @@ async function renderServiceForm() {
   heading.append(headingContent); content.append(heading);
   const options = hymns.map(function (hymn) {
     const checked = selectedIds.includes(hymn.id) ? " checked" : "";
-    const headingText = "Hymn #" + hymn.hymn_number + " · " + (hymn.title_en || hymn.title_yoruba || "Untitled hymn");
+    const headingText = adminHymnNumberLabel(hymn) + " · " + adminHymnTitle(hymn);
     const firstLine = hymn.first_line_en || hymn.first_line_yoruba || "First line not added";
     return '<label class="service-hymn-option" for="service-hymn-' + escapeHtml(hymn.id) + '"><input type="checkbox" id="service-hymn-' + escapeHtml(hymn.id) + '" name="service_hymn_ids" value="' + escapeHtml(hymn.id) + '"' + checked + '><span class="service-hymn-copy"><strong>' + escapeHtml(headingText) + '</strong><span>' + escapeHtml(firstLine) + '</span></span></label>';
   }).join("");
@@ -764,7 +765,7 @@ async function refreshHymnRows() {
     if (requiredStatus && hymn.status !== requiredStatus) return false;
     if (state.categoryFilter && hymn.category !== state.categoryFilter) return false;
     if (!query) return true;
-    return [hymn.hymn_number, hymn.title_en, hymn.title_yoruba, hymn.first_line_en, hymn.first_line_yoruba, hymn.category].join(" ").toLowerCase().includes(query);
+    return [hymn.hymn_number, hymn.source_hymn_number, hymn.title_en, hymn.title_yoruba, hymn.first_line_en, hymn.first_line_yoruba, hymn.category].join(" ").toLowerCase().includes(query);
   });
   const label = root.querySelector(".hymn-results-label"); if (label) label.textContent = matching.length + (matching.length === 1 ? " hymn" : " hymns");
   const currentWrap = document.getElementById("hymn-table-wrap"); if (!currentWrap) return;
@@ -782,7 +783,7 @@ async function refreshHymnRows() {
     const statusText = hymn.status === "published" ? "Published" : "Draft";
     const nextStatus = hymn.status === "published" ? "draft" : "published";
     const toggleLabel = draftsOnly ? "Publish" : (nextStatus === "published" ? "Mark published" : "Save as draft");
-    return '<tr><td><span class="hymn-row-title">' + escapeHtml(hymn.title_en || "Untitled hymn") + '</span><span class="hymn-row-subtitle">#' + escapeHtml(hymn.hymn_number) + (hymn.title_yoruba ? " · " + escapeHtml(hymn.title_yoruba) : "") + '</span></td><td>' + escapeHtml(firstLine) + '</td><td>' + escapeHtml(hymn.category || "—") + '</td><td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td><td>' + date + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Edit hymn ' + escapeHtml(hymn.hymn_number) + '">Edit</button><button class="row-action" type="button" data-action="set-status" data-id="' + escapeHtml(hymn.id) + '" data-status="' + nextStatus + '">' + toggleLabel + '</button><button class="row-action row-action-danger" type="button" data-action="delete-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Delete hymn ' + escapeHtml(hymn.hymn_number) + '">Delete</button></div></td></tr>';
+    return '<tr><td><span class="hymn-row-title">' + escapeHtml(adminHymnTitle(hymn)) + '</span><span class="hymn-row-subtitle">' + escapeHtml(adminHymnNumberLabel(hymn)) + '</span></td><td>' + escapeHtml(firstLine) + '</td><td>' + escapeHtml(hymn.category || "—") + '</td><td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td><td>' + date + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Edit ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Edit</button><button class="row-action" type="button" data-action="set-status" data-id="' + escapeHtml(hymn.id) + '" data-status="' + nextStatus + '">' + toggleLabel + '</button><button class="row-action row-action-danger" type="button" data-action="delete-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Delete ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Delete</button></div></td></tr>';
   }).join("") + '</tbody></table>';
 }
 function toolbarMarkup(key, title) {
@@ -865,6 +866,18 @@ async function renderHymnForm() {
   content.innerHTML = '<div class="page-heading"><div><h1>' + (existing ? "Edit Hymn" : "Add New Hymn") + '</h1><p>' + (existing ? "Edit the hymn in the shared admin database." : "Create a hymn record. New hymns start as drafts unless you mark them published.") + '</p></div><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button></div>';
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit hymn form" : "Add hymn form");
   panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn number, English title, category, and at least one opening line and verse are required. Yorùbá text is optional. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number <span aria-hidden="true">*</span></label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="hymn-category">Category <span aria-hidden="true">*</span></label><select class="form-select" id="hymn-category" name="category" required>' + categoryHtml + '</select></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use one paragraph for each verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use one paragraph for each verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div></section><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
+  const formHelp = panel.querySelector(".form-section-help");
+  if (formHelp) formHelp.textContent = "Enter a title in English or Yorùbá, choose a category, and add at least one opening line and verse. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.";
+  const englishTitle = panel.querySelector("#title-en");
+  const englishTitleLabel = panel.querySelector('label[for="title-en"]');
+  if (englishTitle) englishTitle.required = false;
+  if (englishTitleLabel) englishTitleLabel.textContent = "English hymn title";
+  const numberInput = panel.querySelector("#hymn-number");
+  const numberLabel = panel.querySelector('label[for="hymn-number"]');
+  if (existing && Number(existing.source_hymn_number) > 0) {
+    if (numberInput) numberInput.readOnly = true;
+    if (numberLabel) numberLabel.textContent = "Internal record ID (book #" + existing.source_hymn_number + ")";
+  }
   content.append(panel);
   state.formStart = formSignature();
   const first = document.getElementById("hymn-number"); if (!existing && first) first.focus({ preventScroll: true });
@@ -878,7 +891,7 @@ function showFormErrors(errors) {
 function validateHymn(data, existingId) {
   const errors = [];
   if (!Number.isInteger(data.hymn_number) || data.hymn_number < 1) errors.push("Enter a whole hymn number greater than zero.");
-  if (!data.title_en) errors.push("Enter the English hymn title.");
+  if (!hasAdminHymnTitle(data)) errors.push("Enter an English or Yorùbá hymn title.");
   if (!data.category) errors.push("Choose a category.");
   if (!data.first_line_en && !data.first_line_yoruba) errors.push("Enter at least one English or Yoruba first line.");
   if (!data.verses_en.length && !data.verses_yoruba.length) errors.push("Enter at least one verse in English or Yoruba.");
@@ -893,7 +906,7 @@ async function saveHymnForm(status) {
   const data = currentFormData(status); const errors = await validateHymn(data, state.editingHymnId);
   if (errors.length) {
     showFormErrors(errors);
-    const focusId = !Number.isInteger(data.hymn_number) || data.hymn_number < 1 ? "hymn-number" : (!data.title_en ? "title-en" : (!data.category ? "hymn-category" : null));
+    const focusId = !Number.isInteger(data.hymn_number) || data.hymn_number < 1 ? "hymn-number" : (!hasAdminHymnTitle(data) ? "title-en" : (!data.category ? "hymn-category" : null));
     if (focusId) document.getElementById(focusId).focus(); else document.getElementById("hymn-errors").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
@@ -920,7 +933,9 @@ async function confirmDeleteHymn(hymn) {
   const dialog = document.createElement("dialog"); dialog.className = "confirm-dialog"; dialog.setAttribute("aria-labelledby", "delete-hymn-title");
   const inner = make("div", "confirm-dialog-inner");
   inner.append(make("h2", "", "Are you sure you want to delete this hymn?"));
-  const details = document.createElement("p"); details.append(document.createTextNode("You are deleting "), make("strong", "", "Hymn #" + hymn.hymn_number + " — " + hymn.title_en), document.createTextNode(" from the admin database. This does not change the public hymnal."));
+  const details = document.createElement("p"); details.append(document.createTextNode("You are deleting "), make("strong", "", adminHymnNumberLabel(hymn) + " — " + adminHymnTitle(hymn)), document.createTextNode(hymn.status === "published"
+    ? " from the shared Supabase database. Because it is published, deleting it also removes it from the public hymnal feed. This is permanent."
+    : " from the shared Supabase database. This is a permanent delete, not a hide action."));
   const actions = make("div", "confirm-dialog-actions");
   const cancel = make("button", "button button-secondary", "Cancel"); cancel.type = "button";
   const remove = make("button", "button button-danger", "Delete"); remove.type = "button";
@@ -932,7 +947,7 @@ async function confirmDeleteHymn(hymn) {
       await deleteHymn(hymn.id); const mode = getStorageMode(); invalidateHymnRows(); dialog.close();
       state.hymnMode = "list"; state.editingHymnId = null; state.formStart = null;
       if (state.activeView === "hymns") await renderHymnList(); else renderDashboard();
-      showToast(mode === "browser" ? "Hymn #" + hymn.hymn_number + " deleted from this browser's demo data." : "Hymn #" + hymn.hymn_number + " deleted for this open session only.");
+      showToast(mode === "browser" ? adminHymnNumberLabel(hymn) + " deleted from this browser's demo data." : adminHymnNumberLabel(hymn) + " deleted from the shared Supabase database.");
     } catch (error) { remove.disabled = false; showToast(error.message || "The hymn could not be deleted."); }
   });
   dialog.addEventListener("close", function () { dialog.remove(); });

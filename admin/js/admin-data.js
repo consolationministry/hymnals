@@ -8,6 +8,14 @@ const HYMNS_PAGE_SIZE = 100;
 const ADMIN_HYMN_LIST_COLUMNS = "id,hymn_number,title_en,title_yoruba,first_line_en,first_line_yoruba,verses_en,keywords,source_hymnal,source_hymn_number,source_first_line_en,category,status,updated_at";
 const HYMN_CATALOG_SYNC_VERSION = "cac-ghb-yhb-1997-v1";
 const HYMN_CATALOG_SYNC_KEY = "consolation-admin-hymn-catalog-sync";
+const ADMIN_CATALOG_NUMBERS_BY_SOURCE = new Map();
+repositoryHymns.forEach(function (hymn) {
+  const sourceHymnal = String(hymn.source_hymnal || "").trim();
+  const hymnNumber = Number(hymn.hymn_number);
+  if (!sourceHymnal || !Number.isInteger(hymnNumber)) return;
+  if (!ADMIN_CATALOG_NUMBERS_BY_SOURCE.has(sourceHymnal)) ADMIN_CATALOG_NUMBERS_BY_SOURCE.set(sourceHymnal, new Set());
+  ADMIN_CATALOG_NUMBERS_BY_SOURCE.get(sourceHymnal).add(hymnNumber);
+});
 
 async function adminRequest(path, options) {
   await requireAdmin();
@@ -73,6 +81,15 @@ function normalizeAdminHymns(rows) {
     return hymns.filter(function (hymn) { return hymn !== duplicate; });
   }
   return hymns;
+}
+
+function getVisibleAdminHymns(rows) {
+  const visibleRows = asArray(rows).filter(function (hymn) {
+    const sourceHymnal = String(hymn && hymn.source_hymnal || "").trim();
+    const catalogNumbers = ADMIN_CATALOG_NUMBERS_BY_SOURCE.get(sourceHymnal);
+    return !catalogNumbers || catalogNumbers.has(Number(hymn.hymn_number));
+  });
+  return normalizeAdminHymns(visibleRows);
 }
 
 function escapeHtml(value) {
@@ -258,7 +275,7 @@ function adminHymnListPath(status) {
 }
 
 export async function getHymnListRows() {
-  return normalizeAdminHymns(await getAllAdminRows(adminHymnListPath()));
+  return getVisibleAdminHymns(await getAllAdminRows(adminHymnListPath()));
 }
 
 export async function getHymn(id) {
@@ -268,7 +285,7 @@ export async function getHymn(id) {
 }
 
 export async function getDraftHymns() {
-  return normalizeAdminHymns(await getAllAdminRows(adminHymnListPath("draft")));
+  return getVisibleAdminHymns(await getAllAdminRows(adminHymnListPath("draft")));
 }
 
 export async function getPublishedHymns() {
@@ -307,7 +324,7 @@ export async function getDashboardStats() {
 
 export async function getRecentlyUpdatedHymns(limit) {
   const count = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 5;
-  return normalizeAdminHymns(await adminRequest("rest/v1/hymns?select=*&order=updated_at.desc&limit=" + count));
+  return getVisibleAdminHymns(await adminRequest("rest/v1/hymns?select=*&order=updated_at.desc&limit=" + count));
 }
 
 function getToday() {
