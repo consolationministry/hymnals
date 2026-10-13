@@ -1,7 +1,11 @@
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
+import { hymns as repositoryHymns } from "../data/cac-hymns.js";
 
-const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-cac-v2";
+const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-cac-v3";
+const CURRENT_CAC_GHB_RECORD_IDS = new Set(repositoryHymns.filter(function (hymn) {
+  return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book";
+}).map(function (hymn) { return Number(hymn.hymn_number); }));
 const PUBLIC_HYMN_COLUMNS = [
   "id",
   "hymn_number",
@@ -58,7 +62,9 @@ function normalizePublishedRows(rows) {
   if (!Array.isArray(rows)) return null;
   const normalized = rows
     .filter(function (row) {
-      return row && row.status === "published" && Number.isInteger(Number(row.hymn_number)) && Number(row.hymn_number) > 0;
+      if (!row || row.status !== "published" || !Number.isInteger(Number(row.hymn_number)) || Number(row.hymn_number) <= 0) return false;
+      const isCacEnglish = /\bGHB\b|Gospel Hymn Book/i.test(asString(row.source_hymnal));
+      return !isCacEnglish || CURRENT_CAC_GHB_RECORD_IDS.has(Number(row.hymn_number));
     })
     .map(function (row) {
       const versesEn = asStringArray(row.verses_en);

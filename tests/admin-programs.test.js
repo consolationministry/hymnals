@@ -276,16 +276,17 @@ test("moving published hymns to Drafts updates every published row", async () =>
   await logoutAdmin();
 });
 
-test("admin hymn lists and editor normalize meter titles and merge duplicate entries", async () => {
+test("admin hymn list and editor keep the current English catalog and normalize meter titles", async () => {
   installBackend({ hymnRows: [
-    { id: "hymn-86", hymn_number: 99, source_hymn_number: 86, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "7.7.5.", first_line_en: "7.7.5.", source_first_line_en: "7.7.5.", verses_en: ["7.7.5.\nScripture reference", "Three in One, and One in Three,\nRuler of the earth and sea,"], keywords: [] },
-    { id: "hymn-110", hymn_number: 123, source_hymn_number: 110, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "7.7.5", first_line_en: "7.7.5", source_first_line_en: "7.7.5", verses_en: ["7.7.5\nScripture reference", "Three in one, and One in Three,\nRuler of the earth and sea,"], keywords: [] }
+    { id: "hymn-18", hymn_number: 18, source_hymn_number: 10, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "6.6.6.", first_line_en: "6.6.6.", source_first_line_en: "6.6.6.", verses_en: ["6.6.6.\nScripture reference", "Holy Father, hear me,\nThou art my defender,"], keywords: [] },
+    { id: "retired-1", hymn_number: 1, source_hymn_number: 1, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "Retired hymn", verses_en: ["Old verse"], keywords: [] }
   ] });
   await signIn();
   const hymns = await getHymns();
   assert.equal(hymns.length, 1);
-  assert.equal(hymns[0].title_en, "Three in One, and One in Three,");
-  assert.ok(hymns[0].keywords.includes("110"));
-  assert.equal((await getHymn("hymn-86")).title_en, "Three in One, and One in Three,");
+  assert.equal(hymns[0].hymn_number, 18);
+  assert.equal(hymns[0].title_en, "Holy Father, hear me,");
+  assert.equal((await getHymn("hymn-18")).title_en, "Holy Father, hear me,");
+  assert.equal(await getHymn("retired-1"), null);
   await logoutAdmin();
 });
