@@ -430,6 +430,38 @@ export async function updateHymn(id, data) {
   return Object.assign(updated, { _storage_mode: "remote" });
 }
 
+export async function setHymnsStatus(ids, status) {
+  if (!["draft", "published"].includes(status)) throw new Error("Choose a valid hymn status.");
+  const uniqueIds = Array.from(new Set(asArray(ids).map(function (id) { return String(id || ""); }).filter(Boolean)));
+  const batchSize = 100;
+  const updatedAt = nowIso();
+  let updated = 0;
+  for (let index = 0; index < uniqueIds.length; index += batchSize) {
+    const batch = uniqueIds.slice(index, index + batchSize);
+    const rows = await adminRequest("rest/v1/hymns?id=in.(" + batch.map(encodeURIComponent).join(",") + ")&select=id", {
+      method: "PATCH",
+      prefer: "return=representation",
+      body: { status, published_at: status === "draft" ? null : updatedAt, updated_at: updatedAt }
+    });
+    updated += asArray(rows).length;
+  }
+  return updated;
+}
+
+export async function deleteHymns(ids) {
+  const uniqueIds = Array.from(new Set(asArray(ids).map(function (id) { return String(id || ""); }).filter(Boolean)));
+  const batchSize = 100;
+  let deleted = 0;
+  for (let index = 0; index < uniqueIds.length; index += batchSize) {
+    const batch = uniqueIds.slice(index, index + batchSize);
+    const rows = await adminRequest("rest/v1/hymns?id=in.(" + batch.map(encodeURIComponent).join(",") + ")&select=id", {
+      method: "DELETE",
+      prefer: "return=representation"
+    });
+    deleted += asArray(rows).length;
+  }
+  return deleted;
+}
 export async function deleteHymn(id) {
   await adminRequest("rest/v1/hymns?id=eq." + encodeURIComponent(id), { method: "DELETE" });
   return true;
