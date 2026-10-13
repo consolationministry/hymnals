@@ -18,6 +18,6 @@ test("bulk deletion requires confirmation and uses batched admin requests", () =
   assert.ok(app.includes("await deleteHymns(ids)"));
   assert.ok(data.includes("export async function deleteHymns(ids)"));
   assert.ok(data.includes("export async function setHymnsStatus(ids, status)"));
-  assert.equal((data.match(/const batchSize = 100/g) || []).length, 2);
+  assert.equal((data.match(/const batchSize = 100/g) || []).length, 3);
 });
 
