@@ -244,6 +244,7 @@ function poemSection(label, verses, chorus, languageCode, hasMeterPreface) {
   }).join("");
   return '<section class="language-reading" lang="' + languageCode + '"><h2>' + label + '</h2>' + partsMarkup + '</section>';
 }
+
 function renderRecentlyViewed() {
   const viewed = getRecentNumbers().map(function (number) {
     return state.hymns.find(function (hymn) { return hymn.hymn_number === number; });
