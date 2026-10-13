@@ -1,9 +1,9 @@
 import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js?v=31";
-import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=39";
+
 import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "./admin-hymn-display.js?v=1";
 
 const root = document.getElementById("admin-root");
-const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null, hymnRowsCache: { hymns: null, drafts: null }, hymnRowsLoading: { hymns: null, drafts: null }, hymnRowsVersion: { hymns: 0, drafts: 0 } };
+const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null, hymnRowsCache: { hymns: null, drafts: null }, hymnRowsLoading: { hymns: null, drafts: null }, hymnRowsVersion: { hymns: 0, drafts: 0 }, selectedHymnIds: new Set() };
 const navigation = [
   { id: "dashboard", label: "Dashboard", icon: "grid" },
   { id: "hymns", label: "Hymns", icon: "book" },
@@ -723,8 +723,15 @@ async function renderHymnList() {
   filters.append(status, category); controls.append(left, filters); content.append(controls);
   const resultsLabel = make("p", "hymn-results-label", draftsOnly ? "Loading draft hymns…" : "Loading hymns…");
   content.append(resultsLabel);
+  const bulkToolbar = make("div", "hymn-bulk-toolbar");
+  bulkToolbar.setAttribute("aria-label", "Bulk hymn actions");
+  const bulkCount = make("span", "hymn-bulk-count", "0 selected"); bulkCount.id = "hymn-bulk-count"; bulkCount.setAttribute("aria-live", "polite");
+  const bulkAction = make("select", "filter-select"); bulkAction.id = "hymn-bulk-action"; bulkAction.setAttribute("aria-label", "Choose a bulk action"); bulkAction.disabled = true;
+  bulkAction.innerHTML = '<option value="">Choose action</option><option value="delete">Delete</option><option value="published">Publish</option><option value="draft">Save as draft</option>';
+  const bulkApply = make("button", "button button-secondary", "Apply"); bulkApply.type = "button"; bulkApply.dataset.action = "bulk-hymn-action"; bulkApply.disabled = true;
+  bulkToolbar.append(bulkCount, bulkAction, bulkApply); content.append(bulkToolbar);
   const tableWrap = make("div", "hymn-table-wrap"); tableWrap.id = "hymn-table-wrap";
-  tableWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody id="hymn-table-body"></tbody></table>';
+  tableWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col" class="hymn-select-heading"><input type="checkbox" data-select-all-hymns aria-label="Select all visible hymns"></th><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody id="hymn-table-body"></tbody></table>';
   content.append(tableWrap);
   const categoriesRequest = categoryOptions(state.categoryFilter, true).then(function (options) {
     if (category.isConnected) category.innerHTML = options;
@@ -781,10 +788,11 @@ async function refreshHymnRows() {
   if (!matching.length) {
     currentWrap.className = "list-empty";
     currentWrap.innerHTML = '<h2>No hymns match these filters</h2><p>Try a different search or clear the filters.</p><button class="button button-secondary" type="button" data-action="clear-hymn-filters">Clear filters</button>';
+    updateBulkHymnControls();
     return;
   }
   currentWrap.className = "hymn-table-wrap";
-  currentWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody>' + matching.map(function (hymn) {
+  currentWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col" class="hymn-select-heading"><input type="checkbox" data-select-all-hymns aria-label="Select all visible hymns"></th><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody>' + matching.map(function (hymn) {
     const updated = new Date(hymn.updated_at);
     const date = Number.isNaN(updated.getTime()) ? "—" : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(updated);
     const firstLine = hymn.first_line_en || hymn.first_line_yoruba || "No first line yet";
@@ -792,8 +800,10 @@ async function refreshHymnRows() {
     const statusText = hymn.status === "published" ? "Published" : "Draft";
     const nextStatus = hymn.status === "published" ? "draft" : "published";
     const toggleLabel = draftsOnly ? "Publish" : (nextStatus === "published" ? "Mark published" : "Save as draft");
-    return '<tr><td><span class="hymn-row-title">' + escapeHtml(adminHymnTitle(hymn)) + '</span><span class="hymn-row-subtitle">' + escapeHtml(adminHymnNumberLabel(hymn)) + '</span></td><td>' + escapeHtml(firstLine) + '</td><td>' + escapeHtml(hymn.category || "—") + '</td><td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td><td>' + date + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Edit ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Edit</button><button class="row-action" type="button" data-action="set-status" data-id="' + escapeHtml(hymn.id) + '" data-status="' + nextStatus + '">' + toggleLabel + '</button><button class="row-action row-action-danger" type="button" data-action="delete-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Delete ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Delete</button></div></td></tr>';
+    const checked = state.selectedHymnIds.has(String(hymn.id)) ? " checked" : "";
+    return '<tr><td class="hymn-select-cell"><input type="checkbox" data-select-hymn data-id="' + escapeHtml(hymn.id) + '"' + checked + ' aria-label="Select ' + escapeHtml(adminHymnNumberLabel(hymn)) + '"></td><td><span class="hymn-row-title">' + escapeHtml(adminHymnTitle(hymn)) + '</span><span class="hymn-row-subtitle">' + escapeHtml(adminHymnNumberLabel(hymn)) + '</span></td><td>' + escapeHtml(firstLine) + '</td><td>' + escapeHtml(hymn.category || "—") + '</td><td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td><td>' + date + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Edit ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Edit</button><button class="row-action" type="button" data-action="set-status" data-id="' + escapeHtml(hymn.id) + '" data-status="' + nextStatus + '">' + toggleLabel + '</button><button class="row-action row-action-danger" type="button" data-action="delete-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Delete ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Delete</button></div></td></tr>';
   }).join("") + '</tbody></table>';
+  updateBulkHymnControls();
 }
 function toolbarMarkup(key, title) {
   const button = function (command, label, glyph) { return '<button type="button" data-editor-command="' + command + '" data-editor-target="' + key + '" aria-label="' + label + '" title="' + label + '">' + glyph + '</button>'; };
@@ -962,6 +972,48 @@ async function confirmDeleteHymn(hymn) {
   dialog.addEventListener("close", function () { dialog.remove(); });
   dialog.showModal(); cancel.focus();
 }
+function updateBulkHymnControls() {
+  const checkboxes = Array.from(root.querySelectorAll("[data-select-hymn]"));
+  const header = root.querySelector("[data-select-all-hymns]");
+  const selectedCount = state.selectedHymnIds.size;
+  const count = document.getElementById("hymn-bulk-count");
+  const action = document.getElementById("hymn-bulk-action");
+  const apply = root.querySelector('[data-action="bulk-hymn-action"]');
+  if (count) count.textContent = selectedCount + (selectedCount === 1 ? " hymn selected" : " hymns selected");
+  if (action) action.disabled = selectedCount === 0;
+  if (apply) apply.disabled = selectedCount === 0 || !action || !action.value;
+  if (header) {
+    const checkedCount = checkboxes.filter(function (checkbox) { return state.selectedHymnIds.has(String(checkbox.dataset.id)); }).length;
+    header.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
+    header.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+  }
+}
+async function applyBulkHymnAction() {
+  const action = document.getElementById("hymn-bulk-action");
+  const ids = Array.from(state.selectedHymnIds);
+  if (!action || !action.value || !ids.length) return;
+  if (action.value === "delete" && !window.confirm("Permanently delete " + ids.length + (ids.length === 1 ? " selected hymn?" : " selected hymns?") + " This cannot be undone.")) return;
+  const view = state.activeView;
+  const selectedRows = (state.hymnRowsCache[view] || []).filter(function (hymn) { return ids.includes(String(hymn.id)); });
+  try {
+    let changed = 0;
+    if (action.value === "delete") changed = await deleteHymns(ids);
+    else {
+      const targetStatus = action.value;
+      const idsToUpdate = selectedRows.filter(function (hymn) { return hymn.status !== targetStatus; }).map(function (hymn) { return hymn.id; });
+      changed = await setHymnsStatus(idsToUpdate, targetStatus);
+    }
+    state.selectedHymnIds.clear(); invalidateHymnRows(); await refreshHymnRows();
+    const name = action.value === "published" ? "published" : action.value === "draft" ? "saved as drafts" : "deleted";
+    showToast(changed ? changed + (changed === 1 ? " hymn " : " hymns ") + name + "." : "No selected hymns needed that change.");
+  } catch (error) {
+    state.selectedHymnIds.clear(); invalidateHymnRows();
+    try { await refreshHymnRows(); } catch (refreshError) {}
+    showToast(error && error.message ? error.message : "The bulk action could not be completed. Refresh the list before trying again.");
+  } finally {
+    updateBulkHymnControls();
+  }
+}
 async function setHymnStatus(id, status) {
   try {
     const saved = status === "published" ? await publishHymn(id) : await saveHymnAsDraft(id);
@@ -987,10 +1039,10 @@ root.addEventListener("click", async function (event) {
     if (isProgramFormDirty() && !window.confirm("Discard your unsaved event changes?")) return;
     if (isSettingsFormDirty() && !window.confirm("Discard your unsaved workspace preference?")) return;
     if (isQuoteSettingsFormDirty() && !window.confirm("Discard your unsaved quote settings?")) return;
-    state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.serviceFormStart = null; state.serviceMode = "list"; state.editingServiceId = null; state.programFormStart = null; state.programMode = "list"; state.editingProgramId = null; state.programFlyerUrl = ""; state.settingsFormStart = null; state.quoteSettingsFormStart = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; if (state.activeView === "hymns" || state.activeView === "drafts") state.statusFilter = ""; closeMenu(); renderCurrentView();
+    state.selectedHymnIds.clear(); state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.serviceFormStart = null; state.serviceMode = "list"; state.editingServiceId = null; state.programFormStart = null; state.programMode = "list"; state.editingProgramId = null; state.programFlyerUrl = ""; state.settingsFormStart = null; state.quoteSettingsFormStart = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; if (state.activeView === "hymns" || state.activeView === "drafts") state.statusFilter = ""; closeMenu(); renderCurrentView();
     const content = document.getElementById("admin-content"); if (content) content.focus({ preventScroll: true });
   } else if (action === "open-hymns") {
-    state.activeView = "hymns"; state.statusFilter = ""; state.hymnMode = "list"; closeMenu(); renderCurrentView();
+    state.selectedHymnIds.clear(); state.activeView = "hymns"; state.statusFilter = ""; state.hymnMode = "list"; closeMenu(); renderCurrentView();
   } else if (action === "move-published-to-drafts") {
     if (!window.confirm("Move every currently published hymn to Drafts? This will remove them from the public member hymnal until you publish them again.")) return;
     try {
@@ -1003,15 +1055,17 @@ root.addEventListener("click", async function (event) {
       showToast(error && error.message ? error.message : "Published hymns could not be moved to Drafts.");
     }
   } else if (action === "new-hymn") {
-    state.activeView = "hymns"; state.statusFilter = ""; state.hymnMode = "form"; state.editingHymnId = null; closeMenu(); renderCurrentView();
+    state.selectedHymnIds.clear(); state.activeView = "hymns"; state.statusFilter = ""; state.hymnMode = "form"; state.editingHymnId = null; closeMenu(); renderCurrentView();
   } else if (action === "edit-hymn") {
-    state.activeView = "hymns"; state.statusFilter = ""; state.hymnMode = "form"; state.editingHymnId = button.dataset.id; closeMenu(); renderCurrentView();
+    state.selectedHymnIds.clear(); state.activeView = "hymns"; state.statusFilter = ""; state.hymnMode = "form"; state.editingHymnId = button.dataset.id; closeMenu(); renderCurrentView();
   } else if (action === "cancel-hymn") {
     await cancelHymnForm();
   } else if (action === "delete-hymn") {
     const hymn = await getHymn(button.dataset.id); await confirmDeleteHymn(hymn);
   } else if (action === "delete-current") {
     const hymn = await getHymn(state.editingHymnId); await confirmDeleteHymn(hymn);
+  } else if (action === "bulk-hymn-action") {
+    await applyBulkHymnAction();
   } else if (action === "set-status") {
     await setHymnStatus(button.dataset.id, button.dataset.status);
   } else if (action === "retry-hymns") {
@@ -1106,13 +1160,26 @@ root.addEventListener("submit", async function (event) {
   }
 });
 root.addEventListener("input", function (event) {
-  if (event.target.matches('[data-filter="search"]')) { state.search = event.target.value; refreshHymnRows(); }
+  if (event.target.matches('[data-filter="search"]')) { state.search = event.target.value; state.selectedHymnIds.clear(); refreshHymnRows(); }
   if (event.target.closest("#hymn-form")) state.formDirty = isFormDirty();
   if (event.target.matches("[data-rich-editor]")) rememberEditorSelection(event.target.dataset.richEditor);
 });
 root.addEventListener("change", function (event) {
-  if (event.target.matches('[data-filter="status"]')) { state.statusFilter = event.target.value; refreshHymnRows(); }
-  if (event.target.matches('[data-filter="category"]')) { state.categoryFilter = event.target.value; refreshHymnRows(); }
+  if (event.target.matches('[data-filter="status"]')) { state.statusFilter = event.target.value; state.selectedHymnIds.clear(); refreshHymnRows(); }
+  if (event.target.matches('[data-filter="category"]')) { state.categoryFilter = event.target.value; state.selectedHymnIds.clear(); refreshHymnRows(); }
+  if (event.target.matches("[data-select-all-hymns]")) {
+    root.querySelectorAll("[data-select-hymn]").forEach(function (checkbox) {
+      const id = String(checkbox.dataset.id); checkbox.checked = event.target.checked;
+      if (checkbox.checked) state.selectedHymnIds.add(id); else state.selectedHymnIds.delete(id);
+    });
+    updateBulkHymnControls();
+  }
+  if (event.target.matches("[data-select-hymn]")) {
+    const id = String(event.target.dataset.id);
+    if (event.target.checked) state.selectedHymnIds.add(id); else state.selectedHymnIds.delete(id);
+    updateBulkHymnControls();
+  }
+  if (event.target.matches("#hymn-bulk-action")) updateBulkHymnControls();
   if (event.target.matches("[data-editor-command]")) runEditorCommand(event.target.dataset.editorTarget, event.target.dataset.editorCommand, event.target.value);
   if (event.target.matches('input[name="service_hymn_ids"]')) updateServiceHymnCount();
   if (event.target.id === "program-flyer-input") {

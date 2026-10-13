@@ -226,8 +226,13 @@ a { color: inherit; }
 .filter-select, .form-select, .form-input, .form-textarea { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid #d9d0de; border-radius: 9px; color: var(--ink); background: var(--surface); }
 .filter-select { width: auto; min-width: 135px; min-height: 43px; }
 .hymn-results-label { margin: 0 0 12px; color: var(--muted); font-size: .82rem; }
+.hymn-bulk-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 0 0 12px; }
+.hymn-bulk-count { margin-right: auto; color: var(--muted); font-size: .82rem; font-weight: 700; }
+.hymn-select-heading, .hymn-select-cell { width: 46px; text-align: center !important; }
+.hymn-table input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--purple); cursor: pointer; }
+.hymn-select-cell input { vertical-align: middle; }
 .hymn-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
-.hymn-table { width: 100%; min-width: 740px; border-collapse: collapse; text-align: left; }
+.hymn-table { width: 100%; min-width: 790px; border-collapse: collapse; text-align: left; }
 .hymn-table th { padding: 14px 15px; color: var(--muted); background: var(--surface-soft); font-size: .71rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
 .hymn-table td { padding: 14px 15px; border-top: 1px solid var(--line); vertical-align: middle; font-size: .85rem; }
 .hymn-table tbody tr:hover { background: color-mix(in srgb, var(--purple-soft) 42%, var(--surface)); }
