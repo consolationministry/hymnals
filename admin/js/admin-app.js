@@ -11,7 +11,7 @@ const navigation = [
   { id: "drafts", label: "Drafts", icon: "clock" },
   { id: "categories", label: "Categories", icon: "layers" },
   { id: "services", label: "Service Planner", icon: "calendar" },
-  { id: "programs", label: "Event Planner", icon: "event" },
+  { id: "programs", label: "Upcoming Programmes", icon: "event" },
   { id: "settings", label: "Settings", icon: "settings" }
 ];
 const iconPaths = {
@@ -187,7 +187,7 @@ function renderDashboard() {
     tableWrap.append(table); body.append(tableWrap); recentPanel.append(body);
     const actionsPanel = make("section", "panel"); const actionsHeader = make("header", "panel-header"); const actionsTitle = document.createElement("div");
     actionsTitle.append(make("h2", "", "Quick Actions"), make("p", "", "Shortcuts for hymnal management.")); actionsHeader.append(actionsTitle); actionsPanel.append(actionsHeader);
-    const actionsBody = make("div", "panel-body"); const actions = [["Add New Hymn", "plus", "new-hymn"], ["Manage Hymns", "book", "open-hymns"], ["Manage Categories", "layers", "navigate", "categories"], ["Open Service Planner", "calendar", "navigate", "services"], ["Open Event Planner", "event", "navigate", "programs"]];
+    const actionsBody = make("div", "panel-body"); const actions = [["Add New Hymn", "plus", "new-hymn"], ["Manage Hymns", "book", "open-hymns"], ["Manage Categories", "layers", "navigate", "categories"], ["Open Service Planner", "calendar", "navigate", "services"], ["Open Upcoming Programmes", "event", "navigate", "programs"]];
     const list = make("div", "quick-actions");
     actions.forEach(function (item) {
       const button = make("button", "quick-action", ""); button.type = "button"; button.dataset.action = item[2];
@@ -305,7 +305,7 @@ async function renderServiceWorkspace() {
   const content = document.getElementById("admin-content"); if (!content) return;
   content.replaceChildren();
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
-  headingContent.append(make("h1", "", "Service Planner"), make("p", "", "Plan services and select the hymns for each gathering. Event announcements are managed separately in Event Planner."));
+  headingContent.append(make("h1", "", "Service Planner"), make("p", "", "Plan services and select the hymns for each gathering. Upcoming programmes have their own page, separate from service plans."));
   const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-service"; addButton.append(icon("plus", ""), document.createTextNode(" Create Service Plan"));
   heading.append(headingContent, addButton); content.append(heading);
   try {
@@ -411,8 +411,8 @@ async function renderProgramWorkspace() {
   const content = document.getElementById("admin-content"); if (!content) return;
   content.replaceChildren();
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
-  headingContent.append(make("h1", "", "Event Planner"), make("p", "", "Plan and manage church events here, separately from service schedules."));
-  const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-program"; addButton.append(icon("plus", ""), document.createTextNode(" Add Event"));
+  headingContent.append(make("h1", "", "Upcoming Programmes"), make("p", "", "Manage upcoming and past church programmes separately from service plans."));
+  const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-program"; addButton.append(icon("plus", ""), document.createTextNode(" Add Programme"));
   heading.append(headingContent, addButton); content.append(heading);
   const note = make("section", "program-analytics-note");
   note.append(make("strong", "", "Views and attendance responses are not connected yet."), make("p", "", "This phase builds the admin workflow only. Counts will become real after the public app and backend are connected."));
@@ -421,23 +421,23 @@ async function renderProgramWorkspace() {
     const programs = await getPrograms();
     if (!programs.length) {
       const empty = make("section", "list-empty", "");
-      empty.append(make("h2", "", "No events added yet"), make("p", "", "Add an event for any date, with its venue, flyer, and response wording."));
-      const firstAdd = make("button", "button button-primary category-empty-action", "Create your first event"); firstAdd.type = "button"; firstAdd.dataset.action = "new-program"; empty.append(firstAdd); content.append(empty); return;
+      empty.append(make("h2", "", "No programmes added yet"), make("p", "", "Add a programme with its venue, flyer, response wording, and dates."));
+      const firstAdd = make("button", "button button-primary category-empty-action", "Create your first programme"); firstAdd.type = "button"; firstAdd.dataset.action = "new-program"; empty.append(firstAdd); content.append(empty); return;
     }
-    const list = make("section", "program-list"); list.setAttribute("aria-label", "Church events");
+    const list = make("section", "program-list"); list.setAttribute("aria-label", "Church programmes");
     const today = new Date(); const todayValue = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     programs.forEach(function (program) {
       const card = make("article", "program-card");
       const flyer = make("div", "program-card-flyer");
       if (program.flyerDataUrl) {
-        const image = make("img", "program-card-image"); image.src = program.flyerDataUrl; image.alt = "Flyer for " + (program.title || "church event"); flyer.append(image);
+        const image = make("img", "program-card-image"); image.src = program.flyerDataUrl; image.alt = "Flyer for " + (program.title || "church programme"); flyer.append(image);
       } else {
         flyer.append(make("span", "program-flyer-empty", "No flyer added"));
       }
       const detail = make("div", "program-card-details");
       const dateStatus = program.endDate || program.startDate;
       const badge = make("span", "program-status-pill " + (dateStatus >= todayValue ? "program-status-upcoming" : "program-status-past"), dateStatus >= todayValue ? "Upcoming" : "Past");
-      const title = make("h2", "", program.title || "Untitled event");
+      const title = make("h2", "", program.title || "Untitled programme");
       const venue = make("p", "program-card-venue", program.venue || "Venue not added");
       const dates = make("p", "program-card-date", formatProgramDateRange(program.startDate, program.endDate));
       const prompt = make("p", "program-card-response", program.responseQuestion || "Availability question not added");
@@ -447,7 +447,7 @@ async function renderProgramWorkspace() {
         const item = make("div", "program-metric"); item.append(make("span", "", metric[0]), make("strong", "", "—"), make("small", "", metric[1])); metrics.append(item);
       });
       const actions = make("div", "program-card-actions");
-      const edit = make("button", "button button-secondary", "Edit event"); edit.type = "button"; edit.dataset.action = "edit-program"; edit.dataset.id = program.id;
+      const edit = make("button", "button button-secondary", "Edit programme"); edit.type = "button"; edit.dataset.action = "edit-program"; edit.dataset.id = program.id;
       const remove = make("button", "row-action row-action-danger", "Delete"); remove.type = "button"; remove.dataset.action = "delete-program"; remove.dataset.id = program.id;
       actions.append(edit, remove);
       detail.append(badge, title, venue, dates, prompt, options, metrics, actions);
@@ -455,7 +455,7 @@ async function renderProgramWorkspace() {
     });
     content.append(list);
   } catch (error) {
-    content.append(make("section", "list-empty", "Events could not be loaded from the admin database."));
+    content.append(make("section", "list-empty", "Programmes could not be loaded from the admin database."));
   }
 }
 function formatProgramDateRange(startDate, endDate) {
@@ -468,27 +468,27 @@ function formatProgramDateRange(startDate, endDate) {
 async function renderProgramForm() {
   const content = document.getElementById("admin-content"); if (!content) return;
   const existing = state.editingProgramId ? await getProgram(state.editingProgramId) : null;
-  if (state.editingProgramId && !existing) { state.programMode = "list"; state.editingProgramId = null; showToast("That event is no longer available."); return renderProgramWorkspace(); }
+  if (state.editingProgramId && !existing) { state.programMode = "list"; state.editingProgramId = null; showToast("That programme is no longer available."); return renderProgramWorkspace(); }
   state.programFlyerUrl = existing ? existing.flyerDataUrl || "" : "";
   content.replaceChildren();
   const heading = make("div", "page-heading"); const headingContent = document.createElement("div");
-  headingContent.append(make("h1", "", existing ? "Edit Event" : "Add Event"), make("p", "", existing ? "Update the event details and response wording." : "Add an event for any date; members will see whether it is past, current, or upcoming."));
+  headingContent.append(make("h1", "", existing ? "Edit Programme" : "Add Programme"), make("p", "", existing ? "Update the programme details and response wording." : "Add a programme for any date; programmes are labeled upcoming or past."));
   const cancel = make("button", "button button-secondary", "Cancel"); cancel.type = "button"; cancel.dataset.action = "cancel-program";
   heading.append(headingContent, cancel); content.append(heading);
-  const program = existing || { title: "", venue: "", startDate: "", endDate: "", responseQuestion: "Will you be available for this event?", yesLabel: "Yes, I’ll be there", noLabel: "Not this time" };
-  const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit event form" : "Add event form");
+  const program = existing || { title: "", venue: "", startDate: "", endDate: "", responseQuestion: "Will you be available for this programme?", yesLabel: "Yes, I’ll be there", noLabel: "Not this time" };
+  const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit programme form" : "Add programme form");
   panel.innerHTML = '<form id="program-form" novalidate><h2 class="form-section-title">Program details</h2><p class="form-section-help">Program changes stay in this browser preview and are not published to the public app in this phase.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="program-title">Program name <span aria-hidden="true">*</span></label><input class="form-input" id="program-title" name="title" type="text" maxlength="120" placeholder="Annual Thanksgiving Service" value="' + escapeHtml(program.title) + '" required></div><div class="admin-field"><label for="program-venue">Venue <span aria-hidden="true">*</span></label><input class="form-input" id="program-venue" name="venue" type="text" maxlength="160" placeholder="Church auditorium" value="' + escapeHtml(program.venue) + '" required></div><div class="admin-field"><label for="program-start-date">From <span aria-hidden="true">*</span></label><input class="form-input" id="program-start-date" name="startDate" type="date" value="' + escapeHtml(program.startDate) + '" required></div><div class="admin-field"><label for="program-end-date">To <span class="optional-label">optional</span></label><input class="form-input" id="program-end-date" name="endDate" type="date" value="' + escapeHtml(program.endDate || "") + '"><p class="field-hint">Leave this blank for a one-day program.</p></div></div><section class="program-flyer-section" aria-labelledby="program-flyer-heading"><h2 id="program-flyer-heading">Program flyer</h2><p>Upload a PNG, JPEG, or WebP image. The preview keeps the full flyer visible without cropping.</p><label class="button button-secondary flyer-upload-button" for="program-flyer-input">Choose flyer</label><input class="visually-hidden" id="program-flyer-input" type="file" accept="image/png,image/jpeg,image/webp"><div id="program-flyer-preview" class="program-flyer-preview" aria-live="polite"></div><p class="field-hint">Large images are resized proportionally for this browser preview. A server-backed upload will be added later.</p><p id="program-flyer-error" class="form-error" role="alert" aria-live="polite"></p></section><section class="program-response-section"><h2>Attendance response</h2><p>Set the question and the wording shown on the two response buttons.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="program-response-question">Question shown to users</label><input class="form-input" id="program-response-question" name="responseQuestion" type="text" maxlength="120" value="' + escapeHtml(program.responseQuestion) + '" required></div><div class="admin-field"><label for="program-yes-label">Yes button</label><input class="form-input" id="program-yes-label" name="yesLabel" type="text" maxlength="48" value="' + escapeHtml(program.yesLabel) + '" required></div><div class="admin-field"><label for="program-no-label">No button</label><input class="form-input" id="program-no-label" name="noLabel" type="text" maxlength="48" value="' + escapeHtml(program.noLabel) + '" required></div></div></section><div id="program-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-program" data-id="' + escapeHtml(existing.id) + '">Delete Program</button>' : "") + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-program">Cancel</button><button class="button button-primary" type="submit">Save Program</button></div></div></form>';
   panel.innerHTML = panel.innerHTML
-    .replace("Program details", "Event details")
-    .replace("Program name", "Event name")
-    .replace("Program flyer", "Event flyer")
-    .replace("Edit Program", "Edit Event")
-    .replace("Add Program", "Add Event")
-    .replace("Delete Program", "Delete Event")
-    .replace("Save Program", "Save Event")
-    .replace("Program changes stay in this browser preview and are not published to the public app in this phase.", "Events for all dates appear in the member app, with past events labeled. Attendance responses are not collected yet.")
-    .replace("Leave this blank for a one-day program.", "Leave this blank for a one-day event.")
-    .replace("Large images are resized proportionally for this browser preview. A server-backed upload will be added later.", "Large images are resized proportionally before they are stored with this event.");
+    .replace("Program details", "Programme details")
+    .replace("Program name", "Programme name")
+    .replace("Program flyer", "Programme flyer")
+    .replace("Edit Program", "Edit Programme")
+    .replace("Add Program", "Add Programme")
+    .replace("Delete Program", "Delete Programme")
+    .replace("Save Program", "Save Programme")
+    .replace("Program changes stay in this browser preview and are not published to the public app in this phase.", "Programmes for all dates appear in the member app after the public-content migrations are applied; past programmes are labeled. Attendance responses are not connected yet.")
+    .replace("Leave this blank for a one-day program.", "Leave this blank for a one-day programme.")
+    .replace("Large images are resized proportionally for this browser preview. A server-backed upload will be added later.", "Large images are resized proportionally before they are stored with this programme.");
   content.append(panel);
   updateProgramFlyerPreview(state.programFlyerUrl);
   state.programFormStart = programFormSignature();
@@ -511,7 +511,7 @@ function updateProgramFlyerPreview(dataUrl) {
   const preview = document.getElementById("program-flyer-preview"); if (!preview) return;
   preview.replaceChildren();
   if (dataUrl) {
-    const image = make("img", "program-flyer-preview-image"); image.src = dataUrl; image.alt = "Full event flyer preview";
+    const image = make("img", "program-flyer-preview-image"); image.src = dataUrl; image.alt = "Full programme flyer preview";
     const remove = make("button", "row-action row-action-danger", "Remove flyer"); remove.type = "button"; remove.dataset.action = "remove-program-flyer";
     preview.append(image, remove);
   } else {
@@ -553,7 +553,7 @@ function showProgramErrors(errors) {
 async function saveProgramForm(submitter) {
   const data = currentProgramFormData(); if (!data) return;
   const errors = [];
-  if (!data.title) errors.push("Enter the event name.");
+  if (!data.title) errors.push("Enter the programme name.");
   if (!data.venue) errors.push("Enter the venue.");
   if (!data.startDate) errors.push("Choose a start date.");
   if (data.endDate && data.startDate && data.endDate < data.startDate) errors.push("The end date cannot be before the start date.");
@@ -567,28 +567,28 @@ async function saveProgramForm(submitter) {
     const saved = editing ? await updateProgram(id, data) : await createProgram(data);
     state.programMode = "list"; state.editingProgramId = null; state.programFormStart = null; state.programFlyerUrl = "";
     await renderProgramWorkspace();
-    showToast(saved._storage_mode === "browser" ? "Event saved in this browser preview." : "Event saved for this open session only; browser storage is unavailable.");
+    showToast(saved._storage_mode === "browser" ? "Programme saved in this browser preview." : "Programme saved for this open session only; browser storage is unavailable.");
   } catch (error) {
-    showProgramErrors([error && error.message ? error.message : "The event could not be saved."]);
+    showProgramErrors([error && error.message ? error.message : "The programme could not be saved."]);
   } finally {
     if (button && button.isConnected) { button.disabled = false; button.removeAttribute("aria-busy"); }
   }
 }
 async function cancelProgramForm() {
-  if (isProgramFormDirty() && !window.confirm("Discard your unsaved event changes?")) return;
+  if (isProgramFormDirty() && !window.confirm("Discard your unsaved programme changes?")) return;
   state.programMode = "list"; state.editingProgramId = null; state.programFormStart = null; state.programFlyerUrl = "";
   await renderProgramWorkspace();
 }
 async function removeProgramFromPreview(id) {
-  const program = await getProgram(id); if (!program) { showToast("That event is no longer available."); return; }
-  if (!window.confirm('Delete the event "' + program.title + '" from the admin database?')) return;
+  const program = await getProgram(id); if (!program) { showToast("That programme is no longer available."); return; }
+  if (!window.confirm('Delete the programme "' + program.title + '" from the admin database?')) return;
   try {
     const mode = await deleteProgram(id);
-    if (!mode) { showToast("That event could not be found."); return; }
+    if (!mode) { showToast("That programme could not be found."); return; }
     state.programMode = "list"; state.editingProgramId = null; state.programFormStart = null;
     await renderProgramWorkspace();
-    showToast(mode === "browser" ? "Event deleted from this browser preview." : "Event deleted for this open session only; browser storage is unavailable.");
-  } catch (error) { showToast(error.message || "The event could not be deleted."); }
+    showToast(mode === "browser" ? "Programme deleted from this browser preview." : "Programme deleted for this open session only; browser storage is unavailable.");
+  } catch (error) { showToast(error.message || "The programme could not be deleted."); }
 }
 async function renderSettingsWorkspace() {
   const content = document.getElementById("admin-content"); if (!content) return;
@@ -616,7 +616,7 @@ async function renderSettingsWorkspace() {
     statusBody.append(statusList); statusPanel.append(statusHeader, statusBody);
     const grid = make("div", "settings-grid", ""); grid.append(panel, appearancePanel, statusPanel); content.append(grid);
     const programSettings = make("section", "panel settings-module");
-    programSettings.innerHTML = '<header class="panel-header"><div><h2>Event Planner</h2><p>Create and edit member-facing event announcements.</p></div></header><div class="panel-body"><p class="settings-module-copy">Events from any date appear in the member app after the public-content migrations are applied. Past entries are labeled. Attendance responses and view counts are not connected yet.</p><button class="button button-secondary" type="button" data-action="navigate" data-view="programs">Open Event Planner</button></div>';
+    programSettings.innerHTML = '<header class="panel-header"><div><h2>Upcoming Programmes</h2><p>Create and manage member-facing programme announcements on a separate page.</p></div></header><div class="panel-body"><p class="settings-module-copy">Programmes from any date appear in the member app after the public-content migrations are applied. Past entries are labeled. Attendance responses and view counts are not connected yet.</p><button class="button button-secondary" type="button" data-action="navigate" data-view="programs">Open Upcoming Programmes</button></div>';
     const quotePanel = make("section", "panel settings-module quote-settings");
     quotePanel.innerHTML = '<header class="panel-header"><div><h2>Daily Scripture Quote</h2><p>Choose the scripture sources and when the quote should refresh.</p></div></header><div class="panel-body"><form id="daily-quote-form" novalidate><label class="quote-enable-row"><input id="daily-quote-enabled" name="enabled" type="checkbox"' + (quoteSettings.enabled ? " checked" : "") + '><span><strong>Enable the quote feature</strong><small>Controls the planned quote feature in the member hymnal.</small></span></label><fieldset class="quote-source-fieldset"><legend>Allowed Bible books</legend><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Psalms"' + (quoteSettings.books.includes("Psalms") ? " checked" : "") + '><span>Psalms</span></label><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Proverbs"' + (quoteSettings.books.includes("Proverbs") ? " checked" : "") + '><span>Proverbs</span></label></fieldset><div class="admin-field"><label for="quote-refresh-mode">When should a new quote be generated?</label><select class="form-select" id="quote-refresh-mode" name="refreshMode"><option value="on-open"' + (quoteSettings.refreshMode === "on-open" ? " selected" : "") + '>Every time a user opens the app</option><option value="daily"' + (quoteSettings.refreshMode === "daily" ? " selected" : "") + '>Once per day</option></select><p class="field-hint">This preference is saved in the browser preview; the public quote will be wired in the backend phase.</p></div><div class="quote-provider-notice"><strong>Groq connection · Not configured</strong><p>Add the Groq API key as a server secret in the backend phase. It should never be entered or stored in this browser page.</p></div><div id="quote-settings-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-primary" type="submit">Save Quote Settings</button></div></div></form></div>';
     quotePanel.innerHTML = quotePanel.innerHTML.replace(
@@ -1037,7 +1037,7 @@ root.addEventListener("click", async function (event) {
     if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes?")) return;
     if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes?")) return;
     if (isServiceFormDirty() && !window.confirm("Discard your unsaved service plan changes?")) return;
-    if (isProgramFormDirty() && !window.confirm("Discard your unsaved event changes?")) return;
+    if (isProgramFormDirty() && !window.confirm("Discard your unsaved programme changes?")) return;
     if (isSettingsFormDirty() && !window.confirm("Discard your unsaved workspace preference?")) return;
     if (isQuoteSettingsFormDirty() && !window.confirm("Discard your unsaved quote settings?")) return;
     state.selectedHymnIds.clear(); state.formStart = null; state.categoryFormStart = null; state.categoryMode = "list"; state.editingCategoryName = null; state.serviceFormStart = null; state.serviceMode = "list"; state.editingServiceId = null; state.programFormStart = null; state.programMode = "list"; state.editingProgramId = null; state.programFlyerUrl = ""; state.settingsFormStart = null; state.quoteSettingsFormStart = null; state.hymnMode = "list"; state.editingHymnId = null; state.activeView = button.dataset.view || "dashboard"; if (state.activeView === "hymns" || state.activeView === "drafts") state.statusFilter = ""; closeMenu(); renderCurrentView();
@@ -1121,7 +1121,7 @@ root.addEventListener("click", async function (event) {
     if (isFormDirty() && !window.confirm("Discard your unsaved hymn changes and sign out?")) return;
     if (isCategoryFormDirty() && !window.confirm("Discard your unsaved category changes and sign out?")) return;
     if (isServiceFormDirty() && !window.confirm("Discard your unsaved service plan changes and sign out?")) return;
-    if (isProgramFormDirty() && !window.confirm("Discard your unsaved event changes and sign out?")) return;
+    if (isProgramFormDirty() && !window.confirm("Discard your unsaved programme changes and sign out?")) return;
     if (isSettingsFormDirty() && !window.confirm("Discard your unsaved workspace preference and sign out?")) return;
     if (isQuoteSettingsFormDirty() && !window.confirm("Discard your unsaved quote settings and sign out?")) return;
     await logoutAdmin(); state.authStatus = { configured: true, authenticated: false, admin: null }; state.formStart = null; state.categoryFormStart = null; state.serviceFormStart = null; state.programFormStart = null; state.programFlyerUrl = ""; state.quoteSettingsFormStart = null; state.settingsFormStart = null; renderLogin();
