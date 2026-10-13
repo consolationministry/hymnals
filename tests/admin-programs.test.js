@@ -179,6 +179,7 @@ test("program dates and flyer payloads are validated before saving", async () =>
   installBackend();
   await signIn();
   assert.equal((await createProgram(program())).endDate, "");
+  await assert.rejects(createProgram(program({ title: "", startDate: "2026-02-30" })), /event name/);
   await assert.rejects(createProgram(program({ startDate: "2026-02-30" })), /valid start date/);
   await assert.rejects(createProgram(program({ endDate: "2026-11-30" })), /cannot be before/);
   await assert.rejects(createProgram(program({ flyerDataUrl: "https://example.com/flyer.png" })), /PNG, JPEG, or WebP/);

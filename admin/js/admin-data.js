@@ -119,9 +119,9 @@ function normalizeProgramData(value) {
   const responseQuestion = typeof data.responseQuestion === "string" ? data.responseQuestion.trim() : "";
   const yesLabel = typeof data.yesLabel === "string" ? data.yesLabel.trim() : "";
   const noLabel = typeof data.noLabel === "string" ? data.noLabel.trim() : "";
-  if (!title) throw new Error("Enter the program name.");
-  if (title.length > 120) throw new Error("Program names must be 120 characters or fewer.");
-  if (!venue) throw new Error("Enter the program venue.");
+  if (!title) throw new Error("Enter the event name.");
+  if (title.length > 120) throw new Error("Event names must be 120 characters or fewer.");
+  if (!venue) throw new Error("Enter the event venue.");
   if (venue.length > 160) throw new Error("Venues must be 160 characters or fewer.");
   if (!validDate(startDate)) throw new Error("Choose a valid start date.");
   if (endDate && !validDate(endDate)) throw new Error("Choose a valid end date or leave it blank.");
@@ -562,7 +562,7 @@ export async function createProgram(value) {
     body: toProgramRow(data)
   });
   const record = fromProgramRow(firstRow(rows));
-  if (!record) throw new Error("The program could not be saved.");
+  if (!record) throw new Error("The event could not be saved.");
   return Object.assign(record, { _storage_mode: "remote" });
 }
 
@@ -574,7 +574,7 @@ export async function updateProgram(id, value) {
     body: toProgramRow(data)
   });
   const record = fromProgramRow(firstRow(rows));
-  if (!record) throw new Error("This program could not be found.");
+  if (!record) throw new Error("This event could not be found.");
   return Object.assign(record, { _storage_mode: "remote" });
 }
 
