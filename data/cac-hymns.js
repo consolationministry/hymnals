@@ -1,5 +1,5 @@
 import ghb from "./cac-ghb.js";
-import yhb from "./cac-yhb.js";
+import yhb from "./cac-yhb-current.js";
 
 function firstLine(verses) {
   const first = Array.isArray(verses) ? verses.find(function (line) { return typeof line === "string" && line.trim(); }) : "";

@@ -2,9 +2,12 @@ import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
 import { hymns as repositoryHymns } from "../data/cac-hymns.js";
 
-const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-cac-v3";
+const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-cac-v4";
 const CURRENT_CAC_GHB_RECORD_IDS = new Set(repositoryHymns.filter(function (hymn) {
   return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book";
+}).map(function (hymn) { return Number(hymn.hymn_number); }));
+const CURRENT_CAC_YHB_RECORD_IDS = new Set(repositoryHymns.filter(function (hymn) {
+  return hymn.source_hymnal === "Christ Apostolic Church Yoruba Hymn Book (Iwe Orin CAC)";
 }).map(function (hymn) { return Number(hymn.hymn_number); }));
 const PUBLIC_HYMN_COLUMNS = [
   "id",
@@ -64,7 +67,9 @@ function normalizePublishedRows(rows) {
     .filter(function (row) {
       if (!row || row.status !== "published" || !Number.isInteger(Number(row.hymn_number)) || Number(row.hymn_number) <= 0) return false;
       const isCacEnglish = /\bGHB\b|Gospel Hymn Book/i.test(asString(row.source_hymnal));
-      return !isCacEnglish || CURRENT_CAC_GHB_RECORD_IDS.has(Number(row.hymn_number));
+      const isCacYoruba = /\bYHB\b|Yoruba Hymn Book|Iwe Orin CAC/i.test(asString(row.source_hymnal));
+      if (isCacEnglish && !CURRENT_CAC_GHB_RECORD_IDS.has(Number(row.hymn_number))) return false;
+      return !isCacYoruba || CURRENT_CAC_YHB_RECORD_IDS.has(Number(row.hymn_number));
     })
     .map(function (row) {
       const versesEn = asStringArray(row.verses_en);
