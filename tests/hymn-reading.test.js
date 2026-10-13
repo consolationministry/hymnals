@@ -32,6 +32,7 @@ test("does not reinterpret a meter-like block without the CAC heading option", (
   const heading = "6.6.6.\nSong text";
   assert.deepEqual(getReadingParts([heading], ""), [{ type: "verse", number: 1, text: heading }]);
 });
+
 test("keeps a chorus visible when a hymn has no verse entries", () => {
   assert.deepEqual(getReadingParts([], "the chorus"), [{ type: "chorus", text: "the chorus" }]);
 });
