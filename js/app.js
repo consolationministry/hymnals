@@ -83,7 +83,7 @@ function languageToggle() {
 
 function renderHeader() {
   const activeView = state.view === "reader" ? state.readerReturnView : state.view;
-  const items = [["home", "Home"], ["hymns", "Hymns"], ["events", "Events"], ["favorites", "Favorites"], ["recent", "Recently viewed"], ["settings", "Settings"]];
+  const items = [["home", "Home"], ["hymns", "Hymns"], ["programs", "Upcoming Programmes"], ["services", "Service Plans"], ["favorites", "Favorites"], ["recent", "Recently viewed"], ["settings", "Settings"]];
   const menu = '<nav id="header-nav-menu" class="header-nav-menu" aria-label="Main menu"' + (state.menuOpen ? "" : " hidden") + '>' + items.map(function (item) {
       return '<button class="header-nav-item" type="button" data-action="navigate" data-view="' + item[0] + '" aria-current="' + (activeView === item[0] ? "page" : "false") + '" data-testid="menu-' + item[0] + '">' + item[1] + '</button>';
     }).join("") + '</nav>'
@@ -98,7 +98,8 @@ function renderNav() {
   const items = [
     ["home", "Home", "home"],
     ["hymns", "Hymns", "book"],
-    ["events", "Events", "calendar"],
+    ["programs", "Programs", "sparkle"],
+    ["services", "Services", "calendar"],
     ["favorites", "Favorites", "heart"],
     ["recent", "Recent", "history"],
     ["settings", "Settings", "settings"]
@@ -282,7 +283,7 @@ function publicStatusBadge(status) {
 
 function renderPublicPrograms(programs, available) {
   if (!programs.length) {
-    const message = available ? "No programs have been posted yet." : "Program announcements are unavailable right now. Please try again later.";
+    const message = available ? "No programmes have been posted yet." : "Programme announcements are unavailable right now. Please try again later.";
     return '<div class="public-content-empty">' + escapeHtml(message) + '</div>';
   }
   return '<div class="public-program-list">' + programs.map(function (program) {
@@ -327,11 +328,16 @@ function renderPublicServicePlans(plans, available) {
   }).join("") + '</div>';
 }
 
-function renderEvents() {
+function renderPublicProgramsPage() {
   const content = state.publicContent || { programs: [], servicePlans: [], programsAvailable: false, servicePlansAvailable: false };
-  return '<section class="page public-events-page">' + pageHeading("Church life", "Past and upcoming programs and planned service hymns.") +
-    '<section class="public-content-section" aria-labelledby="public-programs-heading"><div class="section-title-row"><div><h2 id="public-programs-heading">Programs</h2><p>Past and upcoming church events and announcements.</p></div></div>' + renderPublicPrograms(content.programs, content.programsAvailable) + '</section>' +
-    '<section class="public-content-section" aria-labelledby="public-service-plans-heading"><div class="section-title-row"><div><h2 id="public-service-plans-heading">Service Plans</h2><p>Hymns planned for past and upcoming services.</p></div></div>' + renderPublicServicePlans(content.servicePlans, content.servicePlansAvailable) + '</section></section>';
+  return '<section class="page public-programs-page">' + pageHeading("Upcoming Programmes", "Church programmes and announcements, with past dates marked.") +
+    '<section class="public-content-section" aria-label="Programme announcements">' + renderPublicPrograms(content.programs, content.programsAvailable) + '</section></section>';
+}
+
+function renderPublicServicePlansPage() {
+  const content = state.publicContent || { programs: [], servicePlans: [], programsAvailable: false, servicePlansAvailable: false };
+  return '<section class="page public-service-plans-page">' + pageHeading("Service Plans", "Hymns planned for past and upcoming services.") +
+    '<section class="public-content-section" aria-label="Service plans">' + renderPublicServicePlans(content.servicePlans, content.servicePlansAvailable) + '</section></section>';
 }
 
 function homeHymn(hymn) {
@@ -413,7 +419,8 @@ function render() {
   renderHeader();
   if (state.view === "home") main.innerHTML = renderHome();
   else if (state.view === "hymns") main.innerHTML = renderHymnLibrary();
-  else if (state.view === "events") main.innerHTML = renderEvents();
+  else if (state.view === "programs") main.innerHTML = renderPublicProgramsPage();
+  else if (state.view === "services") main.innerHTML = renderPublicServicePlansPage();
   else if (state.view === "favorites") main.innerHTML = renderFavorites();
   else if (state.view === "recent") main.innerHTML = renderRecentlyViewed();
   else if (state.view === "settings") main.innerHTML = renderSettings();
@@ -451,7 +458,7 @@ function openHymn(number) {
 }
 
 function navigate(view) {
-  if (!["home", "hymns", "events", "favorites", "recent", "settings"].includes(view)) return;
+  if (!["home", "hymns", "programs", "services", "favorites", "recent", "settings"].includes(view)) return;
   state.view = view;
   state.searchOpen = false;
   state.menuOpen = false;
