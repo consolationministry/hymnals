@@ -232,8 +232,11 @@ function renderFavorites() {
   return '<section class="page">' + pageHeading("Favorites", "Your saved hymns stay on this device.") + renderLanguageArea() + hymnList(saved, emptyTitle, emptyMessage) + '</section>';
 }
 
-function poemSection(label, verses, chorus, languageCode) {
-  const partsMarkup = getReadingParts(verses, chorus).map(function (part) {
+function poemSection(label, verses, chorus, languageCode, hasMeterPreface) {
+  const partsMarkup = getReadingParts(verses, chorus, { hasMeterPreface: hasMeterPreface === true }).map(function (part) {
+    if (part.type === "heading") {
+      return '<div class="verse-block hymnal-note" role="note"><span class="verse-label">Hymnal note</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
+    }
     if (part.type === "chorus") {
       return '<div class="chorus-block"><span class="verse-label">Chorus</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
     }
@@ -342,6 +345,8 @@ function renderReader() {
   if (!hymn) return '<section class="page">' + pageHeading("Hymn not found", "This number is not in the current collection.") + '<button class="button-secondary" type="button" data-action="back" data-testid="button-reader-back">' + icon("arrow") + ' Back to hymns</button></section>';
   const number = displayHymnNumber(hymn);
   const hasEnglish = hasEnglishText(hymn);
+  const sourceHymnal = String(hymn.source_hymnal || "").toLowerCase();
+  const showEnglishGospelMeterHeading = sourceHymnal.includes("ghb") || sourceHymnal.includes("gospel hymn book");
   let title = hasEnglish
     ? '<span lang="en">' + escapeHtml(hymn.title_en) + '</span>'
     : '<span lang="yo">' + escapeHtml(hymn.title_yoruba) + '</span>';
@@ -349,7 +354,7 @@ function renderReader() {
     ? '<span lang="en">' + escapeHtml(hymn.first_line_en) + '</span>'
     : '<span lang="yo">' + escapeHtml(hymn.first_line_yoruba) + '</span>';
   let sections = hasEnglish
-    ? poemSection("English", hymn.verses_en, hymn.chorus_en, "en")
+    ? poemSection("English", hymn.verses_en, hymn.chorus_en, "en", showEnglishGospelMeterHeading)
     : poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo");
   let translationNote = "";
   const hasYoruba = hasYorubaText(hymn);
