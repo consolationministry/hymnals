@@ -4,7 +4,8 @@ import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 import { addRecent, getRecentNumbers } from "./recent.js";
 import { getReadingParts } from "./hymn-reading.js";
 import { getMemberContent, servicePlanDayLabel } from "./public-content.js";
-import { castProgrammeVote, getProgrammeInteractions, postProgrammeComment } from "./programme-interactions.js";
+import { castProgrammeVote, getProgrammeInteractions } from "./programme-interactions.js";
+import { excerptProgrammeDescription, PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT } from "./programme-feed-utils.js";
 import { ACCENT_THEMES, getSettings, saveSettings } from "./settings.js";
 import { shareHymn } from "./sharing.js";
 import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
@@ -28,7 +29,7 @@ const updateMessage = document.getElementById("update-message");
 const updateVersion = document.getElementById("update-version");
 const updateStatus = document.getElementById("update-status");
 const updateInstallButton = document.getElementById("update-install");
-const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
+const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
@@ -196,7 +197,8 @@ function categoryButtons(selected) {
 }
 
 function pageHeading(title, subtitle) {
-  return '<div class="page-heading"><h1>' + escapeHtml(title) + '</h1><p>' + escapeHtml(subtitle) + '</p></div>';
+  const subtitleMarkup = subtitle ? '<p>' + escapeHtml(subtitle) + '</p>' : "";
+  return '<div class="page-heading"><h1>' + escapeHtml(title) + '</h1>' + subtitleMarkup + '</div>';
 }
 
 function renderHome() {
@@ -289,58 +291,25 @@ function publicPostedDate(value) {
   return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
 }
 
-function publicCommentDate(value) {
-  const timestamp = String(value || "");
-  if (!timestamp) return "";
-  const date = new Date(timestamp);
-  return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
-}
-
 function renderProgrammeInteractions(program) {
   const programId = program && program.id;
   const safeProgramId = escapeHtml(programId);
-  if (state.programmeInteractionsAvailable === false) {
-    return '<section class="programme-interactions-unavailable" aria-label="Programme responses and comments"><p>Responses and comments are temporarily unavailable. Please try again when you are online.</p></section>';
-  }
-  if (state.programmeInteractionsAvailable !== true) {
-    return '<section class="programme-interactions-unavailable" aria-label="Programme responses and comments"><p>Loading responses and comments…</p></section>';
-  }
-
-  const interaction = state.programmeInteractions[programId] || { voteYesCount: 0, voteNoCount: 0, myVote: null, commentCount: 0, comments: [] };
-  const comments = Array.isArray(interaction.comments) ? interaction.comments : [];
-  const commentCount = Math.max(Number(interaction.commentCount) || 0, comments.length);
+  const interaction = state.programmeInteractions[programId] || { voteYesCount: 0, voteNoCount: 0, myVote: null };
+  const votesAvailable = state.programmeVotesAvailable === true;
   const question = String(program && program.response_question || "Will you be available for this programme?").trim();
   const yesLabel = String(program && program.yes_label || "Yes, I’ll be there").trim();
   const noLabel = String(program && program.no_label || "Not this time").trim();
   const votePending = Boolean(state.programmeVotePending[programId]);
-  const yesCount = Math.max(0, Number(interaction.voteYesCount) || 0);
-  const noCount = Math.max(0, Number(interaction.voteNoCount) || 0);
-  const voteMarkup = state.programmeVotesAvailable === true
-    ? '<div class="programme-voting"><h3>' + escapeHtml(question) + '</h3><div class="programme-vote-options">' +
-      '<button class="programme-vote-button" type="button" data-action="cast-programme-vote" data-choice="yes" data-program-id="' + safeProgramId + '" aria-pressed="' + (interaction.myVote === "yes") + '"' + (votePending ? " disabled" : "") + '><span>' + escapeHtml(yesLabel) + '</span><strong>' + escapeHtml(yesCount) + '</strong></button>' +
-      '<button class="programme-vote-button" type="button" data-action="cast-programme-vote" data-choice="no" data-program-id="' + safeProgramId + '" aria-pressed="' + (interaction.myVote === "no") + '"' + (votePending ? " disabled" : "") + '><span>' + escapeHtml(noLabel) + '</span><strong>' + escapeHtml(noCount) + '</strong></button>' +
-      '</div><p class="programme-vote-status" aria-live="polite">' + (interaction.myVote ? "Your response is saved. You can change it any time." : "Choose one response. Votes are anonymous.") + '</p></div>'
-    : '<div class="programme-vote-unavailable"><h3>' + escapeHtml(question) + '</h3><p>Voting will appear after the programme response migration is applied.</p></div>';
-  const commentsMarkup = comments.length
-    ? '<ol class="programme-comment-list">' + comments.map(function (comment) {
-      const commentId = String(comment && comment.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 8);
-      const identifier = commentId ? "Comment #" + commentId : "Anonymous comment";
-      const posted = publicCommentDate(comment && comment.created_at);
-      const dateMarkup = posted
-        ? '<time class="programme-comment-date" datetime="' + escapeHtml(comment.created_at) + '">' + escapeHtml(posted) + '</time>'
-        : "";
-      return '<li class="programme-comment"><div class="programme-comment-heading"><span class="programme-comment-id">' + escapeHtml(identifier) + '</span>' + dateMarkup + '</div><p class="programme-comment-body">' + escapeHtml(comment && comment.body) + '</p></li>';
-    }).join("") + '</ol>'
-    : '<p class="programme-comment-empty">No comments yet. Be the first to comment.</p>';
-
-  return '<section class="programme-interactions" aria-label="Programme responses and comments">' + voteMarkup +
-    '<div class="programme-comments"><h3>Comments (' + commentCount + ')</h3>' + commentsMarkup +
-    '<form class="programme-comment-form" data-programme-comment-form data-program-id="' + safeProgramId + '">' +
-    '<label for="programme-comment-' + safeProgramId + '">Leave an anonymous comment</label>' +
-    '<textarea id="programme-comment-' + safeProgramId + '" name="comment" rows="3" maxlength="500" required placeholder="Write a comment…"></textarea>' +
-    '<p class="programme-comment-note">Comments are public and posted without a name or account.</p>' +
-    '<div class="programme-comment-status" data-programme-comment-status aria-live="polite"></div>' +
-    '<button class="programme-comment-submit" type="submit">Post comment</button></form></div></section>';
+  const disabled = !votesAvailable || votePending;
+  const yesCount = votesAvailable ? escapeHtml(Math.max(0, Number(interaction.voteYesCount) || 0)) : "—";
+  const noCount = votesAvailable ? escapeHtml(Math.max(0, Number(interaction.voteNoCount) || 0)) : "—";
+  const voteStatus = votesAvailable
+    ? (interaction.myVote ? "Your response is saved. You can change it any time." : "Choose one response. Votes are anonymous.")
+    : (state.programmeInteractionsAvailable === null ? "Loading voting…" : "Voting is temporarily unavailable.");
+  return '<section class="programme-interactions" aria-label="Programme voting"><div class="programme-voting"><h3>' + escapeHtml(question) + '</h3><div class="programme-vote-options">' +
+    '<button class="programme-vote-button" type="button" data-action="cast-programme-vote" data-choice="yes" data-program-id="' + safeProgramId + '" aria-pressed="' + (interaction.myVote === "yes") + '"' + (disabled ? " disabled" : "") + '><span>' + escapeHtml(yesLabel) + '</span><strong>' + yesCount + '</strong></button>' +
+    '<button class="programme-vote-button" type="button" data-action="cast-programme-vote" data-choice="no" data-program-id="' + safeProgramId + '" aria-pressed="' + (interaction.myVote === "no") + '"' + (disabled ? " disabled" : "") + '><span>' + escapeHtml(noLabel) + '</span><strong>' + noCount + '</strong></button>' +
+    '</div><p class="programme-vote-status" aria-live="polite">' + escapeHtml(voteStatus) + '</p></div></section>';
 }
 
 function renderPublicPrograms(programs, available) {
@@ -354,7 +323,7 @@ function renderPublicPrograms(programs, available) {
     const startDate = publicDate(program.start_date);
     const endDate = publicDate(program.end_date);
     const status = publicStatus(program.start_date, program.end_date);
-    const dateLabel = startDate && endDate && program.end_date !== program.start_date
+    const dateLabel = startDate && endDate && String(program.end_date).slice(0, 10) !== startDateValue
       ? startDate + " – " + endDate
       : startDate;
     const flyer = typeof program.flyer_data_url === "string"
@@ -362,25 +331,30 @@ function renderPublicPrograms(programs, available) {
       && program.flyer_data_url.length <= 1900000
       ? '<img class="public-program-post-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
       : "";
-    const media = flyer
-      ? '<div class="public-program-post-media">' + flyer + '</div>'
-      : "";
+    const media = flyer ? '<div class="public-program-post-media">' + flyer + '</div>' : "";
     const postedLabel = publicPostedDate(program.created_at);
     const posted = postedLabel
       ? '<time class="public-program-post-published" datetime="' + escapeHtml(program.created_at) + '">Posted ' + escapeHtml(postedLabel) + '</time>'
       : "";
     const venue = String(program.venue || "").trim();
-    const venueMarkup = venue ? '<p class="public-program-post-venue">' + escapeHtml(venue) + '</p>' : "";
+    const venueMarkup = venue
+      ? '<p class="public-program-post-venue"><span class="public-program-post-detail-label">Location</span><span>' + escapeHtml(venue) + '</span></p>'
+      : "";
     const description = String(program.description || "").trim();
+    const expanded = Boolean(state.programmeDescriptionsExpanded[program.id]);
+    const descriptionId = "programme-description-" + String(program.id || "programme").replace(/[^a-z0-9_-]/gi, "").slice(0, 80);
+    const descriptionIsLong = Array.from(description).length > PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT;
     const descriptionMarkup = description
-      ? '<p class="public-program-post-description">' + escapeHtml(description) + '</p>'
+      ? '<div class="public-program-post-description"><p class="public-program-post-description-copy" id="' + descriptionId + '">' + escapeHtml(expanded ? description : excerptProgrammeDescription(description)) + '</p>' +
+        (descriptionIsLong ? '<button class="public-program-read-more" type="button" data-action="toggle-programme-description" data-program-id="' + escapeHtml(program.id) + '" aria-controls="' + descriptionId + '" aria-expanded="' + expanded + '">' + (expanded ? "Show less" : "Read more") + '</button>' : "") + '</div>'
       : "";
     const eventDate = dateLabel
       ? '<div class="public-program-post-meta">' + publicStatusBadge(status) + '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time></div>'
       : publicStatusBadge(status);
-    return '<article class="public-program-post"><header class="public-program-post-header"><h2 class="public-program-post-title">' + title + '</h2>' + posted + '</header><div class="public-program-post-body">' + descriptionMarkup + eventDate + venueMarkup + '</div>' + media + renderProgrammeInteractions(program) + '</article>';
+    return '<article class="public-program-post"><header class="public-program-post-header"><h2 class="public-program-post-title">' + title + '</h2>' + posted + '</header>' + media + renderProgrammeInteractions(program) + '<div class="public-program-post-body">' + descriptionMarkup + eventDate + venueMarkup + '</div></article>';
   }).join("") + '</div>';
 }
+
 function renderPublicServicePlans(plans, available) {
   if (!plans.length) {
     const message = available ? "No service plans have been posted yet." : "Service plans are unavailable right now. Please try again later.";
@@ -403,7 +377,7 @@ function renderPublicServicePlans(plans, available) {
 
 function renderPublicProgramsPage() {
   const content = state.publicContent || { programs: [], servicePlans: [], programsAvailable: false, servicePlansAvailable: false };
-  return '<section class="page public-programs-page">' + pageHeading("Upcoming Programmes", "Programme posts and flyers, newest announcement first.") +
+  return '<section class="page public-programs-page">' + pageHeading("Upcoming Programmes") +
     '<section class="public-content-section" aria-label="Programme announcements">' + renderPublicPrograms(content.programs, content.programsAvailable) + '</section></section>';
 }
 
@@ -424,7 +398,7 @@ async function castPublicProgrammeVote(programId, choice) {
   if (state.view === "programs") render();
   try {
     const result = await castProgrammeVote(programId, choice);
-    const current = state.programmeInteractions[programId] || { comments: [], commentCount: 0 };
+    const current = state.programmeInteractions[programId] || {};
     state.programmeInteractions[programId] = Object.assign({}, current, {
       myVote: result.myVote,
       voteYesCount: result.voteYesCount,
@@ -435,30 +409,6 @@ async function castPublicProgrammeVote(programId, choice) {
   } finally {
     delete state.programmeVotePending[programId];
     if (state.view === "programs") render();
-  }
-}
-
-async function submitPublicProgrammeComment(form) {
-  const programId = form.dataset.programId;
-  const textarea = form.elements.namedItem("comment");
-  const submitButton = form.querySelector('[type="submit"]');
-  const status = form.querySelector("[data-programme-comment-status]");
-  const body = textarea ? textarea.value : "";
-  if (submitButton) submitButton.disabled = true;
-  if (status) status.textContent = "Posting comment…";
-
-  try {
-    const comment = await postProgrammeComment(programId, body);
-    const current = state.programmeInteractions[programId] || { voteYesCount: 0, voteNoCount: 0, myVote: null, commentCount: 0, comments: [] };
-    state.programmeInteractions[programId] = Object.assign({}, current, {
-      commentCount: Math.max(Number(current.commentCount) || 0, Array.isArray(current.comments) ? current.comments.length : 0) + 1,
-      comments: [comment].concat(Array.isArray(current.comments) ? current.comments : []).slice(0, 50)
-    });
-    render();
-    showToast("Your anonymous comment has been posted.");
-  } catch (error) {
-    if (submitButton) submitButton.disabled = false;
-    if (status) status.textContent = error && error.message ? error.message : "The comment could not be posted. Please try again.";
   }
 }
 
@@ -700,6 +650,14 @@ document.addEventListener("click", function (event) {
     state.searchOpen = false;
     render();
   } else if (action === "open-hymn") openHymn(target.dataset.number);
+  else if (action === "toggle-programme-description") {
+    const programId = target.dataset.programId;
+    state.programmeDescriptionsExpanded[programId] = !state.programmeDescriptionsExpanded[programId];
+    render();
+    const descriptionButtons = Array.from(main.querySelectorAll('[data-action="toggle-programme-description"]'));
+    const nextButton = descriptionButtons.find(function (button) { return button.dataset.programId === programId; });
+    if (nextButton) nextButton.focus();
+  }
   else if (action === "cast-programme-vote") castPublicProgrammeVote(target.dataset.programId, target.dataset.choice);
   else if (action === "back") {
     state.view = state.readerReturnView;
@@ -764,9 +722,6 @@ document.addEventListener("submit", function (event) {
     }
     render();
     window.scrollTo(0, 0);
-  } else if (event.target.matches("[data-programme-comment-form]")) {
-    event.preventDefault();
-    submitPublicProgrammeComment(event.target);
   }
 });
 
