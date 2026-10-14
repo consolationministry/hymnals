@@ -1,5 +1,5 @@
 import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js?v=31";
-import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteHymns, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, setHymnsStatus, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=40";
+import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteHymns, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, setHymnsStatus, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=41";
 
 import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "./admin-hymn-display.js?v=1";
 
@@ -415,7 +415,7 @@ async function renderProgramWorkspace() {
   const addButton = make("button", "button button-primary", ""); addButton.type = "button"; addButton.dataset.action = "new-program"; addButton.append(icon("plus", ""), document.createTextNode(" Add Programme"));
   heading.append(headingContent, addButton); content.append(heading);
   const note = make("section", "program-analytics-note");
-  note.append(make("strong", "", "Views and attendance responses are not connected yet."), make("p", "", "This phase builds the admin workflow only. Counts will become real after the public app and backend are connected."));
+  note.append(make("strong", "", "Views and response totals are not shown here yet."), make("p", "", "Members can submit the configured attendance response from the public programme feed after its database migration is applied."));
   content.append(note);
   try {
     const programs = await getPrograms();
@@ -475,7 +475,7 @@ async function renderProgramForm() {
   headingContent.append(make("h1", "", existing ? "Edit Programme" : "Add Programme"), make("p", "", existing ? "Update the programme details and response wording." : "Add a programme for any date; programmes are labeled upcoming or past."));
   const cancel = make("button", "button button-secondary", "Cancel"); cancel.type = "button"; cancel.dataset.action = "cancel-program";
   heading.append(headingContent, cancel); content.append(heading);
-  const program = existing || { title: "", venue: "", startDate: "", endDate: "", responseQuestion: "Will you be available for this programme?", yesLabel: "Yes, I’ll be there", noLabel: "Not this time" };
+  const program = existing || { title: "", description: "", venue: "", startDate: "", endDate: "", responseQuestion: "Will you be available for this programme?", yesLabel: "Yes, I’ll be there", noLabel: "Not this time" };
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit programme form" : "Add programme form");
   panel.innerHTML = '<form id="program-form" novalidate><h2 class="form-section-title">Program details</h2><p class="form-section-help">Program changes stay in this browser preview and are not published to the public app in this phase.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="program-title">Program name <span aria-hidden="true">*</span></label><input class="form-input" id="program-title" name="title" type="text" maxlength="120" placeholder="Annual Thanksgiving Service" value="' + escapeHtml(program.title) + '" required></div><div class="admin-field"><label for="program-venue">Venue <span aria-hidden="true">*</span></label><input class="form-input" id="program-venue" name="venue" type="text" maxlength="160" placeholder="Church auditorium" value="' + escapeHtml(program.venue) + '" required></div><div class="admin-field"><label for="program-start-date">From <span aria-hidden="true">*</span></label><input class="form-input" id="program-start-date" name="startDate" type="date" value="' + escapeHtml(program.startDate) + '" required></div><div class="admin-field"><label for="program-end-date">To <span class="optional-label">optional</span></label><input class="form-input" id="program-end-date" name="endDate" type="date" value="' + escapeHtml(program.endDate || "") + '"><p class="field-hint">Leave this blank for a one-day program.</p></div></div><section class="program-flyer-section" aria-labelledby="program-flyer-heading"><h2 id="program-flyer-heading">Program flyer</h2><p>Upload a PNG, JPEG, or WebP image. The preview keeps the full flyer visible without cropping.</p><label class="button button-secondary flyer-upload-button" for="program-flyer-input">Choose flyer</label><input class="visually-hidden" id="program-flyer-input" type="file" accept="image/png,image/jpeg,image/webp"><div id="program-flyer-preview" class="program-flyer-preview" aria-live="polite"></div><p class="field-hint">Large images are resized proportionally for this browser preview. A server-backed upload will be added later.</p><p id="program-flyer-error" class="form-error" role="alert" aria-live="polite"></p></section><section class="program-response-section"><h2>Attendance response</h2><p>Set the question and the wording shown on the two response buttons.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="program-response-question">Question shown to users</label><input class="form-input" id="program-response-question" name="responseQuestion" type="text" maxlength="120" value="' + escapeHtml(program.responseQuestion) + '" required></div><div class="admin-field"><label for="program-yes-label">Yes button</label><input class="form-input" id="program-yes-label" name="yesLabel" type="text" maxlength="48" value="' + escapeHtml(program.yesLabel) + '" required></div><div class="admin-field"><label for="program-no-label">No button</label><input class="form-input" id="program-no-label" name="noLabel" type="text" maxlength="48" value="' + escapeHtml(program.noLabel) + '" required></div></div></section><div id="program-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-program" data-id="' + escapeHtml(existing.id) + '">Delete Program</button>' : "") + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-program">Cancel</button><button class="button button-primary" type="submit">Save Program</button></div></div></form>';
   panel.innerHTML = panel.innerHTML
@@ -486,9 +486,27 @@ async function renderProgramForm() {
     .replace("Add Program", "Add Programme")
     .replace("Delete Program", "Delete Programme")
     .replace("Save Program", "Save Programme")
-    .replace("Program changes stay in this browser preview and are not published to the public app in this phase.", "Programmes for all dates appear in the member app after the public-content migrations are applied; past programmes are labeled. Attendance responses are not connected yet.")
+    .replace("Program changes stay in this browser preview and are not published to the public app in this phase.", "Programmes for all dates appear in the member app after the public-content migrations are applied; past programmes are labeled. Members can answer the attendance question after the response migration is applied.")
     .replace("Leave this blank for a one-day program.", "Leave this blank for a one-day programme.")
     .replace("Large images are resized proportionally for this browser preview. A server-backed upload will be added later.", "Large images are resized proportionally before they are stored with this programme.");
+  const descriptionField = make("div", "admin-field program-description-field");
+  const descriptionLabel = make("label", "", "Programme description");
+  descriptionLabel.htmlFor = "program-description";
+  const descriptionInput = document.createElement("textarea");
+  descriptionInput.className = "form-input";
+  descriptionInput.id = "program-description";
+  descriptionInput.name = "description";
+  descriptionInput.rows = 5;
+  descriptionInput.maxLength = 2000;
+  descriptionInput.placeholder = "Share what members should know about this programme.";
+  descriptionInput.value = program.description || "";
+  descriptionField.append(
+    descriptionLabel,
+    descriptionInput,
+    make("p", "field-hint", "Optional. This appears below the programme title in the member feed.")
+  );
+  const flyerSection = panel.querySelector(".program-flyer-section");
+  if (flyerSection) flyerSection.before(descriptionField);
   content.append(panel);
   updateProgramFlyerPreview(state.programFlyerUrl);
   state.programFormStart = programFormSignature();
@@ -498,6 +516,7 @@ function currentProgramFormData() {
   const form = document.getElementById("program-form"); if (!form) return null;
   return {
     title: form.elements.title.value.trim(), venue: form.elements.venue.value.trim(),
+    description: form.elements.description.value.trim(),
     startDate: form.elements.startDate.value, endDate: form.elements.endDate.value,
     flyerDataUrl: state.programFlyerUrl,
     responseQuestion: form.elements.responseQuestion.value.trim(),
@@ -554,6 +573,7 @@ async function saveProgramForm(submitter) {
   const data = currentProgramFormData(); if (!data) return;
   const errors = [];
   if (!data.title) errors.push("Enter the programme name.");
+  if (data.description.length > 2000) errors.push("Programme descriptions must be 2,000 characters or fewer.");
   if (!data.venue) errors.push("Enter the venue.");
   if (!data.startDate) errors.push("Choose a start date.");
   if (data.endDate && data.startDate && data.endDate < data.startDate) errors.push("The end date cannot be before the start date.");
@@ -612,7 +632,7 @@ async function renderSettingsWorkspace() {
     statusTitle.append(make("h2", "", "Backend status"), make("p", "", "What is connected in this phase.")); statusHeader.append(statusTitle);
     const statusBody = make("div", "panel-body", "");
     const statusList = make("ul", "settings-status-list", "");
-    statusList.append(make("li", "", "Administrator access and edit actions are protected by Supabase Auth and row-level security."), make("li", "", "Hymns, categories, service plans, events, and settings are saved to the shared database."), make("li", "", "Published hymns, events, and service plans from any date appear in the member app when the public-content migrations are applied. Admin preferences remain private; attendance responses and analytics are not connected."));
+    statusList.append(make("li", "", "Administrator access and edit actions are protected by Supabase Auth and row-level security."), make("li", "", "Hymns, categories, service plans, events, and settings are saved to the shared database."), make("li", "", "Published hymns, events, and service plans from any date appear in the member app when the public-content migrations are applied. Admin preferences remain private; anonymous attendance vote totals are not shown in this workspace yet."));
     statusBody.append(statusList); statusPanel.append(statusHeader, statusBody);
     const grid = make("div", "settings-grid", ""); grid.append(panel, appearancePanel, statusPanel); content.append(grid);
     const programSettings = make("section", "panel settings-module");

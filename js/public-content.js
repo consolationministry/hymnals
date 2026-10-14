@@ -66,7 +66,7 @@ async function requestRows(table, select, order) {
   return { response, rows };
 }
 
-async function fetchRows(table, select, order, cacheKey, fallback) {
+async function fetchRows(table, select, order, cacheKey, fallbacks) {
   const cached = readLocal(cacheKey, null);
   const cachedRows = Array.isArray(cached) ? cached : [];
   if (typeof fetch !== "function" || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
@@ -74,11 +74,14 @@ async function fetchRows(table, select, order, cacheKey, fallback) {
   }
 
   try {
-    let result = await requestRows(table, select, order);
-    if (!result.rows && fallback && (result.response.status === 401 || result.response.status === 403)) {
-      result = await requestRows(table, fallback.select, fallback.order);
+    const requests = [{ select, order }].concat(Array.isArray(fallbacks) ? fallbacks : fallbacks ? [fallbacks] : []);
+    let result = null;
+    for (const request of requests) {
+      result = await requestRows(table, request.select, request.order);
+      if (result.rows) break;
+      if (![400, 401, 403].includes(result.response.status)) break;
     }
-    if (!result.rows) throw new Error("Public content is unavailable.");
+    if (!result || !result.rows) throw new Error("Public content is unavailable.");
     writeLocal(cacheKey, result.rows);
     return { rows: result.rows, available: true, usingCache: false };
   } catch (error) {
@@ -90,10 +93,13 @@ export async function getMemberContent() {
   const [programResult, planResult] = await Promise.all([
     fetchRows(
       "programs",
-      "id,title,venue,start_date,end_date,flyer_data_url,created_at",
+      "id,title,description,venue,start_date,end_date,flyer_data_url,created_at,response_question,yes_label,no_label",
       "created_at.desc",
       PROGRAMS_CACHE_KEY,
-      { select: "id,title,venue,start_date,end_date,flyer_data_url", order: "start_date.desc" }
+      [
+        { select: "id,title,venue,start_date,end_date,flyer_data_url,created_at", order: "created_at.desc" },
+        { select: "id,title,venue,start_date,end_date,flyer_data_url", order: "start_date.desc" }
+      ]
     ),
     fetchRows("service_plans", "id,title,date,hymn_ids", "date.desc", SERVICE_PLANS_CACHE_KEY)
   ]);

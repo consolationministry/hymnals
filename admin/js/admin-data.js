@@ -112,6 +112,7 @@ function validDate(value) {
 function normalizeProgramData(value) {
   const data = value || {};
   const title = typeof data.title === "string" ? data.title.trim() : "";
+  const description = typeof data.description === "string" ? data.description.trim() : "";
   const venue = typeof data.venue === "string" ? data.venue.trim() : "";
   const startDate = typeof data.startDate === "string" ? data.startDate : "";
   const endDate = typeof data.endDate === "string" ? data.endDate : "";
@@ -121,6 +122,7 @@ function normalizeProgramData(value) {
   const noLabel = typeof data.noLabel === "string" ? data.noLabel.trim() : "";
   if (!title) throw new Error("Enter the event name.");
   if (title.length > 120) throw new Error("Event names must be 120 characters or fewer.");
+  if (description.length > 2000) throw new Error("Programme descriptions must be 2,000 characters or fewer.");
   if (!venue) throw new Error("Enter the event venue.");
   if (venue.length > 160) throw new Error("Venues must be 160 characters or fewer.");
   if (!validDate(startDate)) throw new Error("Choose a valid start date.");
@@ -133,12 +135,13 @@ function normalizeProgramData(value) {
   if (responseQuestion.length > 120) throw new Error("The availability question must be 120 characters or fewer.");
   if (!yesLabel || !noLabel) throw new Error("Enter both response button labels.");
   if (yesLabel.length > 48 || noLabel.length > 48) throw new Error("Response button labels must be 48 characters or fewer.");
-  return { title, venue, startDate, endDate, flyerDataUrl, responseQuestion, yesLabel, noLabel };
+  return { title, description, venue, startDate, endDate, flyerDataUrl, responseQuestion, yesLabel, noLabel };
 }
 
 function toProgramRow(value) {
   return {
     title: value.title,
+    description: value.description,
     venue: value.venue,
     start_date: value.startDate,
     end_date: value.endDate || null,
@@ -154,6 +157,7 @@ function fromProgramRow(row) {
   return {
     id: row.id,
     title: row.title,
+    description: row.description || "",
     venue: row.venue,
     startDate: row.start_date,
     endDate: row.end_date || "",

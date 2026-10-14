@@ -31,16 +31,22 @@ test("Upcoming Programmes renders as a newest-first flyer post feed", () => {
   assert.match(memberApp, /publicPostedDate\(program\.created_at\)/);
   assert.match(memberApp, /class="public-program-post-flyer"/);
   assert.match(memberApp, /return '<article class="public-program-post">/);
+  assert.match(memberApp, /class="public-program-post-description"/);
+  assert.match(memberApp, /public-program-post-body[\s\S]*\+ media \+ renderProgrammeInteractions\(program\)/);
   assert.match(memberStyles, /\.public-program-post-header/);
   assert.match(memberStyles, /\.public-program-post-flyer/);
 });
 
-test("programme posts include anonymous likes and comments with generated comment IDs", () => {
-  assert.match(memberApp, /renderProgrammeInteractions\(program\.id\)/);
-  assert.match(memberApp, /data-action="toggle-programme-like"/);
+test("programme posts use admin-configured anonymous attendance votes and keep comments", () => {
+  assert.match(memberApp, /renderProgrammeInteractions\(program\)/);
+  assert.match(memberApp, /data-action="cast-programme-vote"/);
+  assert.match(memberApp, /program\.response_question/);
+  assert.match(memberApp, /program\.yes_label/);
+  assert.match(memberApp, /program\.no_label/);
   assert.match(memberApp, /data-programme-comment-form/);
   assert.match(memberApp, /Comment #/);
   assert.match(memberApp, /Comments are public and posted without a name or account/);
-  assert.match(memberStyles, /\.programme-like-button/);
+  assert.doesNotMatch(memberApp, /data-action="toggle-programme-like"/);
+  assert.match(memberStyles, /\.programme-vote-button/);
   assert.match(memberStyles, /\.programme-comment-form/);
 });

@@ -88,6 +88,7 @@ create index if not exists service_plans_date on public.service_plans (date);
 create table if not exists public.programs (
   id uuid primary key default gen_random_uuid(),
   title text not null check (length(btrim(title)) between 1 and 120),
+  description text not null default '',
   venue text not null check (length(btrim(venue)) between 1 and 160),
   start_date date not null,
   end_date date,

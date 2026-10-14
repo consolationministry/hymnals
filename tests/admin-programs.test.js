@@ -148,6 +148,7 @@ async function signIn() {
 function program(overrides) {
   return Object.assign({
     title: "Annual Thanksgiving",
+    description: "A gathering for worship and fellowship.",
     venue: "Church auditorium",
     startDate: "2026-12-01",
     endDate: "",
@@ -163,11 +164,13 @@ test("admin programs create, edit, list, and delete through the shared backend",
   await signIn();
   const created = await createProgram(program());
   assert.equal(created.title, "Annual Thanksgiving");
+  assert.equal(created.description, "A gathering for worship and fellowship.");
   assert.equal(created._storage_mode, "remote");
   assert.equal((await getPrograms()).length, 1);
 
-  const updated = await updateProgram(created.id, program({ endDate: "2026-12-03", yesLabel: "Count me in" }));
+  const updated = await updateProgram(created.id, program({ description: "A refreshed community gathering.", endDate: "2026-12-03", yesLabel: "Count me in" }));
   assert.equal(updated.endDate, "2026-12-03");
+  assert.equal((await getProgram(created.id)).description, "A refreshed community gathering.");
   assert.equal((await getProgram(created.id)).yesLabel, "Count me in");
   assert.equal(await deleteProgram(created.id), true);
   assert.equal(await getProgram(created.id), null);
@@ -183,6 +186,7 @@ test("program dates and flyer payloads are validated before saving", async () =>
   await assert.rejects(createProgram(program({ startDate: "2026-02-30" })), /valid start date/);
   await assert.rejects(createProgram(program({ endDate: "2026-11-30" })), /cannot be before/);
   await assert.rejects(createProgram(program({ flyerDataUrl: "https://example.com/flyer.png" })), /PNG, JPEG, or WebP/);
+  await assert.rejects(createProgram(program({ description: "x".repeat(2001) })), /2,000 characters/);
   await logoutAdmin();
 });
 

@@ -45,7 +45,7 @@ function configured() {
 
 async function callRpc(name, body) {
   if (!configured() || typeof fetch !== "function") {
-    throw new Error("Likes and comments are unavailable right now. Please try again later.");
+    throw new Error("Programme responses and comments are unavailable right now. Please try again later.");
   }
 
   let response;
@@ -64,7 +64,7 @@ async function callRpc(name, body) {
     });
     payload = await response.json();
   } catch (error) {
-    throw new Error("Likes and comments are unavailable right now. Check your connection and try again.");
+    throw new Error("Programme responses and comments are unavailable right now. Check your connection and try again.");
   }
 
   if (!response.ok) {
@@ -72,7 +72,7 @@ async function callRpc(name, body) {
     if (typeof message === "string" && /wait .*before commenting/i.test(message)) {
       throw new Error(message);
     }
-    throw new Error("Likes and comments are unavailable right now. Please try again later.");
+    throw new Error("Programme responses and comments are unavailable right now. Please try again later.");
   }
   return payload;
 }
@@ -81,7 +81,7 @@ export async function getProgrammeInteractions(programs) {
   const programIds = (Array.isArray(programs) ? programs : [])
     .map(function (program) { return program && program.id; })
     .filter(function (id) { return typeof id === "string" && UUID_PATTERN.test(id); });
-  if (!programIds.length) return { available: true, byProgram: {} };
+  if (!programIds.length) return { available: true, votesAvailable: true, byProgram: {} };
 
   try {
     const rows = await callRpc("get_programme_interactions", {
@@ -91,32 +91,43 @@ export async function getProgrammeInteractions(programs) {
     if (!Array.isArray(rows)) throw new Error("Invalid interaction response.");
 
     const byProgram = {};
+    let votesAvailable = rows.length > 0;
     rows.forEach(function (row) {
       if (!row || typeof row.program_id !== "string" || !UUID_PATTERN.test(row.program_id)) return;
+      const hasVoteFields = Object.prototype.hasOwnProperty.call(row, "vote_yes_count") &&
+        Object.prototype.hasOwnProperty.call(row, "vote_no_count") &&
+        Object.prototype.hasOwnProperty.call(row, "my_vote");
+      if (!hasVoteFields) votesAvailable = false;
       byProgram[row.program_id] = {
-        likeCount: Math.max(0, Number(row.like_count) || 0),
         commentCount: Math.max(0, Number(row.comment_count) || 0),
-        liked: Boolean(row.liked),
+        voteYesCount: Math.max(0, Number(row.vote_yes_count) || 0),
+        voteNoCount: Math.max(0, Number(row.vote_no_count) || 0),
+        myVote: row.my_vote === "yes" || row.my_vote === "no" ? row.my_vote : null,
         comments: Array.isArray(row.comments) ? row.comments : []
       };
     });
-    return { available: true, byProgram };
+    return { available: true, votesAvailable, byProgram };
   } catch (error) {
-    return { available: false, byProgram: {} };
+    return { available: false, votesAvailable: false, byProgram: {} };
   }
 }
 
-export async function toggleProgrammeLike(programId) {
+export async function castProgrammeVote(programId, choice) {
   if (typeof programId !== "string" || !UUID_PATTERN.test(programId)) {
     throw new Error("This programme could not be identified. Refresh and try again.");
   }
-  const result = await callRpc("toggle_programme_like", {
+  if (choice !== "yes" && choice !== "no") {
+    throw new Error("Choose one of the programme response options.");
+  }
+  const result = await callRpc("cast_programme_vote", {
     p_program_id: programId,
-    p_visitor_id: getVisitorId()
+    p_visitor_id: getVisitorId(),
+    p_choice: choice
   });
   return {
-    liked: Boolean(result && result.liked),
-    likeCount: Math.max(0, Number(result && result.like_count) || 0)
+    myVote: result && (result.my_vote === "yes" || result.my_vote === "no") ? result.my_vote : choice,
+    voteYesCount: Math.max(0, Number(result && result.vote_yes_count) || 0),
+    voteNoCount: Math.max(0, Number(result && result.vote_no_count) || 0)
   };
 }
 

@@ -43,8 +43,8 @@ test("loads past and future public programs and service plans through read-only 
     requests.push({ url: new URL(String(url)), options });
     if (String(url).includes("/programs?")) {
       return response([
-        { id: "event-1", title: "Annual Meeting", venue: "Church Hall", start_date: "2026-10-20", end_date: null, flyer_data_url: "", created_at: "2026-10-12T10:00:00Z" },
-        { id: "event-past", title: "Past Meeting", venue: "Church Hall", start_date: "2026-10-01", end_date: null, flyer_data_url: "", created_at: "2026-10-01T10:00:00Z" }
+        { id: "event-1", title: "Annual Meeting", description: "A community gathering.", venue: "Church Hall", start_date: "2026-10-20", end_date: null, flyer_data_url: "", created_at: "2026-10-12T10:00:00Z", response_question: "Will you attend?", yes_label: "Yes", no_label: "No" },
+        { id: "event-past", title: "Past Meeting", description: "", venue: "Church Hall", start_date: "2026-10-01", end_date: null, flyer_data_url: "", created_at: "2026-10-01T10:00:00Z", response_question: "Will you attend?", yes_label: "Yes", no_label: "No" }
       ]);
     }
     return response([
@@ -65,6 +65,8 @@ test("loads past and future public programs and service plans through read-only 
   assert.equal(programsRequest.options.method, "GET");
   assert.match(programsRequest.url.searchParams.get("select"), /flyer_data_url/);
   assert.match(programsRequest.url.searchParams.get("select"), /created_at/);
+  assert.match(programsRequest.url.searchParams.get("select"), /description/);
+  assert.match(programsRequest.url.searchParams.get("select"), /response_question/);
   assert.equal(programsRequest.url.searchParams.get("or"), null);
   assert.equal(programsRequest.url.searchParams.get("order"), "created_at.desc");
   assert.equal(plansRequest.url.searchParams.get("date"), null);
@@ -72,7 +74,7 @@ test("loads past and future public programs and service plans through read-only 
   assert.match(plansRequest.url.searchParams.get("select"), /hymn_ids/);
 });
 
-test("falls back to display fields if public programme access to created_at is missing", async () => {
+test("falls back through older public programme fields when response metadata is not granted", async () => {
   installStorage();
   const requests = [];
   globalThis.fetch = async function (url) {
@@ -95,10 +97,11 @@ test("falls back to display fields if public programme access to created_at is m
   assert.deepEqual(content.programs.map(function (item) { return item.id; }), ["event-1"]);
   assert.equal(content.programsAvailable, true);
   assert.equal(content.usingCache, false);
-  assert.equal(programRequests.length, 2);
+  assert.equal(programRequests.length, 3);
   assert.match(programRequests[0].searchParams.get("select"), /created_at/);
-  assert.doesNotMatch(programRequests[1].searchParams.get("select"), /created_at/);
-  assert.equal(programRequests[1].searchParams.get("order"), "start_date.desc");
+  assert.match(programRequests[1].searchParams.get("select"), /created_at/);
+  assert.doesNotMatch(programRequests[2].searchParams.get("select"), /created_at/);
+  assert.equal(programRequests[2].searchParams.get("order"), "start_date.desc");
 });
 
 test("uses cached public content when the public database is unavailable", async () => {

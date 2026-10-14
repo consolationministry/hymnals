@@ -4,7 +4,7 @@ import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 import { addRecent, getRecentNumbers } from "./recent.js";
 import { getReadingParts } from "./hymn-reading.js";
 import { getMemberContent, servicePlanDayLabel } from "./public-content.js";
-import { getProgrammeInteractions, postProgrammeComment, toggleProgrammeLike } from "./programme-interactions.js";
+import { castProgrammeVote, getProgrammeInteractions, postProgrammeComment } from "./programme-interactions.js";
 import { ACCENT_THEMES, getSettings, saveSettings } from "./settings.js";
 import { shareHymn } from "./sharing.js";
 import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
@@ -28,7 +28,7 @@ const updateMessage = document.getElementById("update-message");
 const updateVersion = document.getElementById("update-version");
 const updateStatus = document.getElementById("update-status");
 const updateInstallButton = document.getElementById("update-install");
-const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
+const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
@@ -296,18 +296,31 @@ function publicCommentDate(value) {
   return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
-function renderProgrammeInteractions(programId) {
+function renderProgrammeInteractions(program) {
+  const programId = program && program.id;
   const safeProgramId = escapeHtml(programId);
   if (state.programmeInteractionsAvailable === false) {
-    return '<section class="programme-interactions-unavailable" aria-label="Programme interactions"><p>Likes and comments are temporarily unavailable. Please try again when you are online.</p></section>';
+    return '<section class="programme-interactions-unavailable" aria-label="Programme responses and comments"><p>Responses and comments are temporarily unavailable. Please try again when you are online.</p></section>';
   }
   if (state.programmeInteractionsAvailable !== true) {
-    return '<section class="programme-interactions-unavailable" aria-label="Programme interactions"><p>Loading likes and comments…</p></section>';
+    return '<section class="programme-interactions-unavailable" aria-label="Programme responses and comments"><p>Loading responses and comments…</p></section>';
   }
 
-  const interaction = state.programmeInteractions[programId] || { likeCount: 0, commentCount: 0, liked: false, comments: [] };
+  const interaction = state.programmeInteractions[programId] || { voteYesCount: 0, voteNoCount: 0, myVote: null, commentCount: 0, comments: [] };
   const comments = Array.isArray(interaction.comments) ? interaction.comments : [];
   const commentCount = Math.max(Number(interaction.commentCount) || 0, comments.length);
+  const question = String(program && program.response_question || "Will you be available for this programme?").trim();
+  const yesLabel = String(program && program.yes_label || "Yes, I’ll be there").trim();
+  const noLabel = String(program && program.no_label || "Not this time").trim();
+  const votePending = Boolean(state.programmeVotePending[programId]);
+  const yesCount = Math.max(0, Number(interaction.voteYesCount) || 0);
+  const noCount = Math.max(0, Number(interaction.voteNoCount) || 0);
+  const voteMarkup = state.programmeVotesAvailable === true
+    ? '<div class="programme-voting"><h3>' + escapeHtml(question) + '</h3><div class="programme-vote-options">' +
+      '<button class="programme-vote-button" type="button" data-action="cast-programme-vote" data-choice="yes" data-program-id="' + safeProgramId + '" aria-pressed="' + (interaction.myVote === "yes") + '"' + (votePending ? " disabled" : "") + '><span>' + escapeHtml(yesLabel) + '</span><strong>' + escapeHtml(yesCount) + '</strong></button>' +
+      '<button class="programme-vote-button" type="button" data-action="cast-programme-vote" data-choice="no" data-program-id="' + safeProgramId + '" aria-pressed="' + (interaction.myVote === "no") + '"' + (votePending ? " disabled" : "") + '><span>' + escapeHtml(noLabel) + '</span><strong>' + escapeHtml(noCount) + '</strong></button>' +
+      '</div><p class="programme-vote-status" aria-live="polite">' + (interaction.myVote ? "Your response is saved. You can change it any time." : "Choose one response. Votes are anonymous.") + '</p></div>'
+    : '<div class="programme-vote-unavailable"><h3>' + escapeHtml(question) + '</h3><p>Voting will appear after the programme response migration is applied.</p></div>';
   const commentsMarkup = comments.length
     ? '<ol class="programme-comment-list">' + comments.map(function (comment) {
       const commentId = String(comment && comment.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 8);
@@ -320,8 +333,7 @@ function renderProgrammeInteractions(programId) {
     }).join("") + '</ol>'
     : '<p class="programme-comment-empty">No comments yet. Be the first to comment.</p>';
 
-  return '<section class="programme-interactions" aria-label="Likes and comments">' +
-    '<div class="programme-like-row"><button class="programme-like-button" type="button" data-action="toggle-programme-like" data-program-id="' + safeProgramId + '" aria-pressed="' + Boolean(interaction.liked) + '">' + icon("heart", "programme-like-icon") + '<span>' + (interaction.liked ? "Liked" : "Like") + '</span></button><span class="programme-like-count" aria-live="polite">' + escapeHtml(interaction.likeCount) + ' ' + (interaction.likeCount === 1 ? "like" : "likes") + '</span></div>' +
+  return '<section class="programme-interactions" aria-label="Programme responses and comments">' + voteMarkup +
     '<div class="programme-comments"><h3>Comments (' + commentCount + ')</h3>' + commentsMarkup +
     '<form class="programme-comment-form" data-programme-comment-form data-program-id="' + safeProgramId + '">' +
     '<label for="programme-comment-' + safeProgramId + '">Leave an anonymous comment</label>' +
@@ -352,17 +364,21 @@ function renderPublicPrograms(programs, available) {
       : "";
     const media = flyer
       ? '<div class="public-program-post-media">' + flyer + '</div>'
-      : '<div class="public-program-post-placeholder" aria-hidden="true"><span>Programme announcement</span></div>';
+      : "";
     const postedLabel = publicPostedDate(program.created_at);
     const posted = postedLabel
       ? '<time class="public-program-post-published" datetime="' + escapeHtml(program.created_at) + '">Posted ' + escapeHtml(postedLabel) + '</time>'
       : "";
     const venue = String(program.venue || "").trim();
     const venueMarkup = venue ? '<p class="public-program-post-venue">' + escapeHtml(venue) + '</p>' : "";
+    const description = String(program.description || "").trim();
+    const descriptionMarkup = description
+      ? '<p class="public-program-post-description">' + escapeHtml(description) + '</p>'
+      : "";
     const eventDate = dateLabel
       ? '<div class="public-program-post-meta">' + publicStatusBadge(status) + '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time></div>'
       : publicStatusBadge(status);
-    return '<article class="public-program-post"><header class="public-program-post-header"><span class="public-program-post-kicker">Church programme</span>' + posted + '</header>' + media + '<div class="public-program-post-body"><h2 class="public-program-post-title">' + title + '</h2>' + eventDate + venueMarkup + '</div>' + renderProgrammeInteractions(program.id) + '</article>';
+    return '<article class="public-program-post"><header class="public-program-post-header"><span class="public-program-post-kicker">Church programme</span>' + posted + '</header><div class="public-program-post-body"><h2 class="public-program-post-title">' + title + '</h2>' + descriptionMarkup + eventDate + venueMarkup + '</div>' + media + renderProgrammeInteractions(program) + '</article>';
   }).join("") + '</div>';
 }
 function renderPublicServicePlans(plans, available) {
@@ -398,23 +414,27 @@ async function refreshProgrammeInteractions() {
   const result = await getProgrammeInteractions(programs);
   state.programmeInteractions = result.byProgram;
   state.programmeInteractionsAvailable = result.available;
+  state.programmeVotesAvailable = result.votesAvailable;
   if (state.view === "programs") render();
 }
 
-async function togglePublicProgrammeLike(programId) {
-  const button = main.querySelector('[data-action="toggle-programme-like"][data-program-id="' + programId + '"]');
-  if (button) button.disabled = true;
+async function castPublicProgrammeVote(programId, choice) {
+  if (state.programmeVotePending[programId]) return;
+  state.programmeVotePending[programId] = true;
+  if (state.view === "programs") render();
   try {
-    const result = await toggleProgrammeLike(programId);
-    const current = state.programmeInteractions[programId] || { comments: [] };
+    const result = await castProgrammeVote(programId, choice);
+    const current = state.programmeInteractions[programId] || { comments: [], commentCount: 0 };
     state.programmeInteractions[programId] = Object.assign({}, current, {
-      liked: result.liked,
-      likeCount: result.likeCount
+      myVote: result.myVote,
+      voteYesCount: result.voteYesCount,
+      voteNoCount: result.voteNoCount
     });
-    render();
   } catch (error) {
-    if (button) button.disabled = false;
-    showToast(error && error.message ? error.message : "Your like could not be saved. Please try again.");
+    showToast(error && error.message ? error.message : "Your response could not be saved. Please try again.");
+  } finally {
+    delete state.programmeVotePending[programId];
+    if (state.view === "programs") render();
   }
 }
 
@@ -429,7 +449,7 @@ async function submitPublicProgrammeComment(form) {
 
   try {
     const comment = await postProgrammeComment(programId, body);
-    const current = state.programmeInteractions[programId] || { likeCount: 0, commentCount: 0, liked: false, comments: [] };
+    const current = state.programmeInteractions[programId] || { voteYesCount: 0, voteNoCount: 0, myVote: null, commentCount: 0, comments: [] };
     state.programmeInteractions[programId] = Object.assign({}, current, {
       commentCount: Math.max(Number(current.commentCount) || 0, Array.isArray(current.comments) ? current.comments.length : 0) + 1,
       comments: [comment].concat(Array.isArray(current.comments) ? current.comments : []).slice(0, 50)
@@ -680,7 +700,7 @@ document.addEventListener("click", function (event) {
     state.searchOpen = false;
     render();
   } else if (action === "open-hymn") openHymn(target.dataset.number);
-  else if (action === "toggle-programme-like") togglePublicProgrammeLike(target.dataset.programId);
+  else if (action === "cast-programme-vote") castPublicProgrammeVote(target.dataset.programId, target.dataset.choice);
   else if (action === "back") {
     state.view = state.readerReturnView;
     render();
