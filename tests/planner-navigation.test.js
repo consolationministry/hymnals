@@ -34,3 +34,13 @@ test("Upcoming Programmes renders as a newest-first flyer post feed", () => {
   assert.match(memberStyles, /\.public-program-post-header/);
   assert.match(memberStyles, /\.public-program-post-flyer/);
 });
+
+test("programme posts include anonymous likes and comments with generated comment IDs", () => {
+  assert.match(memberApp, /renderProgrammeInteractions\(program\.id\)/);
+  assert.match(memberApp, /data-action="toggle-programme-like"/);
+  assert.match(memberApp, /data-programme-comment-form/);
+  assert.match(memberApp, /Comment #/);
+  assert.match(memberApp, /Comments are public and posted without a name or account/);
+  assert.match(memberStyles, /\.programme-like-button/);
+  assert.match(memberStyles, /\.programme-comment-form/);
+});
