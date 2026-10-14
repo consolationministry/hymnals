@@ -33,10 +33,20 @@ export function servicePlanDayLabel(value, nowValue, locale) {
   }).format(date);
 }
 
+function programmeSortTime(program) {
+  const postedAt = Date.parse(program && program.created_at || "");
+  if (!Number.isNaN(postedAt)) return postedAt;
+  const eventDate = String(program && program.start_date || "").slice(0, 10);
+  const eventAt = Date.parse(eventDate + "T00:00:00Z");
+  return Number.isNaN(eventAt) ? 0 : eventAt;
+}
+
 function validPrograms(rows) {
   return rows.filter(function (program) {
     if (!program || typeof program !== "object" || !program.title || !program.start_date) return false;
     return true;
+  }).sort(function (left, right) {
+    return programmeSortTime(right) - programmeSortTime(left);
   });
 }
 
