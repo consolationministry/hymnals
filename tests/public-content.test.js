@@ -11,7 +11,7 @@ function installStorage() {
       removeItem(key) { values.delete(key); }
     }
   };
-  values.set("cerc-public-programs-v3", "null");
+  values.set("cerc-public-programs-v4", "null");
   values.set("cerc-public-service-plans-v2", "null");
   return values;
 }
@@ -72,9 +72,38 @@ test("loads past and future public programs and service plans through read-only 
   assert.match(plansRequest.url.searchParams.get("select"), /hymn_ids/);
 });
 
+test("falls back to display fields if public programme access to created_at is missing", async () => {
+  installStorage();
+  const requests = [];
+  globalThis.fetch = async function (url) {
+    const parsed = new URL(String(url));
+    requests.push(parsed);
+    if (parsed.pathname.endsWith("/programs")) {
+      if (parsed.searchParams.get("select").includes("created_at")) {
+        return response({ message: "permission denied for table programs" }, 401);
+      }
+      return response([
+        { id: "event-1", title: "Annual Meeting", venue: "Church Hall", start_date: "2026-10-20", end_date: null, flyer_data_url: "" }
+      ]);
+    }
+    return response([]);
+  };
+
+  const content = await getMemberContent();
+  const programRequests = requests.filter(function (request) { return request.pathname.endsWith("/programs"); });
+
+  assert.deepEqual(content.programs.map(function (item) { return item.id; }), ["event-1"]);
+  assert.equal(content.programsAvailable, true);
+  assert.equal(content.usingCache, false);
+  assert.equal(programRequests.length, 2);
+  assert.match(programRequests[0].searchParams.get("select"), /created_at/);
+  assert.doesNotMatch(programRequests[1].searchParams.get("select"), /created_at/);
+  assert.equal(programRequests[1].searchParams.get("order"), "start_date.desc");
+});
+
 test("uses cached public content when the public database is unavailable", async () => {
   const values = installStorage();
-  values.set("cerc-public-programs-v3", JSON.stringify([
+  values.set("cerc-public-programs-v4", JSON.stringify([
     { id: "event-1", title: "Upcoming Event", venue: "Church Hall", start_date: "2026-10-20", end_date: null }
   ]));
   globalThis.fetch = async function () { return response({ message: "public read is not enabled" }, 403); };

@@ -1,7 +1,7 @@
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
 
-const PROGRAMS_CACHE_KEY = "cerc-public-programs-v3";
+const PROGRAMS_CACHE_KEY = "cerc-public-programs-v4";
 const SERVICE_PLANS_CACHE_KEY = "cerc-public-service-plans-v2";
 
 function localDateKey(date) {
@@ -46,32 +46,41 @@ function validServicePlans(rows) {
   });
 }
 
-async function fetchRows(table, select, order, cacheKey) {
+async function requestRows(table, select, order) {
+  const query = new URLSearchParams({ select, order });
+  const response = await fetch(
+    SUPABASE_URL.replace(/\/+$/, "") + "/rest/v1/" + table + "?" + query.toString(),
+    {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        authorization: "Bearer " + SUPABASE_PUBLISHABLE_KEY,
+        accept: "application/json"
+      }
+    }
+  );
+  if (!response.ok) return { response, rows: null };
+  const rows = await response.json();
+  if (!Array.isArray(rows)) throw new Error("Public content response was invalid.");
+  return { response, rows };
+}
+
+async function fetchRows(table, select, order, cacheKey, fallback) {
   const cached = readLocal(cacheKey, null);
   const cachedRows = Array.isArray(cached) ? cached : [];
   if (typeof fetch !== "function" || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     return { rows: cachedRows, available: false, usingCache: cachedRows.length > 0 };
   }
 
-  const query = new URLSearchParams({ select, order });
   try {
-    const response = await fetch(
-      SUPABASE_URL.replace(/\/+$/, "") + "/rest/v1/" + table + "?" + query.toString(),
-      {
-        method: "GET",
-        cache: "no-store",
-        headers: {
-          apikey: SUPABASE_PUBLISHABLE_KEY,
-          authorization: "Bearer " + SUPABASE_PUBLISHABLE_KEY,
-          accept: "application/json"
-        }
-      }
-    );
-    if (!response.ok) throw new Error("Public content is unavailable.");
-    const rows = await response.json();
-    if (!Array.isArray(rows)) throw new Error("Public content response was invalid.");
-    writeLocal(cacheKey, rows);
-    return { rows, available: true, usingCache: false };
+    let result = await requestRows(table, select, order);
+    if (!result.rows && fallback && (result.response.status === 401 || result.response.status === 403)) {
+      result = await requestRows(table, fallback.select, fallback.order);
+    }
+    if (!result.rows) throw new Error("Public content is unavailable.");
+    writeLocal(cacheKey, result.rows);
+    return { rows: result.rows, available: true, usingCache: false };
   } catch (error) {
     return { rows: cachedRows, available: false, usingCache: cachedRows.length > 0 };
   }
@@ -79,7 +88,13 @@ async function fetchRows(table, select, order, cacheKey) {
 
 export async function getMemberContent() {
   const [programResult, planResult] = await Promise.all([
-    fetchRows("programs", "id,title,venue,start_date,end_date,flyer_data_url,created_at", "created_at.desc", PROGRAMS_CACHE_KEY),
+    fetchRows(
+      "programs",
+      "id,title,venue,start_date,end_date,flyer_data_url,created_at",
+      "created_at.desc",
+      PROGRAMS_CACHE_KEY,
+      { select: "id,title,venue,start_date,end_date,flyer_data_url", order: "start_date.desc" }
+    ),
     fetchRows("service_plans", "id,title,date,hymn_ids", "date.desc", SERVICE_PLANS_CACHE_KEY)
   ]);
 
