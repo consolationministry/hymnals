@@ -378,7 +378,7 @@ function renderPublicPrograms(programs, available) {
     const eventDate = dateLabel
       ? '<div class="public-program-post-meta">' + publicStatusBadge(status) + '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time></div>'
       : publicStatusBadge(status);
-    return '<article class="public-program-post"><header class="public-program-post-header"><span class="public-program-post-kicker">Church programme</span>' + posted + '</header><div class="public-program-post-body"><h2 class="public-program-post-title">' + title + '</h2>' + descriptionMarkup + eventDate + venueMarkup + '</div>' + media + renderProgrammeInteractions(program) + '</article>';
+    return '<article class="public-program-post"><header class="public-program-post-header"><h2 class="public-program-post-title">' + title + '</h2>' + posted + '</header><div class="public-program-post-body">' + descriptionMarkup + eventDate + venueMarkup + '</div>' + media + renderProgrammeInteractions(program) + '</article>';
   }).join("") + '</div>';
 }
 function renderPublicServicePlans(plans, available) {

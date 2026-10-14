@@ -32,9 +32,10 @@ test("Upcoming Programmes renders as a newest-first flyer post feed", () => {
   assert.match(memberApp, /class="public-program-post-flyer"/);
   assert.match(memberApp, /return '<article class="public-program-post">/);
   assert.match(memberApp, /class="public-program-post-description"/);
-  assert.match(memberApp, /public-program-post-body[\s\S]*\+ media \+ renderProgrammeInteractions\(program\)/);
+  assert.match(memberApp, /<header class="public-program-post-header"><h2 class="public-program-post-title">' \+ title \+ '<\/h2>' \+ posted \+ '<\/header><div class="public-program-post-body">' \+ descriptionMarkup \+ eventDate \+ venueMarkup \+ '<\/div>' \+ media \+ renderProgrammeInteractions\(program\)/);
+  assert.doesNotMatch(memberApp, /Church programme|public-program-post-kicker/);
   assert.match(memberStyles, /\.public-program-post-header/);
-  assert.match(memberStyles, /\.public-program-post-flyer/);
+  assert.match(memberStyles, /\.public-program-post-flyer\s*\{[^}]*max-width:\s*100%;[^}]*max-height:[^;]+;[^}]*width:\s*auto;[^}]*height:\s*auto;[^}]*object-fit:\s*contain;/);
 });
 
 test("programme posts use admin-configured anonymous attendance votes and keep comments", () => {
