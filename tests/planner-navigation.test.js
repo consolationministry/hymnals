@@ -4,6 +4,7 @@ import test from "node:test";
 
 const adminApp = readFileSync(new URL("../admin/js/admin-app.js", import.meta.url), "utf8");
 const memberApp = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+const memberContent = readFileSync(new URL("../js/public-content.js", import.meta.url), "utf8");
 const memberStyles = readFileSync(new URL("../css/style.css", import.meta.url), "utf8");
 
 test("Service Planner and Upcoming Programmes have distinct navigation pages", () => {
@@ -27,27 +28,29 @@ test("Member app has separate programme and service pages in its menus", () => {
   assert.match(memberStyles, /grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/);
 });
 
-test("Upcoming Programmes renders as a newest-first flyer post feed", () => {
+test("Upcoming Programmes renders a newest-first, full-width flyer and voting feed", () => {
+  assert.match(memberContent, /programmeSortTime/);
+  assert.match(memberContent, /return programmeSortTime\(right\) - programmeSortTime\(left\)/);
   assert.match(memberApp, /publicPostedDate\(program\.created_at\)/);
   assert.match(memberApp, /class="public-program-post-flyer"/);
   assert.match(memberApp, /return '<article class="public-program-post">/);
   assert.match(memberApp, /class="public-program-post-description"/);
-  assert.match(memberApp, /<header class="public-program-post-header"><h2 class="public-program-post-title">' \+ title \+ '<\/h2>' \+ posted \+ '<\/header><div class="public-program-post-body">' \+ descriptionMarkup \+ eventDate \+ venueMarkup \+ '<\/div>' \+ media \+ renderProgrammeInteractions\(program\)/);
+  assert.match(memberApp, /<header class="public-program-post-header"><h2 class="public-program-post-title">' \+ title \+ '<\/h2>' \+ posted \+ '<\/header>' \+ media \+ renderProgrammeInteractions\(program\) \+ '<div class="public-program-post-body">/);
   assert.doesNotMatch(memberApp, /Church programme|public-program-post-kicker/);
   assert.match(memberStyles, /\.public-program-post-header/);
-  assert.match(memberStyles, /\.public-program-post-flyer\s*\{[^}]*max-width:\s*100%;[^}]*max-height:[^;]+;[^}]*width:\s*auto;[^}]*height:\s*auto;[^}]*object-fit:\s*contain;/);
+  assert.match(memberStyles, /\.public-program-post-flyer\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*max-height:[^;]+;[^}]*height:\s*auto;[^}]*object-fit:\s*contain;/);
+  assert.match(memberStyles, /\.public-program-list\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/);
 });
 
-test("programme posts use admin-configured anonymous attendance votes and keep comments", () => {
+test("programme posts keep admin-configured anonymous attendance votes and remove comments", () => {
   assert.match(memberApp, /renderProgrammeInteractions\(program\)/);
   assert.match(memberApp, /data-action="cast-programme-vote"/);
   assert.match(memberApp, /program\.response_question/);
   assert.match(memberApp, /program\.yes_label/);
   assert.match(memberApp, /program\.no_label/);
-  assert.match(memberApp, /data-programme-comment-form/);
-  assert.match(memberApp, /Comment #/);
-  assert.match(memberApp, /Comments are public and posted without a name or account/);
+  assert.match(memberApp, /Voting is temporarily unavailable/);
+  assert.doesNotMatch(memberApp, /data-programme-comment-form|programme-comments|submitPublicProgrammeComment|postProgrammeComment|Comment #|Comments are public and posted without a name or account/);
   assert.doesNotMatch(memberApp, /data-action="toggle-programme-like"/);
   assert.match(memberStyles, /\.programme-vote-button/);
-  assert.match(memberStyles, /\.programme-comment-form/);
+  assert.doesNotMatch(memberStyles, /\.programme-comment/);
 });
