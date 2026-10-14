@@ -11,7 +11,7 @@ function installStorage() {
       removeItem(key) { values.delete(key); }
     }
   };
-  values.set("cerc-public-programs-v2", "null");
+  values.set("cerc-public-programs-v3", "null");
   values.set("cerc-public-service-plans-v2", "null");
   return values;
 }
@@ -43,8 +43,8 @@ test("loads past and future public programs and service plans through read-only 
     requests.push({ url: new URL(String(url)), options });
     if (String(url).includes("/programs?")) {
       return response([
-        { id: "event-1", title: "Annual Meeting", venue: "Church Hall", start_date: "2026-10-20", end_date: null, flyer_data_url: "" },
-        { id: "event-past", title: "Past Meeting", venue: "Church Hall", start_date: "2026-10-01", end_date: null, flyer_data_url: "" }
+        { id: "event-1", title: "Annual Meeting", venue: "Church Hall", start_date: "2026-10-20", end_date: null, flyer_data_url: "", created_at: "2026-10-12T10:00:00Z" },
+        { id: "event-past", title: "Past Meeting", venue: "Church Hall", start_date: "2026-10-01", end_date: null, flyer_data_url: "", created_at: "2026-10-01T10:00:00Z" }
       ]);
     }
     return response([
@@ -64,8 +64,9 @@ test("loads past and future public programs and service plans through read-only 
   const plansRequest = requests.find(function (request) { return request.url.pathname.endsWith("/service_plans"); });
   assert.equal(programsRequest.options.method, "GET");
   assert.match(programsRequest.url.searchParams.get("select"), /flyer_data_url/);
+  assert.match(programsRequest.url.searchParams.get("select"), /created_at/);
   assert.equal(programsRequest.url.searchParams.get("or"), null);
-  assert.equal(programsRequest.url.searchParams.get("order"), "start_date.desc");
+  assert.equal(programsRequest.url.searchParams.get("order"), "created_at.desc");
   assert.equal(plansRequest.url.searchParams.get("date"), null);
   assert.equal(plansRequest.url.searchParams.get("order"), "date.desc");
   assert.match(plansRequest.url.searchParams.get("select"), /hymn_ids/);
@@ -73,7 +74,7 @@ test("loads past and future public programs and service plans through read-only 
 
 test("uses cached public content when the public database is unavailable", async () => {
   const values = installStorage();
-  values.set("cerc-public-programs-v2", JSON.stringify([
+  values.set("cerc-public-programs-v3", JSON.stringify([
     { id: "event-1", title: "Upcoming Event", venue: "Church Hall", start_date: "2026-10-20", end_date: null }
   ]));
   globalThis.fetch = async function () { return response({ message: "public read is not enabled" }, 403); };

@@ -281,6 +281,13 @@ function publicStatusBadge(status) {
   return '<span class="public-content-status status-' + status.toLowerCase() + '">' + escapeHtml(status) + '</span>';
 }
 
+function publicPostedDate(value) {
+  const timestamp = String(value || "");
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+}
+
 function renderPublicPrograms(programs, available) {
   if (!programs.length) {
     const message = available ? "No programmes have been posted yet." : "Programme announcements are unavailable right now. Please try again later.";
@@ -298,16 +305,23 @@ function renderPublicPrograms(programs, available) {
     const flyer = typeof program.flyer_data_url === "string"
       && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(program.flyer_data_url)
       && program.flyer_data_url.length <= 1900000
-      ? '<img class="public-program-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
+      ? '<img class="public-program-post-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
+      : "";
+    const media = flyer
+      ? '<div class="public-program-post-media">' + flyer + '</div>'
+      : '<div class="public-program-post-placeholder" aria-hidden="true"><span>Programme announcement</span></div>';
+    const postedLabel = publicPostedDate(program.created_at);
+    const posted = postedLabel
+      ? '<time class="public-program-post-published" datetime="' + escapeHtml(program.created_at) + '">Posted ' + escapeHtml(postedLabel) + '</time>'
       : "";
     const venue = String(program.venue || "").trim();
-    const details = '<p class="public-content-date">' + publicStatusBadge(status) + '<span>' + escapeHtml(dateLabel) + '</span></p>' +
-      (venue ? '<p class="public-content-venue">' + escapeHtml(venue) + '</p>' : "") +
-      flyer;
-    return '<details class="public-program-card public-schedule-card"><summary class="public-schedule-summary"><span class="public-schedule-main"><span class="public-schedule-title">' + title + '</span><time class="public-schedule-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time></span><span class="public-schedule-chevron" aria-hidden="true"></span></summary><div class="public-schedule-details public-program-details">' + details + '</div></details>';
+    const venueMarkup = venue ? '<p class="public-program-post-venue">' + escapeHtml(venue) + '</p>' : "";
+    const eventDate = dateLabel
+      ? '<div class="public-program-post-meta">' + publicStatusBadge(status) + '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time></div>'
+      : publicStatusBadge(status);
+    return '<article class="public-program-post"><header class="public-program-post-header"><span class="public-program-post-kicker">Church programme</span>' + posted + '</header>' + media + '<div class="public-program-post-body"><h2 class="public-program-post-title">' + title + '</h2>' + eventDate + venueMarkup + '</div></article>';
   }).join("") + '</div>';
 }
-
 function renderPublicServicePlans(plans, available) {
   if (!plans.length) {
     const message = available ? "No service plans have been posted yet." : "Service plans are unavailable right now. Please try again later.";
@@ -330,7 +344,7 @@ function renderPublicServicePlans(plans, available) {
 
 function renderPublicProgramsPage() {
   const content = state.publicContent || { programs: [], servicePlans: [], programsAvailable: false, servicePlansAvailable: false };
-  return '<section class="page public-programs-page">' + pageHeading("Upcoming Programmes", "Church programmes and announcements, with past dates marked.") +
+  return '<section class="page public-programs-page">' + pageHeading("Upcoming Programmes", "Programme posts and flyers, newest announcement first.") +
     '<section class="public-content-section" aria-label="Programme announcements">' + renderPublicPrograms(content.programs, content.programsAvailable) + '</section></section>';
 }
 

@@ -26,3 +26,11 @@ test("Member app has separate programme and service pages in its menus", () => {
   assert.match(memberApp, /renderPublicServicePlans\(content\.servicePlans, content\.servicePlansAvailable\)/);
   assert.match(memberStyles, /grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/);
 });
+
+test("Upcoming Programmes renders as a newest-first flyer post feed", () => {
+  assert.match(memberApp, /publicPostedDate\(program\.created_at\)/);
+  assert.match(memberApp, /class="public-program-post-flyer"/);
+  assert.match(memberApp, /return '<article class="public-program-post">/);
+  assert.match(memberStyles, /\.public-program-post-header/);
+  assert.match(memberStyles, /\.public-program-post-flyer/);
+});

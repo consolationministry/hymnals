@@ -147,9 +147,21 @@ button { -webkit-tap-highlight-color: transparent; }
 .nav-item span { max-width: 100%; text-align: center; overflow-wrap: anywhere; }
 .nav-item[aria-current="page"] { color: var(--accent); background: var(--accent-soft); }
 .public-content-section { margin: 26px 0; }
-.public-program-list, .public-service-list { display: grid; gap: 12px; }
-.public-program-card, .public-service-card { overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 5px 18px rgba(45, 28, 57, .045); }
-.public-program-flyer { display: block; width: 100%; max-height: min(72vh, 620px); margin-top: 12px; object-fit: contain; background: var(--surface-soft); }
+.public-program-list { display: grid; gap: 18px; max-width: 760px; margin: 0 auto; }
+.public-service-list { display: grid; gap: 12px; }
+.public-program-post, .public-service-card { overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: 0 8px 26px rgba(45, 28, 57, .075); }
+.public-program-post-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; }
+.public-program-post-kicker { color: var(--accent); font-size: .74rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.public-program-post-published { color: var(--muted); font-size: .78rem; text-align: right; }
+.public-program-post-media { overflow: hidden; background: var(--surface-soft); }
+.public-program-post-flyer { display: block; width: 100%; max-height: min(72vh, 680px); margin: 0 auto; object-fit: contain; background: var(--surface-soft); }
+.public-program-post-placeholder { display: grid; min-height: 180px; place-items: center; padding: 24px; color: var(--accent); background: linear-gradient(140deg, var(--accent-soft), var(--surface-soft)); font-weight: 850; letter-spacing: .04em; }
+.public-program-post-body { padding: 17px 18px 19px; }
+.public-program-post-title { margin: 0; color: var(--ink); font-size: 1.22rem; font-weight: 850; line-height: 1.3; overflow-wrap: anywhere; }
+.public-program-post-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 11px; }
+.public-program-post-event-date { color: var(--muted); font-size: .86rem; font-weight: 750; }
+.public-program-post-venue { margin: 9px 0 0; color: var(--muted); }
+
 .public-schedule-summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 66px; padding: 12px 16px; list-style: none; cursor: pointer; }
 .public-schedule-summary::-webkit-details-marker { display: none; }
 .public-schedule-summary::marker { content: ""; }
@@ -161,8 +173,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .public-schedule-card[open] > .public-schedule-summary { border-bottom: 1px solid var(--line); }
 .public-schedule-card[open] > .public-schedule-summary .public-schedule-chevron { margin-top: 5px; transform: rotate(225deg); }
 .public-schedule-details { padding: 0 16px 16px; }
-.public-program-details .public-content-date { margin-top: 12px; }
-.public-program-details .public-content-venue { margin: 7px 0 0; }
+
 .public-content-date { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 5px; color: var(--accent); font-size: .82rem; font-weight: 800; }
 .public-content-status { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; color: var(--accent); background: var(--accent-soft); font-size: .66rem; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; }
 .public-content-status.status-past { color: var(--muted); background: var(--surface-soft); }

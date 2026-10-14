@@ -1,7 +1,7 @@
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
 
-const PROGRAMS_CACHE_KEY = "cerc-public-programs-v2";
+const PROGRAMS_CACHE_KEY = "cerc-public-programs-v3";
 const SERVICE_PLANS_CACHE_KEY = "cerc-public-service-plans-v2";
 
 function localDateKey(date) {
@@ -79,7 +79,7 @@ async function fetchRows(table, select, order, cacheKey) {
 
 export async function getMemberContent() {
   const [programResult, planResult] = await Promise.all([
-    fetchRows("programs", "id,title,venue,start_date,end_date,flyer_data_url", "start_date.desc", PROGRAMS_CACHE_KEY),
+    fetchRows("programs", "id,title,venue,start_date,end_date,flyer_data_url,created_at", "created_at.desc", PROGRAMS_CACHE_KEY),
     fetchRows("service_plans", "id,title,date,hymn_ids", "date.desc", SERVICE_PLANS_CACHE_KEY)
   ]);
 
