@@ -283,7 +283,7 @@ test("moving published hymns to Drafts updates every published row", async () =>
 
 test("admin hymn list and editor keep the current English catalog and normalize meter titles", async () => {
   installBackend({ hymnRows: [
-    { id: "hymn-18", hymn_number: 18, source_hymn_number: 10, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "6.6.6.", first_line_en: "6.6.6.", source_first_line_en: "6.6.6.", verses_en: ["6.6.6.\nScripture reference", "Holy Father, hear me,\nThou art my defender,"], keywords: [] },
+    { id: "hymn-18", hymn_number: 18, source_hymn_number: 34, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "6.6.6.", first_line_en: "6.6.6.", source_first_line_en: "6.6.6.", verses_en: ["6.6.6.\nScripture reference", "Holy Father, hear me,\nThou art my defender,"], keywords: [] },
     { id: "retired-1", hymn_number: 1, source_hymn_number: 1, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "Retired hymn", verses_en: ["Old verse"], keywords: [] }
   ] });
   await signIn();

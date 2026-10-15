@@ -31,7 +31,7 @@ test("bundled CAC collections match the photographed English index and use uniqu
   assert.equal(english.length, 152);
   assert.equal(yoruba.length, 152);
   assert.equal(new Set(hymns.map(function (hymn) { return hymn.hymn_number; })).size, hymns.length);
-  assert.equal(hymns[0].source_number_label, "10");
+  assert.equal(hymns[0].source_number_label, "34");
 });
 
 test("the public catalog does not fall back to the bundled collection while offline", async () => {
@@ -51,10 +51,10 @@ test("the old published-hymn cache is not reused after the catalog update", asyn
 
 test("photographed English hymns retain their source IDs and normalize meter-only titles", () => {
   const english = bundledHymns.filter(function (hymn) { return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book"; });
-  const hymn10 = english.find(function (hymn) { return hymn.source_hymn_number === 10 && hymn.source_number_label === "10"; });
-  assert.equal(hymn10.hymn_number, 18);
-  assert.equal(hymn10.title_en, "Holy Father, hear me");
-  assert.equal(hymn10.first_line_en, hymn10.title_en);
+  const holyFather = english.find(function (hymn) { return hymn.source_hymn_number === 34 && hymn.source_number_label === "34"; });
+  assert.equal(holyFather.hymn_number, 18);
+  assert.equal(holyFather.title_en, "Holy Father, hear me");
+  assert.equal(holyFather.first_line_en, holyFather.title_en);
   assert.ok(english.every(function (hymn) { return !/^(?:\d+\.)+\d*(?:\s*[d&.]+\s*(?:ref\.?|chorus)?)?$/i.test(hymn.title_en); }));
 });
 
@@ -73,7 +73,7 @@ test("published hymns load in order while retired CAC English rows are excluded"
   globalThis.fetch = async function (url, options) {
     request = { url: String(url), options };
     return response([
-      { id: "hymn-18", hymn_number: 18, source_hymn_number: 10, title_en: "Current hymn", source_hymnal: "CAC GHB", status: "published", verses_en: ["Current verse"] },
+      { id: "hymn-18", hymn_number: 18, source_hymn_number: 34, title_en: "Current hymn", source_hymnal: "CAC GHB", status: "published", verses_en: ["Current verse"] },
       { id: "legacy-1", hymn_number: 1, title_en: "Retired English hymn", source_hymnal: "Christ Apostolic Church Gospel Hymn Book", status: "published", verses_en: ["Old verse"] },
       { id: "legacy-5", hymn_number: 5, title_en: "Legacy hymn", source_hymnal: "Pentecostal Hymns No. 1", status: "published", verses_en: ["Legacy"] },
       { hymn_number: 4, title_en: "Draft hymn", source_hymnal: "CAC GHB", status: "draft", verses_en: ["Hidden"] }
@@ -86,7 +86,7 @@ test("published hymns load in order while retired CAC English rows are excluded"
   assert.equal(hymns[0].id, "legacy-5");
   assert.equal(hymns[0].source_number_label, "5");
   assert.equal(hymns[1].title_en, "Current hymn");
-  assert.equal(hymns[1].source_number_label, "10");
+  assert.equal(hymns[1].source_number_label, "34");
   assert.equal(request.options.headers.apikey.startsWith("sb_publishable_"), true);
   assert.equal(request.options.headers.authorization, "Bearer " + request.options.headers.apikey);
   assert.match(request.url, /status=eq\.published/);
@@ -97,7 +97,7 @@ test("current English meter titles are normalized and retired CAC hymns are excl
   installStorage();
   globalThis.fetch = async function () {
     return response([
-      { hymn_number: 18, source_hymn_number: 10, title_en: "6.6.6.", first_line_en: "6.6.6.", source_first_line_en: "6.6.6.", source_hymnal: "CAC GHB", status: "published", verses_en: ["6.6.6.\nScripture reference", "Holy Father, hear me,\nThou art my defender,"] },
+      { hymn_number: 18, source_hymn_number: 34, title_en: "6.6.6.", first_line_en: "6.6.6.", source_first_line_en: "6.6.6.", source_hymnal: "CAC GHB", status: "published", verses_en: ["6.6.6.\nScripture reference", "Holy Father, hear me,\nThou art my defender,"] },
       { hymn_number: 1, source_hymn_number: 1, title_en: "Retired hymn", source_hymnal: "CAC GHB", status: "published", verses_en: ["Retired verse"] }
     ]);
   };
@@ -156,7 +156,7 @@ test("published retired Yorùbá hymns are excluded while current entries remain
 test("a successful empty published result clears old hymns and remains empty offline", async () => {
   const values = installStorage();
   values.set("cerc-published-hymns-cac-v4", JSON.stringify([
-    { hymn_number: 18, source_hymn_number: 10, title_en: "Previously published", source_hymnal: "CAC GHB", status: "published", verses_en: ["Cached"] }
+    { hymn_number: 18, source_hymn_number: 34, title_en: "Previously published", source_hymnal: "CAC GHB", status: "published", verses_en: ["Cached"] }
   ]));
   globalThis.fetch = async function () { return response([]); };
   assert.deepEqual(await getAllHymns(), []);
@@ -176,7 +176,7 @@ test("an empty cached published catalog stays empty when the backend is unavaila
 test("cached published hymns are used when the public backend is unavailable", async () => {
   const values = installStorage();
   values.set("cerc-published-hymns-cac-v4", JSON.stringify([
-    { hymn_number: 18, source_hymn_number: 10, title_en: "Previously published", source_hymnal: "CAC GHB", status: "published", verses_en: ["Cached"] }
+    { hymn_number: 18, source_hymn_number: 34, title_en: "Previously published", source_hymnal: "CAC GHB", status: "published", verses_en: ["Cached"] }
   ]));
   globalThis.fetch = async function () { return response({ message: "public read is not enabled" }, 403); };
   const hymns = await getAllHymns();
@@ -188,7 +188,7 @@ test("cached published hymns are used when the public backend is unavailable", a
 test("hymn lookup uses the same published-or-offline catalog as the app", async () => {
   installStorage();
   globalThis.fetch = async function () {
-    return response([{ hymn_number: 18, source_hymn_number: 10, title_en: "Shared hymn", source_hymnal: "CAC GHB", status: "published" }]);
+    return response([{ hymn_number: 18, source_hymn_number: 34, title_en: "Shared hymn", source_hymnal: "CAC GHB", status: "published" }]);
   };
   assert.equal((await getHymnByNumber(18)).title_en, "Shared hymn");
   assert.equal(await getHymnByNumber(7), null);

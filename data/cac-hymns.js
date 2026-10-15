@@ -1,5 +1,6 @@
 import ghb from "./cac-ghb.js";
 import yhb from "./cac-yhb-current.js";
+import photographedGhbNumbers from "./cac-ghb-index.js";
 
 function firstLine(verses) {
   const first = Array.isArray(verses) ? verses.find(function (line) { return typeof line === "string" && line.trim(); }) : "";
@@ -33,9 +34,10 @@ function convertCollection(sourceRows, firstId, language) {
       const hasMeterTitle = english && isMeterTitle(title);
       const first = firstLine(hasMeterTitle ? verses.slice(1) : verses);
       const displayTitle = hasMeterTitle ? first : title;
-      const numberLabel = String(item.sourceNumber) + (item.isVarious ? "V" : "");
-      const duplicateNumberAliases = english && item.sourceNumber === 86 && !item.isVarious ? ["110"] : [];
       const storedInternalId = Number(item.record.metadata && item.record.metadata.hymnal_internal_id);
+      const printedNumber = english ? (photographedGhbNumbers.get(storedInternalId) || item.sourceNumber) : item.sourceNumber;
+      const numberLabel = String(printedNumber) + (item.isVarious ? "V" : "");
+      const duplicateNumberAliases = english && item.sourceNumber === 86 && !item.isVarious ? ["110"] : [];
       return {
         hymn_number: Number.isInteger(storedInternalId) && storedInternalId > 0 ? storedInternalId : firstId + item.sortedIndex,
         title_en: english ? displayTitle : "",
@@ -51,7 +53,7 @@ function convertCollection(sourceRows, firstId, language) {
         author_en: typeof item.record.author === "string" ? item.record.author : "Christ Apostolic Church (CAC) Worldwide",
         source_hymnal: sourceHymnal,
         source_publication_year: null,
-        source_hymn_number: item.sourceNumber,
+        source_hymn_number: printedNumber,
         source_number_label: numberLabel,
         source_first_line_en: english ? first : "",
         source_hymnary_url: "",
