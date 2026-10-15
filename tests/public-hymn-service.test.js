@@ -51,7 +51,7 @@ test("the old published-hymn cache is not reused after the catalog update", asyn
 
 test("photographed English hymns retain their source IDs and normalize meter-only titles", () => {
   const english = bundledHymns.filter(function (hymn) { return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book"; });
-  const holyFather = english.find(function (hymn) { return hymn.source_hymn_number === 34 && hymn.source_number_label === "10"; });
+  const holyFather = english.find(function (hymn) { return hymn.source_hymn_number === 34 && hymn.source_number_label === "34"; });
   assert.equal(holyFather.hymn_number, 18);
   assert.equal(holyFather.title_en, "Holy Father, hear me");
   assert.equal(holyFather.first_line_en, holyFather.title_en);
