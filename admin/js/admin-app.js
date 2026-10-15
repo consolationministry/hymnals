@@ -2,6 +2,7 @@ import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } f
 import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteHymns, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, setHymnsStatus, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=41";
 
 import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "./admin-hymn-display.js?v=1";
+import { GROQ_API_KEY_STORAGE_KEY, requestGroqHymnEdit, validateGroqApiKey } from "./groq-hymn-editor.js?v=1";
 
 const root = document.getElementById("admin-root");
 const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null, hymnRowsCache: { hymns: null, drafts: null }, hymnRowsLoading: { hymns: null, drafts: null }, hymnRowsVersion: { hymns: 0, drafts: 0 }, selectedHymnIds: new Set() };
@@ -103,6 +104,89 @@ function getEditorLines(key) {
   const text = (editor.innerText || editor.textContent || "").replace(/\u00a0/g, " ");
   return text.split(/\n+/).map(function (line) { return line.trim(); }).filter(Boolean);
 }
+function getGroqApiKey() {
+  try { return window.sessionStorage.getItem(GROQ_API_KEY_STORAGE_KEY) || ""; }
+  catch (error) { return ""; }
+}
+function groqSettingsStatus(message, isError) {
+  const status = document.getElementById("groq-key-status");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("is-error", Boolean(isError));
+}
+function saveGroqApiKey() {
+  const input = document.getElementById("groq-api-key");
+  const key = input ? input.value.trim() : "";
+  if (!key) { groqSettingsStatus("Enter your Groq API key first.", true); return; }
+  try {
+    window.sessionStorage.setItem(GROQ_API_KEY_STORAGE_KEY, key);
+    if (input) input.value = key;
+    groqSettingsStatus("Key saved for this browser tab. It is not saved with shared hymns.", false);
+  } catch (error) {
+    groqSettingsStatus("This browser blocked session storage. Your key was not saved.", true);
+  }
+}
+function clearGroqApiKey() {
+  try { window.sessionStorage.removeItem(GROQ_API_KEY_STORAGE_KEY); }
+  catch (error) { /* The key can still be cleared from the field below. */ }
+  const input = document.getElementById("groq-api-key");
+  if (input) input.value = "";
+  groqSettingsStatus("Groq API key cleared from this browser tab.", false);
+}
+async function checkGroqConnection(button) {
+  const key = getGroqApiKey();
+  if (!key) { groqSettingsStatus("Save a Groq API key for this tab before testing the connection.", true); return; }
+  const originalText = button.textContent;
+  button.disabled = true; button.setAttribute("aria-busy", "true"); button.textContent = "Checking…";
+  groqSettingsStatus("Checking the Groq connection…", false);
+  try {
+    await validateGroqApiKey(key);
+    groqSettingsStatus("Connection verified. Groq is ready for hymn editing in this tab.", false);
+  } catch (error) {
+    groqSettingsStatus(error && error.message ? error.message : "Could not verify the Groq connection.", true);
+  } finally {
+    button.disabled = false; button.removeAttribute("aria-busy"); button.textContent = originalText;
+  }
+}
+async function generateHymnEdit(button) {
+  const promptInput = document.getElementById("ai-hymn-prompt");
+  const feedback = document.getElementById("ai-hymn-feedback");
+  const key = getGroqApiKey();
+  if (!feedback || !promptInput) return;
+  if (!key) { feedback.textContent = "Add your Groq API key in Admin Settings first."; feedback.classList.add("is-error"); return; }
+  const prompt = promptInput.value.trim();
+  if (!prompt) { feedback.textContent = "Describe how you want this hymn changed."; feedback.classList.add("is-error"); promptInput.focus(); return; }
+  const current = currentFormData("draft");
+  const hymn = {
+    title_en: current.title_en, title_yoruba: current.title_yoruba,
+    first_line_en: current.first_line_en, first_line_yoruba: current.first_line_yoruba,
+    verses_en: current.verses_en, verses_yoruba: current.verses_yoruba,
+    chorus_en: current.chorus_en, chorus_yoruba: current.chorus_yoruba
+  };
+  const originalText = button.textContent;
+  button.disabled = true; button.setAttribute("aria-busy", "true"); button.textContent = "Generating…";
+  feedback.classList.remove("is-error"); feedback.textContent = "Sending the prompt and current hymn text to Groq…";
+  try {
+    const edited = await requestGroqHymnEdit({ apiKey: key, prompt: prompt, hymn: hymn });
+    const setValue = function (id, value) { const input = document.getElementById(id); if (input) input.value = value; };
+    setValue("title-en", edited.title_en); setValue("title-yoruba", edited.title_yoruba);
+    setValue("first-line-en", edited.first_line_en); setValue("first-line-yoruba", edited.first_line_yoruba);
+    const setEditor = function (key, paragraphs) {
+      const editor = root.querySelector('[data-rich-editor="' + key + '"]');
+      if (editor) editor.innerHTML = escapeLines(paragraphs);
+    };
+    setEditor("verses_en", edited.verses_en); setEditor("verses_yoruba", edited.verses_yoruba);
+    setEditor("chorus_en", edited.chorus_en ? edited.chorus_en.split(/\n+/).map(function (line) { return line.trim(); }).filter(Boolean) : []);
+    setEditor("chorus_yoruba", edited.chorus_yoruba ? edited.chorus_yoruba.split(/\n+/).map(function (line) { return line.trim(); }).filter(Boolean) : []);
+    state.formDirty = isFormDirty();
+    feedback.textContent = "AI draft ready. Review the fields above, make any corrections, then save when you are satisfied. Nothing was saved automatically.";
+  } catch (error) {
+    feedback.textContent = error && error.message ? error.message : "Groq could not edit this hymn. Check your key and try again.";
+    feedback.classList.add("is-error");
+  } finally {
+    button.disabled = false; button.removeAttribute("aria-busy"); button.textContent = originalText;
+  }
+}
 function safeEditorContent(value) { return sanitizeRichHtml(value || ""); }
 
 function renderLogin() {
@@ -110,13 +194,13 @@ function renderLogin() {
   const backendNotice = ADMIN_AUTH_CONFIGURED
     ? '<div class="notice"><span class="notice-mark" aria-hidden="true">i</span><span>Only accounts approved in the Supabase admin list can open this workspace. Published hymns appear in the member hymnal after public database access is enabled; events and service plans appear for all dates after the public-content migrations are applied.</span></div>'
     : '<div class="notice"><span class="notice-mark" aria-hidden="true">!</span><span>Admin sign-in is unavailable until the Supabase setup is completed.</span></div>';
-  root.innerHTML = '<main class="login-layout"><section class="login-brand-panel" aria-label="Church hymnal administration"><div class="brand-lockup"><img src="../assets/demo-church-mark.svg" alt="" width="52" height="52"><span>Consolation Hymnal<br>Administration</span></div><div class="brand-copy"><p class="eyebrow">ADMIN WORKSPACE</p><h1>Care for the hymns that bring us together.</h1><p>A separate workspace for authorised church administrators. The member hymnal remains open to everyone, without an account.</p></div><p class="brand-panel-foot">Consolation Evangelical and Revival Church · “Occupy Till I Come”</p></section><section class="login-side"><div class="login-card"><img class="login-card-mark" src="../assets/demo-church-mark.svg" alt=""><p class="eyebrow" style="color:var(--purple)">ADMIN SIGN IN</p><h2>Welcome back</h2><p class="login-intro">Sign in with your approved administrator account.</p>' + backendNotice + '<form id="admin-login-form" novalidate><div class="field"><label for="admin-email">Email address</label><input id="admin-email" name="email" type="email" inputmode="email" autocomplete="username" placeholder="name@church.org" required></div><div class="field"><label for="admin-password">Password</label><div class="password-wrap"><input id="admin-password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button class="password-toggle" type="button" data-action="toggle-password" aria-controls="admin-password" aria-label="Show password">Show</button></div></div><p class="form-error" id="login-error" role="alert" aria-live="polite"></p><button class="button button-primary button-wide" id="login-submit" type="submit"><span class="login-button-label">Sign in</span></button></form><a class="public-link" href="../">← Open the public hymnal</a></div></section></main>';
+  root.innerHTML = '<main class="login-layout"><section class="login-brand-panel" aria-label="Church hymnal administration"><div class="brand-lockup"><img src="../assets/demo-church-mark.svg" alt="" width="52" height="52"><span>Consolation Hymnal<br>Administration</span></div><div class="brand-copy"><p class="eyebrow">ADMIN WORKSPACE</p><h1>Care for the hymns that bring us together.</h1><p>A separate workspace for authorised church administrators. The member hymnal remains open to everyone, without an account.</p></div><p class="brand-panel-foot">Consolation Evangelical and Revival Church Â· âOccupy Till I Comeâ</p></section><section class="login-side"><div class="login-card"><img class="login-card-mark" src="../assets/demo-church-mark.svg" alt=""><p class="eyebrow" style="color:var(--purple)">ADMIN SIGN IN</p><h2>Welcome back</h2><p class="login-intro">Sign in with your approved administrator account.</p>' + backendNotice + '<form id="admin-login-form" novalidate><div class="field"><label for="admin-email">Email address</label><input id="admin-email" name="email" type="email" inputmode="email" autocomplete="username" placeholder="name@church.org" required></div><div class="field"><label for="admin-password">Password</label><div class="password-wrap"><input id="admin-password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button class="password-toggle" type="button" data-action="toggle-password" aria-controls="admin-password" aria-label="Show password">Show</button></div></div><p class="form-error" id="login-error" role="alert" aria-live="polite"></p><button class="button button-primary button-wide" id="login-submit" type="submit"><span class="login-button-label">Sign in</span></button></form><a class="public-link" href="../">â Open the public hymnal</a></div></section></main>';
 }
 function renderShell() {
   const navMarkup = navigation.map(function (item) {
     return '<button class="nav-item" type="button" data-action="navigate" data-view="' + item.id + '" aria-current="' + (state.activeView === item.id ? "page" : "false") + '"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + iconPaths[item.icon] + '</svg></span><span>' + item.label + '</span></button>';
   }).join("");
-  root.innerHTML = '<div class="admin-shell"><aside class="sidebar" id="admin-sidebar"><div class="sidebar-brand"><img src="../assets/demo-church-mark.svg" alt=""><div><strong>Consolation Hymnal</strong><span>Admin workspace</span></div></div><p class="sidebar-label">Workspace</p><nav class="sidebar-nav" aria-label="Admin sections">' + navMarkup + '</nav><div class="sidebar-bottom"><button class="nav-item" type="button" data-action="logout"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg></span><span>Sign out</span></button><a class="sidebar-public-link" href="../">View public hymnal ↗</a></div></aside><button class="sidebar-backdrop" type="button" data-action="close-menu" aria-label="Close navigation" hidden></button><main class="admin-main"><header class="topbar"><div class="topbar-left"><button class="mobile-menu-button" type="button" data-action="toggle-menu" aria-label="Open admin navigation" aria-expanded="false" aria-controls="admin-sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><p class="topbar-kicker">Consolation Evangelical and Revival Church</p><p class="topbar-title">Admin workspace</p></div></div><div class="topbar-right"><span class="preview-chip"><span class="preview-dot" aria-hidden="true"></span>Protected admin</span><span class="admin-avatar" aria-label="Signed-in administrator">A</span></div></header><div class="content-wrap" id="admin-content" tabindex="-1"></div><div class="app-toast" id="admin-toast" role="status" aria-live="polite" hidden></div></main></div>';
+  root.innerHTML = '<div class="admin-shell"><aside class="sidebar" id="admin-sidebar"><div class="sidebar-brand"><img src="../assets/demo-church-mark.svg" alt=""><div><strong>Consolation Hymnal</strong><span>Admin workspace</span></div></div><p class="sidebar-label">Workspace</p><nav class="sidebar-nav" aria-label="Admin sections">' + navMarkup + '</nav><div class="sidebar-bottom"><button class="nav-item" type="button" data-action="logout"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg></span><span>Sign out</span></button><a class="sidebar-public-link" href="../">View public hymnal â</a></div></aside><button class="sidebar-backdrop" type="button" data-action="close-menu" aria-label="Close navigation" hidden></button><main class="admin-main"><header class="topbar"><div class="topbar-left"><button class="mobile-menu-button" type="button" data-action="toggle-menu" aria-label="Open admin navigation" aria-expanded="false" aria-controls="admin-sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div><p class="topbar-kicker">Consolation Evangelical and Revival Church</p><p class="topbar-title">Admin workspace</p></div></div><div class="topbar-right"><span class="preview-chip"><span class="preview-dot" aria-hidden="true"></span>Protected admin</span><span class="admin-avatar" aria-label="Signed-in administrator">A</span></div></header><div class="content-wrap" id="admin-content" tabindex="-1"></div><div class="app-toast" id="admin-toast" role="status" aria-live="polite" hidden></div></main></div>';
   renderCurrentView();
   getAdminSettings().then(function (settings) { applyAdminTheme(settings.defaultTheme); }).catch(function () { applyAdminTheme("system"); });
 }
@@ -180,7 +264,7 @@ function renderDashboard() {
         cell.append(make("span", "hymn-name", adminHymnTitle(hymn)), make("span", "hymn-number", adminHymnNumberLabel(hymn)));
         const statusCell = document.createElement("td"); statusCell.append(make("span", "status-pill " + (hymn.status === "published" ? "status-published" : "status-draft"), hymn.status === "published" ? "Published" : "Draft"));
         const dateCell = document.createElement("td"); const date = new Date(hymn.updated_at);
-        dateCell.textContent = Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(date);
+        dateCell.textContent = Number.isNaN(date.getTime()) ? "â" : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(date);
         row.append(cell, statusCell, dateCell); tbody.append(row);
       });
     }).catch(function () { tbody.innerHTML = '<tr><td colspan="3">Hymn records are unavailable.</td></tr>'; });
@@ -192,7 +276,7 @@ function renderDashboard() {
     actions.forEach(function (item) {
       const button = make("button", "quick-action", ""); button.type = "button"; button.dataset.action = item[2];
       if (item[3]) button.dataset.view = item[3];
-      button.append(icon(item[1], "quick-action-icon"), make("span", "", item[0]), make("span", "quick-arrow", "›")); list.append(button);
+      button.append(icon(item[1], "quick-action-icon"), make("span", "", item[0]), make("span", "quick-arrow", "âº")); list.append(button);
     });
     actionsBody.append(list, make("p", "demo-caption", "Changes in this workspace are saved to Supabase and are not published to the member hymnal yet.")); actionsPanel.append(actionsBody);
     lower.append(recentPanel, actionsPanel); content.append(lower);
@@ -322,9 +406,9 @@ async function renderServiceWorkspace() {
       const dateText = Number.isNaN(date.getTime()) ? dateValue : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(date);
       const selected = (plan.hymn_ids || []).map(function (id) {
         const hymn = hymnById.get(id);
-        return hymn ? adminHymnNumberLabel(hymn) + " · " + adminHymnTitle(hymn) : "Hymn no longer available";
+        return hymn ? adminHymnNumberLabel(hymn) + " Â· " + adminHymnTitle(hymn) : "Hymn no longer available";
       });
-      const names = selected.length ? selected.join(" · ") : "No hymns selected";
+      const names = selected.length ? selected.join(" Â· ") : "No hymns selected";
       return '<tr><td><span class="hymn-row-title">' + title + '</span><span class="hymn-row-subtitle">' + selected.length + (selected.length === 1 ? " hymn" : " hymns") + '</span></td><td>' + escapeHtml(dateText) + '</td><td class="service-hymn-summary">' + escapeHtml(names) + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-service" data-id="' + escapedId + '" aria-label="Edit service plan ' + title + '">Edit</button><button class="row-action row-action-danger" type="button" data-action="delete-service" data-id="' + escapedId + '" aria-label="Delete service plan ' + title + '">Delete</button></div></td></tr>';
     }).join("");
     const table = make("div", "hymn-table-wrap service-table-wrap", "");
@@ -345,7 +429,7 @@ async function renderServiceForm() {
   heading.append(headingContent); content.append(heading);
   const options = hymns.map(function (hymn) {
     const checked = selectedIds.includes(hymn.id) ? " checked" : "";
-    const headingText = adminHymnNumberLabel(hymn) + " · " + adminHymnTitle(hymn);
+    const headingText = adminHymnNumberLabel(hymn) + " Â· " + adminHymnTitle(hymn);
     const firstLine = hymn.first_line_en || hymn.first_line_yoruba || "First line not added";
     return '<label class="service-hymn-option" for="service-hymn-' + escapeHtml(hymn.id) + '"><input type="checkbox" id="service-hymn-' + escapeHtml(hymn.id) + '" name="service_hymn_ids" value="' + escapeHtml(hymn.id) + '"' + checked + '><span class="service-hymn-copy"><strong>' + escapeHtml(headingText) + '</strong><span>' + escapeHtml(firstLine) + '</span></span></label>';
   }).join("");
@@ -441,10 +525,10 @@ async function renderProgramWorkspace() {
       const venue = make("p", "program-card-venue", program.venue || "Venue not added");
       const dates = make("p", "program-card-date", formatProgramDateRange(program.startDate, program.endDate));
       const prompt = make("p", "program-card-response", program.responseQuestion || "Availability question not added");
-      const options = make("p", "program-card-options", (program.yesLabel || "Yes") + " · " + (program.noLabel || "No"));
+      const options = make("p", "program-card-options", (program.yesLabel || "Yes") + " Â· " + (program.noLabel || "No"));
       const metrics = make("div", "program-metrics");
       [["Views", "Analytics pending"], ["Interested", "Analytics pending"]].forEach(function (metric) {
-        const item = make("div", "program-metric"); item.append(make("span", "", metric[0]), make("strong", "", "—"), make("small", "", metric[1])); metrics.append(item);
+        const item = make("div", "program-metric"); item.append(make("span", "", metric[0]), make("strong", "", "â"), make("small", "", metric[1])); metrics.append(item);
       });
       const actions = make("div", "program-card-actions");
       const edit = make("button", "button button-secondary", "Edit programme"); edit.type = "button"; edit.dataset.action = "edit-program"; edit.dataset.id = program.id;
@@ -463,7 +547,7 @@ function formatProgramDateRange(startDate, endDate) {
     const date = new Date(String(value || "") + "T00:00:00");
     return Number.isNaN(date.getTime()) ? String(value || "Date not set") : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long", year: "numeric" }).format(date);
   }
-  return endDate ? format(startDate) + " – " + format(endDate) : format(startDate);
+  return endDate ? format(startDate) + " â " + format(endDate) : format(startDate);
 }
 async function renderProgramForm() {
   const content = document.getElementById("admin-content"); if (!content) return;
@@ -475,7 +559,7 @@ async function renderProgramForm() {
   headingContent.append(make("h1", "", existing ? "Edit Programme" : "Add Programme"), make("p", "", existing ? "Update the programme details and response wording." : "Add a programme for any date; programmes are labeled upcoming or past."));
   const cancel = make("button", "button button-secondary", "Cancel"); cancel.type = "button"; cancel.dataset.action = "cancel-program";
   heading.append(headingContent, cancel); content.append(heading);
-  const program = existing || { title: "", description: "", venue: "", startDate: "", endDate: "", responseQuestion: "Will you be available for this programme?", yesLabel: "Yes, I’ll be there", noLabel: "Not this time" };
+  const program = existing || { title: "", description: "", venue: "", startDate: "", endDate: "", responseQuestion: "Will you be available for this programme?", yesLabel: "Yes, Iâll be there", noLabel: "Not this time" };
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit programme form" : "Add programme form");
   panel.innerHTML = '<form id="program-form" novalidate><h2 class="form-section-title">Program details</h2><p class="form-section-help">Program changes stay in this browser preview and are not published to the public app in this phase.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="program-title">Program name <span aria-hidden="true">*</span></label><input class="form-input" id="program-title" name="title" type="text" maxlength="120" placeholder="Annual Thanksgiving Service" value="' + escapeHtml(program.title) + '" required></div><div class="admin-field"><label for="program-venue">Venue <span aria-hidden="true">*</span></label><input class="form-input" id="program-venue" name="venue" type="text" maxlength="160" placeholder="Church auditorium" value="' + escapeHtml(program.venue) + '" required></div><div class="admin-field"><label for="program-start-date">From <span aria-hidden="true">*</span></label><input class="form-input" id="program-start-date" name="startDate" type="date" value="' + escapeHtml(program.startDate) + '" required></div><div class="admin-field"><label for="program-end-date">To <span class="optional-label">optional</span></label><input class="form-input" id="program-end-date" name="endDate" type="date" value="' + escapeHtml(program.endDate || "") + '"><p class="field-hint">Leave this blank for a one-day program.</p></div></div><section class="program-flyer-section" aria-labelledby="program-flyer-heading"><h2 id="program-flyer-heading">Program flyer</h2><p>Upload a PNG, JPEG, or WebP image. The preview keeps the full flyer visible without cropping.</p><label class="button button-secondary flyer-upload-button" for="program-flyer-input">Choose flyer</label><input class="visually-hidden" id="program-flyer-input" type="file" accept="image/png,image/jpeg,image/webp"><div id="program-flyer-preview" class="program-flyer-preview" aria-live="polite"></div><p class="field-hint">Large images are resized proportionally for this browser preview. A server-backed upload will be added later.</p><p id="program-flyer-error" class="form-error" role="alert" aria-live="polite"></p></section><section class="program-response-section"><h2>Attendance response</h2><p>Set the question and the wording shown on the two response buttons.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="program-response-question">Question shown to users</label><input class="form-input" id="program-response-question" name="responseQuestion" type="text" maxlength="120" value="' + escapeHtml(program.responseQuestion) + '" required></div><div class="admin-field"><label for="program-yes-label">Yes button</label><input class="form-input" id="program-yes-label" name="yesLabel" type="text" maxlength="48" value="' + escapeHtml(program.yesLabel) + '" required></div><div class="admin-field"><label for="program-no-label">No button</label><input class="form-input" id="program-no-label" name="noLabel" type="text" maxlength="48" value="' + escapeHtml(program.noLabel) + '" required></div></div></section><div id="program-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-program" data-id="' + escapeHtml(existing.id) + '">Delete Program</button>' : "") + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-program">Cancel</button><button class="button button-primary" type="submit">Save Program</button></div></div></form>';
   panel.innerHTML = panel.innerHTML
@@ -638,12 +722,18 @@ async function renderSettingsWorkspace() {
     const programSettings = make("section", "panel settings-module");
     programSettings.innerHTML = '<header class="panel-header"><div><h2>Upcoming Programmes</h2><p>Create and manage member-facing programme announcements on a separate page.</p></div></header><div class="panel-body"><p class="settings-module-copy">Programmes from any date appear in the member app after the public-content migrations are applied. Past entries are labeled. Attendance responses and view counts are not connected yet.</p><button class="button button-secondary" type="button" data-action="navigate" data-view="programs">Open Upcoming Programmes</button></div>';
     const quotePanel = make("section", "panel settings-module quote-settings");
-    quotePanel.innerHTML = '<header class="panel-header"><div><h2>Daily Scripture Quote</h2><p>Choose the scripture sources and when the quote should refresh.</p></div></header><div class="panel-body"><form id="daily-quote-form" novalidate><label class="quote-enable-row"><input id="daily-quote-enabled" name="enabled" type="checkbox"' + (quoteSettings.enabled ? " checked" : "") + '><span><strong>Enable the quote feature</strong><small>Controls the planned quote feature in the member hymnal.</small></span></label><fieldset class="quote-source-fieldset"><legend>Allowed Bible books</legend><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Psalms"' + (quoteSettings.books.includes("Psalms") ? " checked" : "") + '><span>Psalms</span></label><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Proverbs"' + (quoteSettings.books.includes("Proverbs") ? " checked" : "") + '><span>Proverbs</span></label></fieldset><div class="admin-field"><label for="quote-refresh-mode">When should a new quote be generated?</label><select class="form-select" id="quote-refresh-mode" name="refreshMode"><option value="on-open"' + (quoteSettings.refreshMode === "on-open" ? " selected" : "") + '>Every time a user opens the app</option><option value="daily"' + (quoteSettings.refreshMode === "daily" ? " selected" : "") + '>Once per day</option></select><p class="field-hint">This preference is saved in the browser preview; the public quote will be wired in the backend phase.</p></div><div class="quote-provider-notice"><strong>Groq connection · Not configured</strong><p>Add the Groq API key as a server secret in the backend phase. It should never be entered or stored in this browser page.</p></div><div id="quote-settings-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-primary" type="submit">Save Quote Settings</button></div></div></form></div>';
+    quotePanel.innerHTML = '<header class="panel-header"><div><h2>Daily Scripture Quote</h2><p>Choose the scripture sources and when the quote should refresh.</p></div></header><div class="panel-body"><form id="daily-quote-form" novalidate><label class="quote-enable-row"><input id="daily-quote-enabled" name="enabled" type="checkbox"' + (quoteSettings.enabled ? " checked" : "") + '><span><strong>Enable the quote feature</strong><small>Controls the planned quote feature in the member hymnal.</small></span></label><fieldset class="quote-source-fieldset"><legend>Allowed Bible books</legend><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Psalms"' + (quoteSettings.books.includes("Psalms") ? " checked" : "") + '><span>Psalms</span></label><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Proverbs"' + (quoteSettings.books.includes("Proverbs") ? " checked" : "") + '><span>Proverbs</span></label></fieldset><div class="admin-field"><label for="quote-refresh-mode">When should a new quote be generated?</label><select class="form-select" id="quote-refresh-mode" name="refreshMode"><option value="on-open"' + (quoteSettings.refreshMode === "on-open" ? " selected" : "") + '>Every time a user opens the app</option><option value="daily"' + (quoteSettings.refreshMode === "daily" ? " selected" : "") + '>Once per day</option></select><p class="field-hint">This preference is saved in the browser preview; the public quote will be wired in the backend phase.</p></div><div class="quote-provider-notice"><strong>Groq connection Â· Not configured</strong><p>Add the Groq API key as a server secret in the backend phase. It should never be entered or stored in this browser page.</p></div><div id="quote-settings-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-primary" type="submit">Save Quote Settings</button></div></div></form></div>';
     quotePanel.innerHTML = quotePanel.innerHTML.replace(
       "This preference is saved in the browser preview; the public quote will be wired in the backend phase.",
       "These preferences are saved to Supabase. Quote generation and display in the member app are separate work."
     ).replace("Add the Groq API key as a server secret in the backend phase.", "Add the Groq API key as a server secret when quote generation is implemented.");
-    const modules = make("div", "settings-modules-grid"); modules.append(programSettings, quotePanel); content.append(modules);
+    const groqPanel = make("section", "panel settings-module groq-settings");
+    groqPanel.innerHTML = '<header class="panel-header"><div><h2>Groq AI for hymn editing</h2><p>Use your own Groq API key to request edits in the hymn form.</p></div></header><div class="panel-body"><p class="groq-key-warning"><strong>Browser-only key:</strong> it is kept in this browser tab session storage and sent directly to Groq when you test or generate an edit. Your prompt and hymn text are sent to Groq too. Do not use a shared device or paste sensitive information. For a multi-user production setup, use a server-side secret and backend proxy instead.</p><div class="admin-field"><label for="groq-api-key">Groq API key</label><input class="form-input" id="groq-api-key" type="password" autocomplete="new-password" spellcheck="false" placeholder="Paste your Groq API key"><p class="field-hint">The key is not uploaded to Supabase or committed to GitHub. It remains available only for this browser tab session.</p></div><div class="groq-key-actions"><button class="button button-primary" type="button" data-action="save-groq-key">Save for this tab</button><button class="button button-secondary" type="button" data-action="toggle-groq-key">Show key</button><button class="button button-secondary" type="button" data-action="test-groq-key">Test connection</button><button class="button button-secondary" type="button" data-action="clear-groq-key">Clear key</button></div><p id="groq-key-status" class="groq-key-status" role="status" aria-live="polite"></p></div>';
+    const groqKeyInput = groqPanel.querySelector("#groq-api-key");
+    if (groqKeyInput) groqKeyInput.value = getGroqApiKey();
+    const groqStatus = groqPanel.querySelector("#groq-key-status");
+    if (groqStatus) groqStatus.textContent = getGroqApiKey() ? "A key is available in this browser tab session." : "No key saved in this browser tab.";
+    const modules = make("div", "settings-modules-grid"); modules.append(programSettings, quotePanel); content.append(modules); content.append(groqPanel);
     state.settingsFormStart = settings.defaultHymnCategory || "";
     state.quoteSettingsFormStart = quoteSettingsFormSignature();
   } catch (error) {
@@ -733,7 +823,7 @@ async function renderHymnList() {
   content.append(heading);
   const controls = make("section", "hymn-toolbar");
   const left = make("div", "hymn-toolbar-left");
-  const search = make("input", "hymn-search"); search.type = "search"; search.id = "hymn-search"; search.placeholder = "Search number, title, first line, category…"; search.setAttribute("aria-label", "Search hymns"); search.dataset.filter = "search"; search.value = state.search;
+  const search = make("input", "hymn-search"); search.type = "search"; search.id = "hymn-search"; search.placeholder = "Search number, title, first line, categoryâ¦"; search.setAttribute("aria-label", "Search hymns"); search.dataset.filter = "search"; search.value = state.search;
   left.append(search);
   const filters = make("div", "hymn-filters");
   const status = make("select", "filter-select"); status.setAttribute("aria-label", "Filter by publication status"); status.dataset.filter = "status";
@@ -742,7 +832,7 @@ async function renderHymnList() {
   status.disabled = draftsOnly;
   const category = make("select", "filter-select"); category.setAttribute("aria-label", "Filter by category"); category.dataset.filter = "category"; category.innerHTML = '<option value="">All categories</option>';
   filters.append(status, category); controls.append(left, filters); content.append(controls);
-  const resultsLabel = make("p", "hymn-results-label", draftsOnly ? "Loading draft hymns…" : "Loading hymns…");
+  const resultsLabel = make("p", "hymn-results-label", draftsOnly ? "Loading draft hymnsâ¦" : "Loading hymnsâ¦");
   content.append(resultsLabel);
   const bulkToolbar = make("div", "hymn-bulk-toolbar");
   bulkToolbar.setAttribute("aria-label", "Bulk hymn actions");
@@ -815,14 +905,14 @@ async function refreshHymnRows() {
   currentWrap.className = "hymn-table-wrap";
   currentWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col" class="hymn-select-heading"><input type="checkbox" data-select-all-hymns aria-label="Select all visible hymns"></th><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody>' + matching.map(function (hymn) {
     const updated = new Date(hymn.updated_at);
-    const date = Number.isNaN(updated.getTime()) ? "—" : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(updated);
+    const date = Number.isNaN(updated.getTime()) ? "â" : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(updated);
     const firstLine = hymn.first_line_en || hymn.first_line_yoruba || "No first line yet";
     const statusClass = hymn.status === "published" ? "status-published" : "status-draft";
     const statusText = hymn.status === "published" ? "Published" : "Draft";
     const nextStatus = hymn.status === "published" ? "draft" : "published";
     const toggleLabel = draftsOnly ? "Publish" : (nextStatus === "published" ? "Mark published" : "Save as draft");
     const checked = state.selectedHymnIds.has(String(hymn.id)) ? " checked" : "";
-    return '<tr><td class="hymn-select-cell"><input type="checkbox" data-select-hymn data-id="' + escapeHtml(hymn.id) + '"' + checked + ' aria-label="Select ' + escapeHtml(adminHymnNumberLabel(hymn)) + '"></td><td><span class="hymn-row-title">' + escapeHtml(adminHymnTitle(hymn)) + '</span><span class="hymn-row-subtitle">' + escapeHtml(adminHymnNumberLabel(hymn)) + '</span></td><td>' + escapeHtml(firstLine) + '</td><td>' + escapeHtml(hymn.category || "—") + '</td><td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td><td>' + date + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Edit ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Edit</button><button class="row-action" type="button" data-action="set-status" data-id="' + escapeHtml(hymn.id) + '" data-status="' + nextStatus + '">' + toggleLabel + '</button><button class="row-action row-action-danger" type="button" data-action="delete-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Delete ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Delete</button></div></td></tr>';
+    return '<tr><td class="hymn-select-cell"><input type="checkbox" data-select-hymn data-id="' + escapeHtml(hymn.id) + '"' + checked + ' aria-label="Select ' + escapeHtml(adminHymnNumberLabel(hymn)) + '"></td><td><span class="hymn-row-title">' + escapeHtml(adminHymnTitle(hymn)) + '</span><span class="hymn-row-subtitle">' + escapeHtml(adminHymnNumberLabel(hymn)) + '</span></td><td>' + escapeHtml(firstLine) + '</td><td>' + escapeHtml(hymn.category || "â") + '</td><td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td><td>' + date + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Edit ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Edit</button><button class="row-action" type="button" data-action="set-status" data-id="' + escapeHtml(hymn.id) + '" data-status="' + nextStatus + '">' + toggleLabel + '</button><button class="row-action row-action-danger" type="button" data-action="delete-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Delete ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Delete</button></div></td></tr>';
   }).join("") + '</tbody></table>';
   updateBulkHymnControls();
 }
@@ -832,14 +922,14 @@ function toolbarMarkup(key, title) {
     '<select data-editor-command="fontName" data-editor-target="' + key + '" aria-label="Font family"><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Tahoma">Tahoma</option><option value="Verdana">Verdana</option><option value="Times New Roman">Times New Roman</option></select>' +
     '<select data-editor-command="fontSize" data-editor-target="' + key + '" aria-label="Font size"><option value="2">Small</option><option value="3" selected>Normal</option><option value="4">Large</option><option value="5">Larger</option><option value="6">Largest</option></select><span class="editor-separator" aria-hidden="true"></span>' +
     button("bold", "Bold", "<strong>B</strong>") + button("italic", "Italic", "<em>I</em>") + button("underline", "Underline", "<u>U</u>") + '<span class="editor-separator" aria-hidden="true"></span>' +
-    button("justifyLeft", "Align left", "⇤") + button("justifyCenter", "Align center", "≡") + button("justifyRight", "Align right", "⇥") + '<span class="editor-separator" aria-hidden="true"></span>' +
-    button("insertUnorderedList", "Bulleted list", "• List") + button("insertOrderedList", "Numbered list", "1. List") + button("indent", "Indent", "→") + button("outdent", "Outdent", "←") + '<span class="editor-separator" aria-hidden="true"></span>' +
-    button("undo", "Undo", "↶") + button("redo", "Redo", "↷") + button("removeFormat", "Clear formatting", "Tx") +
+    button("justifyLeft", "Align left", "â¤") + button("justifyCenter", "Align center", "â¡") + button("justifyRight", "Align right", "â¥") + '<span class="editor-separator" aria-hidden="true"></span>' +
+    button("insertUnorderedList", "Bulleted list", "â¢ List") + button("insertOrderedList", "Numbered list", "1. List") + button("indent", "Indent", "â") + button("outdent", "Outdent", "â") + '<span class="editor-separator" aria-hidden="true"></span>' +
+    button("undo", "Undo", "â¶") + button("redo", "Redo", "â·") + button("removeFormat", "Clear formatting", "Tx") +
     '</div>';
 }
 function editorMarkup(title, key, content, hint) {
   const safe = safeEditorContent(content);
-  return '<section class="editor-card" data-editor-card="' + key + '"><header class="editor-card-header"><h3>' + title + '</h3><p>' + hint + '</p></header>' + toolbarMarkup(key, title) + '<div class="rich-editor-content" id="editor-' + key + '" data-rich-editor="' + key + '" contenteditable="true" role="textbox" aria-label="' + title + ' rich text editor" aria-multiline="true" data-placeholder="Start typing here…" spellcheck="true">' + safe + '</div></section>';
+  return '<section class="editor-card" data-editor-card="' + key + '"><header class="editor-card-header"><h3>' + title + '</h3><p>' + hint + '</p></header>' + toolbarMarkup(key, title) + '<div class="rich-editor-content" id="editor-' + key + '" data-rich-editor="' + key + '" contenteditable="true" role="textbox" aria-label="' + title + ' rich text editor" aria-multiline="true" data-placeholder="Start typing hereâ¦" spellcheck="true">' + safe + '</div></section>';
 }
 function currentFormData(status) {
   const field = function (id) { const element = document.getElementById(id); return element ? element.value.trim() : ""; };
@@ -905,9 +995,9 @@ async function renderHymnForm() {
   const yorubaChorus = hymn.chorus_html_yoruba || (hymn.chorus_yoruba ? "<p>" + escapeHtml(hymn.chorus_yoruba) + "</p>" : "");
   content.innerHTML = '<div class="page-heading"><div><h1>' + (existing ? "Edit Hymn" : "Add New Hymn") + '</h1><p>' + (existing ? "Edit the hymn in the shared admin database." : "Create a hymn record. New hymns start as drafts unless you mark them published.") + '</p></div><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button></div>';
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit hymn form" : "Add hymn form");
-  panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn number, English title, category, and at least one opening line and verse are required. Yorùbá text is optional. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number <span aria-hidden="true">*</span></label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="hymn-category">Category <span aria-hidden="true">*</span></label><select class="form-select" id="hymn-category" name="category" required>' + categoryHtml + '</select></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use one paragraph for each verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use one paragraph for each verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div></section><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
+  panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn number, English title, category, and at least one opening line and verse are required. YorÃ¹bÃ¡ text is optional. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number <span aria-hidden="true">*</span></label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="hymn-category">Category <span aria-hidden="true">*</span></label><select class="form-select" id="hymn-category" name="category" required>' + categoryHtml + '</select></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use one paragraph for each verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use one paragraph for each verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section ai-hymn-editor"><h2>AI hymn editor</h2><p>Describe the changes you want in plain language. Groq will prepare a draft in the fields above; check the result and save it yourself.</p><div class="admin-field"><label for="ai-hymn-prompt">Your instructions</label><textarea class="form-textarea" id="ai-hymn-prompt" rows="4" maxlength="3000" placeholder="For example: Rewrite the English verses in clear, modern language while preserving the original meaning and verse order."></textarea><p class="field-hint">Your instruction and the hymn text currently in this form will be sent to Groq. Changes stay here until you save.</p></div><div class="groq-ai-actions"><button class="button button-secondary" type="button" data-action="ai-edit-hymn">Generate hymn edit</button><p id="ai-hymn-feedback" class="groq-key-status" role="status" aria-live="polite"></p></div></section><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
   const formHelp = panel.querySelector(".form-section-help");
-  if (formHelp) formHelp.textContent = "Enter a title in English or Yorùbá, choose a category, and add at least one opening line and verse. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.";
+  if (formHelp) formHelp.textContent = "Enter a title in English or YorÃ¹bÃ¡, choose a category, and add at least one opening line and verse. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.";
   const englishTitle = panel.querySelector("#title-en");
   const englishTitleLabel = panel.querySelector('label[for="title-en"]');
   if (englishTitle) englishTitle.required = false;
@@ -931,7 +1021,7 @@ function showFormErrors(errors) {
 function validateHymn(data, existingId) {
   const errors = [];
   if (!Number.isInteger(data.hymn_number) || data.hymn_number < 1) errors.push("Enter a whole hymn number greater than zero.");
-  if (!hasAdminHymnTitle(data)) errors.push("Enter an English or Yorùbá hymn title.");
+  if (!hasAdminHymnTitle(data)) errors.push("Enter an English or YorÃ¹bÃ¡ hymn title.");
   if (!data.category) errors.push("Choose a category.");
   if (!data.first_line_en && !data.first_line_yoruba) errors.push("Enter at least one English or Yoruba first line.");
   if (!data.verses_en.length && !data.verses_yoruba.length) errors.push("Enter at least one verse in English or Yoruba.");
@@ -973,7 +1063,7 @@ async function confirmDeleteHymn(hymn) {
   const dialog = document.createElement("dialog"); dialog.className = "confirm-dialog"; dialog.setAttribute("aria-labelledby", "delete-hymn-title");
   const inner = make("div", "confirm-dialog-inner");
   inner.append(make("h2", "", "Are you sure you want to delete this hymn?"));
-  const details = document.createElement("p"); details.append(document.createTextNode("You are deleting "), make("strong", "", adminHymnNumberLabel(hymn) + " — " + adminHymnTitle(hymn)), document.createTextNode(hymn.status === "published"
+  const details = document.createElement("p"); details.append(document.createTextNode("You are deleting "), make("strong", "", adminHymnNumberLabel(hymn) + " â " + adminHymnTitle(hymn)), document.createTextNode(hymn.status === "published"
     ? " from the shared Supabase database. Because it is published, deleting it also removes it from the public hymnal feed. This is permanent."
     : " from the shared Supabase database. This is a permanent delete, not a hide action."));
   const actions = make("div", "confirm-dialog-actions");
@@ -1050,7 +1140,18 @@ async function setHymnStatus(id, status) {
 root.addEventListener("click", async function (event) {
   const button = event.target.closest("[data-action]"); if (!button) return;
   const action = button.dataset.action;
-  if (action === "toggle-password") {
+  if (action === "save-groq-key") {
+    saveGroqApiKey();
+  } else if (action === "clear-groq-key") {
+    clearGroqApiKey();
+  } else if (action === "toggle-groq-key") {
+    const input = document.getElementById("groq-api-key"); if (!input) return;
+    const show = input.type === "password"; input.type = show ? "text" : "password"; button.textContent = show ? "Hide key" : "Show key";
+  } else if (action === "test-groq-key") {
+    await checkGroqConnection(button);
+  } else if (action === "ai-edit-hymn") {
+    await generateHymnEdit(button);
+  } else if (action === "toggle-password") {
     const input = document.getElementById("admin-password"); if (!input) return;
     const show = input.type === "password"; input.type = show ? "text" : "password"; button.textContent = show ? "Hide" : "Show"; button.setAttribute("aria-label", show ? "Hide password" : "Show password");
   } else if (action === "navigate") {
@@ -1154,7 +1255,7 @@ root.addEventListener("submit", async function (event) {
     const feedback = document.getElementById("login-error"); const submit = document.getElementById("login-submit"); const label = submit.querySelector(".login-button-label");
     feedback.textContent = "";
     if (!email.value.trim() || !email.validity.valid || !password.value) { feedback.textContent = "Enter a valid email address and password to continue."; (!email.value.trim() || !email.validity.valid ? email : password).focus(); return; }
-    submit.disabled = true; submit.setAttribute("aria-busy", "true"); label.textContent = "Checking…";
+    submit.disabled = true; submit.setAttribute("aria-busy", "true"); label.textContent = "Checkingâ¦";
      try {
        const admin = await loginAdmin(email.value.trim(), password.value);
        password.value = "";
@@ -1206,7 +1307,7 @@ root.addEventListener("change", function (event) {
   if (event.target.id === "program-flyer-input") {
     const file = event.target.files && event.target.files[0]; const feedback = document.getElementById("program-flyer-error");
     if (!file) return;
-    if (feedback) feedback.textContent = "Preparing full flyer preview…";
+    if (feedback) feedback.textContent = "Preparing full flyer previewâ¦";
     optimizeProgramFlyer(file).then(function (dataUrl) {
       state.programFlyerUrl = dataUrl; updateProgramFlyerPreview(dataUrl);
       if (feedback) feedback.textContent = "";
