@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { hymns as bundledHymns } from "../data/cac-hymns.js";
+import uploadedHymns from "../data/uploaded-hymns.js";
 import { getAllHymns, getHymnByNumber } from "../js/hymn-service.js";
 
 function installStorage() {
@@ -27,11 +28,24 @@ test("bundled CAC collections match the photographed English index and use uniqu
   const hymns = bundledHymns;
   const english = hymns.filter(function (hymn) { return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book"; });
   const yoruba = hymns.filter(function (hymn) { return hymn.source_hymnal.includes("Yoruba Hymn Book"); });
-  assert.equal(hymns.length, 304);
+  assert.equal(hymns.length, 432);
   assert.equal(english.length, 152);
   assert.equal(yoruba.length, 152);
   assert.equal(new Set(hymns.map(function (hymn) { return hymn.hymn_number; })).size, hymns.length);
   assert.equal(hymns[0].source_number_label, "34");
+});
+
+test("uploaded hymns keep the document numbers in a separate, uniquely identified collection", () => {
+  const imported = bundledHymns.filter(function (hymn) { return hymn.source_hymnal === "Uploaded Hymn Collection"; });
+  assert.equal(uploadedHymns.length, 128);
+  assert.equal(imported.length, 128);
+  assert.equal(new Set(imported.map(function (hymn) { return hymn.hymn_number; })).size, 128);
+  assert.ok(imported.every(function (hymn) {
+    return hymn.category === "Uploaded Hymn Collection"
+      && Number.isInteger(hymn.source_hymn_number)
+      && hymn.verses_en.length > 0;
+  }));
+  assert.equal(imported.filter(function (hymn) { return hymn.source_hymn_number === 11; }).length, 1);
 });
 
 test("the public catalog does not fall back to the bundled collection while offline", async () => {
