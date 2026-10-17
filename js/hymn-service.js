@@ -9,6 +9,9 @@ const CURRENT_CAC_GHB_RECORD_IDS = new Set(repositoryHymns.filter(function (hymn
 const CURRENT_CAC_YHB_RECORD_IDS = new Set(repositoryHymns.filter(function (hymn) {
   return hymn.source_hymnal === "Christ Apostolic Church Yoruba Hymn Book (Iwe Orin CAC)";
 }).map(function (hymn) { return Number(hymn.hymn_number); }));
+const CURRENT_UPLOADED_HYMN_RECORD_IDS = new Set(repositoryHymns.filter(function (hymn) {
+  return hymn.source_hymnal === "Uploaded Hymn Collection";
+}).map(function (hymn) { return Number(hymn.hymn_number); }));
 const PUBLIC_HYMN_COLUMNS = [
   "id",
   "hymn_number",
@@ -35,7 +38,7 @@ const PUBLIC_HYMN_COLUMNS = [
 // Preserve printed "Various" labels without bundling hymn text in the member app.
 const VARIOUS_SOURCE_LABEL_HYMN_NUMBERS = new Set([
   3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 28,
-  1003, 1005, 1007, 1009, 1010, 1012, 1014, 1016, 1018, 1020, 1022, 1024
+  1003, 1005, 1007, 1009, 1010, 1012, 1014, 1016, 1018, 1020, 1022, 1024, 10038, 10040, 10058, 10084, 10107
 ]);
 
 function asString(value) {
@@ -66,15 +69,19 @@ function normalizePublishedRows(rows) {
   const normalized = rows
     .filter(function (row) {
       if (!row || row.status !== "published" || !Number.isInteger(Number(row.hymn_number)) || Number(row.hymn_number) <= 0) return false;
-      const isCacEnglish = /\bGHB\b|Gospel Hymn Book/i.test(asString(row.source_hymnal));
-      const isCacYoruba = /\bYHB\b|Yoruba Hymn Book|Iwe Orin CAC/i.test(asString(row.source_hymnal));
+      const sourceHymnal = asString(row.source_hymnal);
+      const isCacEnglish = /\bGHB\b|Gospel Hymn Book/i.test(sourceHymnal);
+      const isCacYoruba = /\bYHB\b|Yoruba Hymn Book|Iwe Orin CAC/i.test(sourceHymnal);
+      const isUploadedCollection = sourceHymnal === "Uploaded Hymn Collection";
       if (isCacEnglish && !CURRENT_CAC_GHB_RECORD_IDS.has(Number(row.hymn_number))) return false;
-      return !isCacYoruba || CURRENT_CAC_YHB_RECORD_IDS.has(Number(row.hymn_number));
+      if (isCacYoruba && !CURRENT_CAC_YHB_RECORD_IDS.has(Number(row.hymn_number))) return false;
+      return !isUploadedCollection || CURRENT_UPLOADED_HYMN_RECORD_IDS.has(Number(row.hymn_number));
     })
     .map(function (row) {
       const versesEn = asStringArray(row.verses_en);
       const titleEn = asString(row.title_en);
       const isCacHymn = /\bCAC\b|Christ Apostolic Church/i.test(asString(row.source_hymnal));
+      const isUploadedCollection = asString(row.source_hymnal) === "Uploaded Hymn Collection";
       const hasMeterTitle = isMeterTitle(titleEn);
       const firstVerseLine = firstLine(versesEn);
       const lyricLine = firstLine(hasMeterTitle && isMeterTitle(firstVerseLine) ? versesEn.slice(1) : versesEn);
@@ -93,7 +100,7 @@ function normalizePublishedRows(rows) {
         keywords: asStringArray(row.keywords),
         author_en: asString(row.author_en),
         source_hymnal: asString(row.source_hymnal),
-        source_number_label: asString(row.source_number_label) || String(row.source_hymn_number || row.hymn_number) + (isCacHymn && VARIOUS_SOURCE_LABEL_HYMN_NUMBERS.has(Number(row.hymn_number)) ? "V" : ""),
+        source_number_label: asString(row.source_number_label) || String(row.source_hymn_number || row.hymn_number) + ((isCacHymn || isUploadedCollection) && VARIOUS_SOURCE_LABEL_HYMN_NUMBERS.has(Number(row.hymn_number)) ? "V" : ""),
         source_publication_year: row.source_publication_year || null,
         source_hymn_number: row.source_hymn_number ? Number(row.source_hymn_number) : null,
         source_first_line_en: hasMeterTitle ? lyricLine : asString(row.source_first_line_en),
