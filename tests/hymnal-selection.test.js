@@ -14,6 +14,26 @@ test("the active selection includes only the requested hymnal source", () => {
   assert.deepEqual(filterHymnsForActiveHymnal(rows, "uploaded"), [rows[3]]);
 });
 
+
+test("Original adds missing CAC English songs and keeps distinct same-number hymns", () => {
+  const rows = [
+    { source_hymnal: "Uploaded Hymn Collection", source_hymn_number: 55, source_number_label: "55", title_en: "There Is a Fountain Fill'd with Blood" },
+    { source_hymnal: "CAC GHB", source_hymn_number: 55, source_number_label: "55", title_en: "There Is a Fountain Filled with Blood" },
+    { source_hymnal: "CAC GHB", source_hymn_number: 63, source_number_label: "63", title_en: "O Happy day that fixed my choice" },
+    { source_hymnal: "Uploaded Hymn Collection", source_hymn_number: 63, source_number_label: "63V", title_en: "Grace! 'tis a Charming Sound" },
+    { source_hymnal: "CAC YHB", source_hymn_number: 55, title_en: "Yoruba hymn" }
+  ];
+
+  const original = filterHymnsForActiveHymnal(rows, "uploaded");
+  assert.deepEqual(original.map(function (hymn) {
+    return [hymn.source_hymnal, hymn.source_hymn_number, hymn.title_en];
+  }), [
+    ["Uploaded Hymn Collection", 55, "There Is a Fountain Fill'd with Blood"],
+    ["CAC GHB", 63, "O Happy day that fixed my choice"],
+    ["Uploaded Hymn Collection", 63, "Grace! 'tis a Charming Sound"]
+  ]);
+});
+
 test("invalid active collection values fall back to the existing CAC catalog", () => {
   assert.equal(normalizeActiveHymnal("unknown"), "cac");
   assert.equal(normalizeActiveHymnal("uploaded"), "uploaded");
