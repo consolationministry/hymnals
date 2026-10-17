@@ -3,7 +3,7 @@
 export const uploadedTitleOverrides = {
   "38": "Lead, Kindly Light, Amid the Encircling Gloom",
   "55": "There Is a Fountain Fill'd with Blood",
-  "78": "All to Jesus I Surrende",
+  "78": "All to Jesus I Surrender",
   "82": "Though the World Allure with Its Gilded Charm",
   "120": "More Holiness Give Me, More Strivings Within",
   "233": "There Is Singing in Heav'n Such as We Have Never Known"
