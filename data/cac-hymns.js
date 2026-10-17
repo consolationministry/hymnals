@@ -1,7 +1,7 @@
 import ghb from "./cac-ghb.js";
 import yhb from "./cac-yhb-current.js";
 import photographedGhbNumbers from "./cac-ghb-index.js";
-import uploadedHymns from "./uploaded-hymns.js";
+import uploadedHymns, { uploadedTitleOverrides } from "./uploaded-hymns.js";
 
 function firstLine(verses) {
   const first = Array.isArray(verses) ? verses.find(function (line) { return typeof line === "string" && line.trim(); }) : "";
@@ -45,7 +45,7 @@ function convertCollection(sourceRows, firstId, language) {
         title_yoruba: english ? "" : displayTitle,
         first_line_en: english ? first : "",
         first_line_yoruba: english ? "" : first,
-        category: sourceAbbr,
+        category: "Consolation Hymn",
         verses_en: english ? verses : [],
         verses_yoruba: english ? [] : verses,
         chorus_en: english && typeof item.record.chorus === "string" ? item.record.chorus : "",
@@ -68,8 +68,15 @@ function convertCollection(sourceRows, firstId, language) {
 
 const LEGACY_YHB_FIRST_ID = 1002;
 
+function applyUploadedTitleOverrides(rows) {
+  return rows.map(function (hymn) {
+    const title = uploadedTitleOverrides[hymn.source_hymn_number];
+    return title ? { ...hymn, title_en: title } : hymn;
+  });
+}
+
 export const hymns = [
-  ...convertCollection(ghb, 1, "english"),
+  ...applyUploadedTitleOverrides(convertCollection(ghb, 1, "english")),
   ...convertCollection(yhb, LEGACY_YHB_FIRST_ID, "yoruba"),
   ...uploadedHymns
 ];

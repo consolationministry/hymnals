@@ -24,30 +24,47 @@ function response(body, status = 200) {
   };
 }
 
-test("bundled CAC collections match the photographed English index and use unique app IDs", () => {
+test("bundled catalog uses one shared category and unique app IDs", () => {
   const hymns = bundledHymns;
   const english = hymns.filter(function (hymn) { return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book"; });
   const yoruba = hymns.filter(function (hymn) { return hymn.source_hymnal.includes("Yoruba Hymn Book"); });
-  assert.equal(hymns.length, 432);
+  assert.equal(hymns.length, 333);
   assert.equal(english.length, 152);
   assert.equal(yoruba.length, 152);
   assert.equal(new Set(hymns.map(function (hymn) { return hymn.hymn_number; })).size, hymns.length);
   assert.equal(hymns[0].source_number_label, "34");
+  assert.deepEqual([...new Set(hymns.map(function (hymn) { return hymn.category; }))], ["Consolation Hymn"]);
 });
 
-test("uploaded hymns keep the document numbers in a separate, uniquely identified collection", () => {
+test("DOCX entries are consolidated under one collection and preserve five same-number variants", () => {
   const imported = bundledHymns.filter(function (hymn) { return hymn.source_hymnal === "Uploaded Hymn Collection"; });
-  assert.equal(uploadedHymns.length, 128);
-  assert.equal(imported.length, 128);
-  assert.equal(new Set(imported.map(function (hymn) { return hymn.hymn_number; })).size, 128);
-  assert.ok(imported.every(function (hymn) {
-    return hymn.category === "Uploaded Hymn Collection"
-      && Number.isInteger(hymn.source_hymn_number)
-      && hymn.verses_en.length > 0;
-  }));
-  assert.equal(imported.filter(function (hymn) { return hymn.source_hymn_number === 11; }).length, 1);
+  const english = bundledHymns.filter(function (hymn) { return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book"; });
+  assert.equal(uploadedHymns.length, 29);
+  assert.equal(imported.length, 29);
+  assert.equal(new Set(imported.map(function (hymn) { return hymn.hymn_number; })).size, 29);
+  assert.ok(imported.every(function (hymn) { return hymn.category === "Consolation Hymn" && Number.isInteger(hymn.source_hymn_number) && hymn.verses_en.length > 0; }));
+  const variants = new Set([63, 69, 107, 156, 197]);
+  assert.deepEqual(imported.filter(function (hymn) { return variants.has(hymn.source_hymn_number); }).map(function (hymn) { return hymn.source_hymn_number; }).sort(function (a, b) { return a - b; }), [63, 69, 107, 156, 197]);
+  assert.ok(imported.every(function (hymn) { return !english.some(function (current) { return current.source_hymn_number === hymn.source_hymn_number; }) || variants.has(hymn.source_hymn_number); }));
+  for (const number of [38, 55, 78, 82, 120, 233]) {
+    const current = english.find(function (hymn) { return hymn.source_hymn_number === number; });
+    assert.equal(current.title_en, uploadedTitleOverrides[number]);
+  }
 });
 
+test("published DOCX variants receive a V number and stale duplicate imports are hidden", async () => {
+  installStorage();
+  globalThis.fetch = async function () {
+    return response([
+      { id: "variant-63", hymn_number: 10038, source_hymn_number: 63, title_en: "Grace! 'tis a Charming Sound", source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: "published", verses_en: ["Variant verse"] },
+      { id: "stale-duplicate", hymn_number: 10000, source_hymn_number: 1, title_en: "Old imported duplicate", source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: "published", verses_en: ["Old duplicate verse"] }
+    ]);
+  };
+  const hymns = await getAllHymns();
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [10038]);
+  assert.equal(hymns[0].source_number_label, "63V");
+  assert.equal(hymns[0].category, "Consolation Hymn");
+});
 test("the public catalog does not fall back to the bundled collection while offline", async () => {
   installStorage();
   globalThis.fetch = async function () { throw new Error("offline"); };
