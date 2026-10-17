@@ -1,7 +1,8 @@
 import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js?v=31";
-import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteHymns, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, setHymnsStatus, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=41";
+import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteHymns, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, setHymnsStatus, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=42";
 
 import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "./admin-hymn-display.js?v=1";
+import { ACTIVE_HYMNALS, isActiveHymnalId, normalizeActiveHymnal } from "../../js/hymnal-selection.js";
 import { GROQ_API_KEY_STORAGE_KEY, requestGroqHymnEdit, validateGroqApiKey } from "./groq-hymn-editor.js?v=1";
 
 const root = document.getElementById("admin-root");
@@ -694,6 +695,38 @@ async function removeProgramFromPreview(id) {
     showToast(mode === "browser" ? "Programme deleted from this browser preview." : "Programme deleted for this open session only; browser storage is unavailable.");
   } catch (error) { showToast(error.message || "The programme could not be deleted."); }
 }
+function createHymnalActivationPanel(value, configured) {
+  const activeHymnal = normalizeActiveHymnal(value);
+  const panel = make("section", "panel settings-module hymnal-activation-panel");
+  panel.id = "hymnal-activation-panel";
+  const header = make("header", "panel-header");
+  const title = document.createElement("div");
+  title.append(make("h2", "", "Active hymn collection"), make("p", "", "Choose which collection members see in the public hymnal."));
+  header.append(title);
+  const body = make("div", "panel-body");
+  const options = make("div", "hymnal-activation-options");
+  ACTIVE_HYMNALS.forEach(function (hymnal) {
+    const isActive = hymnal.id === activeHymnal;
+    const card = make("article", "hymnal-activation-option" + (isActive ? " is-active" : ""));
+    const copy = make("div", "hymnal-activation-copy");
+    copy.append(make("h3", "", hymnal.label), make("p", "", hymnal.description));
+    const button = make("button", "button " + (isActive || !configured ? "button-secondary" : "button-primary"), isActive ? "Active" : (configured ? "Activate" : "Unavailable"));
+    button.type = "button";
+    button.dataset.action = "activate-hymnal";
+    button.dataset.hymnal = hymnal.id;
+    button.setAttribute("aria-pressed", String(isActive));
+    button.disabled = isActive || !configured;
+    card.append(copy, button);
+    options.append(card);
+  });
+  const hint = configured
+    ? "Only published hymns from the active collection appear to members. Activating a collection does not publish its drafts; members see the new selection the next time they load the hymnal."
+    : "Apply the active-hymnal Supabase migration before activating a collection. Draft hymns remain unpublished after activation.";
+  body.append(options, make("p", "field-hint", hint));
+  panel.append(header, body);
+  return panel;
+}
+
 async function renderSettingsWorkspace() {
   const content = document.getElementById("admin-content"); if (!content) return;
   content.replaceChildren();
@@ -718,7 +751,7 @@ async function renderSettingsWorkspace() {
     const statusList = make("ul", "settings-status-list", "");
     statusList.append(make("li", "", "Administrator access and edit actions are protected by Supabase Auth and row-level security."), make("li", "", "Hymns, categories, service plans, events, and settings are saved to the shared database."), make("li", "", "Published hymns, events, and service plans from any date appear in the member app when the public-content migrations are applied. Admin preferences remain private; anonymous attendance vote totals are not shown in this workspace yet."));
     statusBody.append(statusList); statusPanel.append(statusHeader, statusBody);
-    const grid = make("div", "settings-grid", ""); grid.append(panel, appearancePanel, statusPanel); content.append(grid);
+    const grid = make("div", "settings-grid", ""); grid.append(panel, appearancePanel, statusPanel); content.append(grid, createHymnalActivationPanel(settings.activeHymnal, settings.activeHymnalConfigured));
     const programSettings = make("section", "panel settings-module");
     programSettings.innerHTML = '<header class="panel-header"><div><h2>Upcoming Programmes</h2><p>Create and manage member-facing programme announcements on a separate page.</p></div></header><div class="panel-body"><p class="settings-module-copy">Programmes from any date appear in the member app after the public-content migrations are applied. Past entries are labeled. Attendance responses and view counts are not connected yet.</p><button class="button button-secondary" type="button" data-action="navigate" data-view="programs">Open Upcoming Programmes</button></div>';
     const quotePanel = make("section", "panel settings-module quote-settings");
@@ -755,6 +788,23 @@ async function saveSettingsForm() {
     showSettingsErrors(error && error.message ? error.message : "The preference could not be saved.");
   }
 }
+async function activateHymnal(button) {
+  const activeHymnal = button && button.dataset ? button.dataset.hymnal : "";
+  if (!isActiveHymnalId(activeHymnal)) { showToast("Choose a valid hymn collection."); return; }
+  const buttons = Array.from(root.querySelectorAll('[data-action="activate-hymnal"]'));
+  buttons.forEach(function (item) { item.disabled = true; });
+  try {
+    await updateAdminSettings({ activeHymnal: activeHymnal });
+    const panel = document.getElementById("hymnal-activation-panel");
+    if (panel) panel.replaceWith(createHymnalActivationPanel(activeHymnal, true));
+    const hymnal = ACTIVE_HYMNALS.find(function (item) { return item.id === activeHymnal; });
+    showToast((hymnal ? hymnal.label : "Hymn collection") + " is now active. Members see it the next time the hymnal loads.");
+  } catch (error) {
+    buttons.forEach(function (item) { item.disabled = item.getAttribute("aria-pressed") === "true"; });
+    showToast(error && error.message ? error.message : "The hymn collection could not be activated.");
+  }
+}
+
 function quoteSettingsFormSignature() {
   const form = document.getElementById("daily-quote-form"); if (!form) return null;
   const books = Array.from(form.querySelectorAll('input[name="quote_books"]:checked')).map(function (input) { return input.value; }).sort();
@@ -1223,6 +1273,8 @@ root.addEventListener("click", async function (event) {
     state.programFlyerUrl = "";
     const input = document.getElementById("program-flyer-input"); if (input) input.value = "";
     updateProgramFlyerPreview("");
+  } else if (action === "activate-hymnal") {
+    await activateHymnal(button);
   } else if (action === "toggle-admin-theme") {
     const current = await getAdminSettings();
     const active = current.defaultTheme === "system" ? getSystemTheme() : current.defaultTheme;

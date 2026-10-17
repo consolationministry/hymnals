@@ -1,4 +1,5 @@
 import { hymns as repositoryHymns } from "../../data/cac-hymns.js";
+import { DEFAULT_ACTIVE_HYMNAL, isActiveHymnalId } from "../../js/hymnal-selection.js";
 import { requireAdmin } from "./admin-auth.js?v=31";
 import { supabaseRequest } from "./supabase-client.js?v=31";
 
@@ -6,7 +7,7 @@ const GLOBAL_ROW_ID = "global";
 const DAILY_QUOTE_BOOKS = ["Psalms", "Proverbs"];
 const HYMNS_PAGE_SIZE = 100;
 const ADMIN_HYMN_LIST_COLUMNS = "id,hymn_number,title_en,title_yoruba,first_line_en,first_line_yoruba,verses_en,keywords,source_hymnal,source_hymn_number,source_first_line_en,category,status,updated_at";
-const HYMN_CATALOG_SYNC_VERSION = "consolation-hymn-unified-152-ghb-152-yhb-29-additions-v5";
+const HYMN_CATALOG_SYNC_VERSION = "separate-active-cac-and-uploaded-collections-v6";
 const HYMN_CATALOG_SYNC_KEY = "consolation-admin-hymn-catalog-sync";
 const ADMIN_CATALOG_NUMBERS_BY_SOURCE = new Map();
 repositoryHymns.forEach(function (hymn) {
@@ -361,7 +362,9 @@ export async function getAdminSettings() {
   const row = firstRow(rows);
   return {
     defaultHymnCategory: row && row.default_hymn_category || "",
-    defaultTheme: row && row.default_theme || "system"
+    defaultTheme: row && row.default_theme || "system",
+    activeHymnal: row && isActiveHymnalId(row.active_hymnal) ? row.active_hymnal : DEFAULT_ACTIVE_HYMNAL,
+    activeHymnalConfigured: Boolean(row && Object.prototype.hasOwnProperty.call(row, "active_hymnal"))
   };
 }
 
@@ -370,13 +373,17 @@ export async function updateAdminSettings(value) {
   const current = await getAdminSettings();
   const category = typeof data.defaultHymnCategory === "string" ? data.defaultHymnCategory.trim() : current.defaultHymnCategory;
   const theme = typeof data.defaultTheme === "string" ? data.defaultTheme : current.defaultTheme;
+  const activeHymnal = data.activeHymnal === undefined ? current.activeHymnal : data.activeHymnal;
   const categories = await getCategories();
   if (category && !categories.includes(category)) throw new Error("Choose a category that still exists.");
   if (!["system", "light", "dark"].includes(theme)) throw new Error("Choose light, dark, or device theme.");
+  if (!isActiveHymnalId(activeHymnal)) throw new Error("Choose one of the available hymn collections.");
+  const settingsUpdate = { default_hymn_category: category || null, default_theme: theme };
+  if (data.activeHymnal !== undefined) settingsUpdate.active_hymnal = activeHymnal;
   await adminRequest("rest/v1/admin_settings?id=eq." + GLOBAL_ROW_ID, {
     method: "PATCH",
     prefer: "return=representation",
-    body: { default_hymn_category: category || null, default_theme: theme }
+    body: settingsUpdate
   });
   return "remote";
 }
