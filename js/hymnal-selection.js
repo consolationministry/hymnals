@@ -8,8 +8,8 @@ export const ACTIVE_HYMNALS = Object.freeze([
   }),
   Object.freeze({
     id: "uploaded",
-    label: "Uploaded Hymn Collection",
-    description: "The separate English collection from your uploaded DOCX."
+    label: "Original Consolation Hymn",
+    description: "The original English hymn collection from your DOCX."
   })
 ]);
 

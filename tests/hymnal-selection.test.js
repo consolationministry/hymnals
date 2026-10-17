@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { filterHymnsForActiveHymnal, normalizeActiveHymnal } from "../js/hymnal-selection.js";
+import { ACTIVE_HYMNALS, filterHymnsForActiveHymnal, normalizeActiveHymnal } from "../js/hymnal-selection.js";
 
 test("the active selection includes only the requested hymnal source", () => {
   const rows = [
@@ -17,4 +17,8 @@ test("the active selection includes only the requested hymnal source", () => {
 test("invalid active collection values fall back to the existing CAC catalog", () => {
   assert.equal(normalizeActiveHymnal("unknown"), "cac");
   assert.equal(normalizeActiveHymnal("uploaded"), "uploaded");
+});
+
+test("the uploaded source is presented as Original Consolation Hymn in admin settings", () => {
+  assert.equal(ACTIVE_HYMNALS.find(function (hymnal) { return hymnal.id === "uploaded"; }).label, "Original Consolation Hymn");
 });
