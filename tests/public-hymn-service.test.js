@@ -55,13 +55,30 @@ test("the complete DOCX collection remains a separate catalog", () => {
   }
 });
 
-test("the active selection separates CAC and uploaded hymns", () => {
+test("Original includes the missing CAC English hymns without changing the CAC collection", () => {
   const cac = filterHymnsForActiveHymnal(bundledHymns, "cac");
-  const uploaded = filterHymnsForActiveHymnal(bundledHymns, "uploaded");
+  const original = filterHymnsForActiveHymnal(bundledHymns, "uploaded");
+  const uploaded = original.filter(function (hymn) { return hymn.source_hymnal === "Uploaded Hymn Collection"; });
+  const carriedForward = original.filter(function (hymn) { return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book"; });
+  const english = bundledHymns.filter(function (hymn) { return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book"; });
   assert.equal(cac.length, 304);
   assert.equal(uploaded.length, 128);
+  assert.equal(carriedForward.length, 53);
+  assert.equal(original.length, 181);
   assert.ok(cac.every(function (hymn) { return hymn.source_hymnal !== "Uploaded Hymn Collection"; }));
-  assert.ok(uploaded.every(function (hymn) { return hymn.source_hymnal === "Uploaded Hymn Collection"; }));
+  assert.ok(original.every(function (hymn) {
+    return hymn.source_hymnal === "Uploaded Hymn Collection" || hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book";
+  }));
+
+  const missing = carriedForward.find(function (hymn) { return hymn.source_hymn_number === 17; });
+  assert.equal(missing.source_number_label, "17");
+  assert.equal(missing.title_en, "Praise Him, praise Him, Jesus our blessed Redeemer,");
+  const existingMatch = english.find(function (hymn) { return hymn.source_hymn_number === 38; });
+  assert.ok(existingMatch);
+  assert.ok(!original.includes(existingMatch));
+  assert.equal(uploaded.filter(function (hymn) { return hymn.source_hymn_number === 38; }).length, 1);
+  assert.equal(carriedForward.filter(function (hymn) { return hymn.source_hymn_number === 236; }).length, 2);
+  assert.equal(original.filter(function (hymn) { return hymn.source_hymn_number === 63; }).length, 2);
 });
 test("the public catalog does not fall back to the bundled collection while offline", async () => {
   installStorage();
@@ -222,18 +239,23 @@ test("hymn lookup uses the same published-or-offline catalog as the app", async 
   assert.equal(await getHymnByNumber(7), null);
 });
 
-test("published DOCX hymns use the complete uploaded catalog", async () => {
+test("published Original collection keeps missing CAC numbers and DOCX variants", async () => {
   installStorage();
   globalThis.fetch = async function (url) {
     if (String(url).includes("/rpc/get_active_hymnal")) return response("uploaded");
     return response([
-      { id: "variant-63", hymn_number: 10038, source_hymn_number: 63, title_en: "Grace! 'tis a Charming Sound", source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: "published", verses_en: ["Variant verse"] },
+      { id: "variant-63", hymn_number: 10038, source_hymn_number: 63, title_en: "Grace! 'tis a Charming Sound", source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: "published", verses_en: ["Uploaded verse"] },
       { id: "docx-hymn-2", hymn_number: 10000, source_hymn_number: 2, title_en: "Alleluia, Song of Sweetness", source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: "published", verses_en: ["Uploaded verse"] },
-      { id: "cac-hymn", hymn_number: 18, source_hymn_number: 34, title_en: "CAC only", source_hymnal: "CAC GHB", status: "published", verses_en: ["CAC verse"] }
+      { id: "cac-hymn-34", hymn_number: 18, source_hymn_number: 34, source_number_label: "34", title_en: "Holy Father, hear me", first_line_en: "Holy Father, hear me", source_first_line_en: "Holy Father, hear me", source_hymnal: "CAC GHB", category: "Consolation Hymn", status: "published", verses_en: ["CAC verse"] },
+      { id: "cac-variant-63", hymn_number: 880, source_hymn_number: 63, source_number_label: "63", title_en: "O Happy day that fixed my choice", first_line_en: "O Happy day that fixed my choice", source_first_line_en: "O Happy day that fixed my choice", source_hymnal: "CAC GHB", category: "Consolation Hymn", status: "published", verses_en: ["CAC variant verse"] }
     ]);
   };
   const hymns = await getAllHymns();
-  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [10000, 10038]);
-  assert.equal(hymns[1].source_number_label, "63V");
-  assert.equal(hymns[1].category, "Consolation Hymn");
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [10000, 18, 880, 10038]);
+  assert.equal(hymns[1].source_number_label, "34");
+  assert.equal(hymns[1].title_en, "Holy Father, hear me");
+  assert.equal(hymns[2].source_number_label, "63");
+  assert.equal(hymns[2].title_en, "O Happy day that fixed my choice");
+  assert.equal(hymns[3].source_number_label, "63V");
+  assert.equal(hymns[3].category, "Consolation Hymn");
 });
