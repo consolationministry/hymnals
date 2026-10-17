@@ -1,6 +1,7 @@
 import ghb from "./cac-ghb.js";
 import yhb from "./cac-yhb-current.js";
 import photographedGhbNumbers from "./cac-ghb-index.js";
+import uploadedHymns from "./uploaded-hymns.js";
 
 function firstLine(verses) {
   const first = Array.isArray(verses) ? verses.find(function (line) { return typeof line === "string" && line.trim(); }) : "";
@@ -69,5 +70,6 @@ const LEGACY_YHB_FIRST_ID = 1002;
 
 export const hymns = [
   ...convertCollection(ghb, 1, "english"),
-  ...convertCollection(yhb, LEGACY_YHB_FIRST_ID, "yoruba")
+  ...convertCollection(yhb, LEGACY_YHB_FIRST_ID, "yoruba"),
+  ...uploadedHymns
 ];
