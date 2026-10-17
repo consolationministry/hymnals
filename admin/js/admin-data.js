@@ -6,7 +6,7 @@ const GLOBAL_ROW_ID = "global";
 const DAILY_QUOTE_BOOKS = ["Psalms", "Proverbs"];
 const HYMNS_PAGE_SIZE = 100;
 const ADMIN_HYMN_LIST_COLUMNS = "id,hymn_number,title_en,title_yoruba,first_line_en,first_line_yoruba,verses_en,keywords,source_hymnal,source_hymn_number,source_first_line_en,category,status,updated_at";
-const HYMN_CATALOG_SYNC_VERSION = "cac-ghb-152-yhb-152-v3";
+const HYMN_CATALOG_SYNC_VERSION = "cac-ghb-152-yhb-152-uploaded-hymns-128-v4";
 const HYMN_CATALOG_SYNC_KEY = "consolation-admin-hymn-catalog-sync";
 const ADMIN_CATALOG_NUMBERS_BY_SOURCE = new Map();
 repositoryHymns.forEach(function (hymn) {
