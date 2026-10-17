@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { hymns as bundledHymns } from "../data/cac-hymns.js";
-import uploadedHymns from "../data/uploaded-hymns.js";
+import uploadedHymns, { uploadedTitleOverrides } from "../data/uploaded-hymns.js";
 import { getAllHymns, getHymnByNumber } from "../js/hymn-service.js";
 
 function installStorage() {
@@ -52,19 +52,6 @@ test("DOCX entries are consolidated under one collection and preserve five same-
   }
 });
 
-test("published DOCX variants receive a V number and stale duplicate imports are hidden", async () => {
-  installStorage();
-  globalThis.fetch = async function () {
-    return response([
-      { id: "variant-63", hymn_number: 10038, source_hymn_number: 63, title_en: "Grace! 'tis a Charming Sound", source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: "published", verses_en: ["Variant verse"] },
-      { id: "stale-duplicate", hymn_number: 10000, source_hymn_number: 1, title_en: "Old imported duplicate", source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: "published", verses_en: ["Old duplicate verse"] }
-    ]);
-  };
-  const hymns = await getAllHymns();
-  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [10038]);
-  assert.equal(hymns[0].source_number_label, "63V");
-  assert.equal(hymns[0].category, "Consolation Hymn");
-});
 test("the public catalog does not fall back to the bundled collection while offline", async () => {
   installStorage();
   globalThis.fetch = async function () { throw new Error("offline"); };
@@ -223,4 +210,18 @@ test("hymn lookup uses the same published-or-offline catalog as the app", async 
   };
   assert.equal((await getHymnByNumber(18)).title_en, "Shared hymn");
   assert.equal(await getHymnByNumber(7), null);
+});
+
+test("published DOCX variants receive a V number and stale duplicate imports are hidden", async () => {
+  installStorage();
+  globalThis.fetch = async function () {
+    return response([
+      { id: "variant-63", hymn_number: 10038, source_hymn_number: 63, title_en: "Grace! 'tis a Charming Sound", source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: "published", verses_en: ["Variant verse"] },
+      { id: "stale-duplicate", hymn_number: 10000, source_hymn_number: 1, title_en: "Old imported duplicate", source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: "published", verses_en: ["Old duplicate verse"] }
+    ]);
+  };
+  const hymns = await getAllHymns();
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [10038]);
+  assert.equal(hymns[0].source_number_label, "63V");
+  assert.equal(hymns[0].category, "Consolation Hymn");
 });
