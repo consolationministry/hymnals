@@ -23,7 +23,7 @@ update public.hymns
 set title_en = case source_hymn_number
   when 38 then 'Lead, Kindly Light, Amid the Encircling Gloom'
   when 55 then 'There Is a Fountain Fill''d with Blood'
-  when 78 then 'All to Jesus I Surrende'
+  when 78 then 'All to Jesus I Surrender'
   when 82 then 'Though the World Allure with Its Gilded Charm'
   when 120 then 'More Holiness Give Me, More Strivings Within'
   when 233 then 'There Is Singing in Heav''n Such as We Have Never Known'
