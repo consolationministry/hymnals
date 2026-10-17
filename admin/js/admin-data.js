@@ -1,4 +1,5 @@
 import { hymns as repositoryHymns } from "../../data/cac-hymns.js";
+import { findMissingHymnsByNumber } from "./hymn-catalog-sync.js";
 import { DEFAULT_ACTIVE_HYMNAL, isActiveHymnalId } from "../../js/hymnal-selection.js";
 import { requireAdmin } from "./admin-auth.js?v=31";
 import { supabaseRequest } from "./supabase-client.js?v=31";
@@ -241,22 +242,29 @@ export async function initializeAdminData() {
     };
     return row;
   });
+  let alreadySynced = false;
   try {
-    if (window.localStorage.getItem(HYMN_CATALOG_SYNC_KEY) === HYMN_CATALOG_SYNC_VERSION) {
-      return { imported: 0 };
-    }
+    alreadySynced = window.localStorage.getItem(HYMN_CATALOG_SYNC_KEY) === HYMN_CATALOG_SYNC_VERSION;
   } catch (error) {}
 
+  let rowsToImport = importRows;
+  if (alreadySynced) {
+    const uploadedRows = importRows.filter(function (hymn) { return hymn.source_hymnal === "Uploaded Hymn Collection"; });
+    const storedUploadedRows = await getAllAdminRows("rest/v1/hymns?select=hymn_number&source_hymnal=eq.Uploaded%20Hymn%20Collection&order=hymn_number.asc");
+    rowsToImport = findMissingHymnsByNumber(uploadedRows, storedUploadedRows);
+    if (!rowsToImport.length) return { imported: 0 };
+  }
+
   const categories = await getCategories();
-  const requiredCategories = Array.from(new Set(importRows.map(function (hymn) { return hymn.category; })));
+  const requiredCategories = Array.from(new Set(rowsToImport.map(function (hymn) { return hymn.category; })));
   for (const category of requiredCategories) {
     if (!categories.includes(category)) await createCategory(category);
   }
 
   const batchSize = 200;
   const batches = [];
-  for (let index = 0; index < importRows.length; index += batchSize) {
-    batches.push(importRows.slice(index, index + batchSize));
+  for (let index = 0; index < rowsToImport.length; index += batchSize) {
+    batches.push(rowsToImport.slice(index, index + batchSize));
   }
   const results = await Promise.all(batches.map(function (batch) {
     return adminRequest("rest/v1/hymns?on_conflict=hymn_number&select=hymn_number", {
