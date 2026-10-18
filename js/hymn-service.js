@@ -1,19 +1,9 @@
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
-import { hymns as repositoryHymns } from "../data/cac-hymns.js";
 import { DEFAULT_ACTIVE_HYMNAL, filterHymnsForActiveHymnal, isActiveHymnalId, normalizeActiveHymnal } from "./hymnal-selection.js";
 
-const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-active-v5";
-const ACTIVE_HYMNAL_CACHE_KEY = "cerc-active-hymnal-v1";
-const CURRENT_CAC_GHB_RECORD_IDS = new Set(repositoryHymns.filter(function (hymn) {
-  return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book";
-}).map(function (hymn) { return Number(hymn.hymn_number); }));
-const CURRENT_CAC_YHB_RECORD_IDS = new Set(repositoryHymns.filter(function (hymn) {
-  return hymn.source_hymnal === "Christ Apostolic Church Yoruba Hymn Book (Iwe Orin CAC)";
-}).map(function (hymn) { return Number(hymn.hymn_number); }));
-const CURRENT_UPLOADED_HYMN_RECORD_IDS = new Set(repositoryHymns.filter(function (hymn) {
-  return hymn.source_hymnal === "Uploaded Hymn Collection";
-}).map(function (hymn) { return Number(hymn.hymn_number); }));
+const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-uploaded-v6";
+const ACTIVE_HYMNAL_CACHE_KEY = "cerc-active-hymnal-v2";
 const PUBLIC_HYMN_COLUMNS = [
   "id",
   "hymn_number",
@@ -62,27 +52,16 @@ function firstLine(verses) {
   return String(first || "").split(/\r?\n/)[0].trim();
 }
 
-function normalizedOpeningLine(value) {
-  return asString(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
-}
-
 function normalizePublishedRows(rows) {
   if (!Array.isArray(rows)) return null;
   const normalized = rows
     .filter(function (row) {
       if (!row || row.status !== "published" || !Number.isInteger(Number(row.hymn_number)) || Number(row.hymn_number) <= 0) return false;
-      const sourceHymnal = asString(row.source_hymnal);
-      const isCacEnglish = /\bGHB\b|Gospel Hymn Book/i.test(sourceHymnal);
-      const isCacYoruba = /\bYHB\b|Yoruba Hymn Book|Iwe Orin CAC/i.test(sourceHymnal);
-      const isUploadedCollection = sourceHymnal === "Uploaded Hymn Collection";
-      if (isCacEnglish && !CURRENT_CAC_GHB_RECORD_IDS.has(Number(row.hymn_number))) return false;
-      if (isCacYoruba && !CURRENT_CAC_YHB_RECORD_IDS.has(Number(row.hymn_number))) return false;
-      return !isUploadedCollection || CURRENT_UPLOADED_HYMN_RECORD_IDS.has(Number(row.hymn_number));
+      return asString(row.source_hymnal).trim() === "Uploaded Hymn Collection";
     })
     .map(function (row) {
       const versesEn = asStringArray(row.verses_en);
       const titleEn = asString(row.title_en);
-      const isCacHymn = /\bCAC\b|Christ Apostolic Church/i.test(asString(row.source_hymnal));
       const isUploadedCollection = asString(row.source_hymnal) === "Uploaded Hymn Collection";
       const hasMeterTitle = isMeterTitle(titleEn);
       const firstVerseLine = firstLine(versesEn);
@@ -102,7 +81,7 @@ function normalizePublishedRows(rows) {
         keywords: asStringArray(row.keywords),
         author_en: asString(row.author_en),
         source_hymnal: asString(row.source_hymnal),
-        source_number_label: asString(row.source_number_label) || String(row.source_hymn_number || row.hymn_number) + ((isCacHymn || isUploadedCollection) && VARIOUS_SOURCE_LABEL_HYMN_NUMBERS.has(Number(row.hymn_number)) ? "V" : ""),
+        source_number_label: asString(row.source_number_label) || String(row.source_hymn_number || row.hymn_number) + (isUploadedCollection && VARIOUS_SOURCE_LABEL_HYMN_NUMBERS.has(Number(row.hymn_number)) ? "V" : ""),
         source_publication_year: row.source_publication_year || null,
         source_hymn_number: row.source_hymn_number ? Number(row.source_hymn_number) : null,
         source_first_line_en: hasMeterTitle ? lyricLine : asString(row.source_first_line_en),
@@ -113,19 +92,6 @@ function normalizePublishedRows(rows) {
     })
     .sort(function (a, b) { return a.hymn_number - b.hymn_number; });
 
-  const isEnglishGospelHymn = function (hymn) {
-    return /\bGHB\b|Gospel Hymn Book/i.test(hymn.source_hymnal);
-  };
-  const duplicate = normalized.find(function (hymn) {
-    return isEnglishGospelHymn(hymn) && hymn.source_hymn_number === 110;
-  });
-  const canonical = normalized.find(function (hymn) {
-    return isEnglishGospelHymn(hymn) && hymn.source_hymn_number === 86;
-  });
-  if (duplicate && canonical && normalizedOpeningLine(duplicate.first_line_en) === normalizedOpeningLine(canonical.first_line_en)) {
-    canonical.keywords = Array.from(new Set(canonical.keywords.concat("110")));
-    return normalized.filter(function (hymn) { return hymn !== duplicate; });
-  }
   return normalized;
 }
 

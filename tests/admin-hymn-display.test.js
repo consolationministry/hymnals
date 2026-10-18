@@ -1,21 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hymns as repositoryHymns } from "../data/cac-hymns.js";
+import repositoryHymns from "../data/uploaded-hymns.js";
 import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "../admin/js/admin-hymn-display.js";
 
-test("admin display uses the printed Yorùbá book number and title", () => {
-  const hymn = repositoryHymns.find(function (item) {
-    return item.source_hymnal.includes("Yoruba Hymn Book") && item.source_hymn_number === 189;
-  });
-  assert.ok(hymn);
-  assert.equal(hymn.hymn_number, 1200);
-  assert.equal(adminHymnNumberLabel(hymn), "Book #189 · record ID 1200");
-  assert.equal(adminHymnTitle(hymn), hymn.title_yoruba);
+test("admin display uses the uploaded hymn's printed number and title", () => {
+  const hymn = repositoryHymns[0];
+  assert.equal(hymn.source_hymnal, "Uploaded Hymn Collection");
+  assert.equal(
+    adminHymnNumberLabel(hymn),
+    "Book #" + hymn.source_hymn_number + " · record ID " + hymn.hymn_number
+  );
+  assert.equal(adminHymnTitle(hymn), hymn.title_en || hymn.title_yoruba);
 });
 
-test("admin title validation accepts a Yorùbá-only catalog entry", () => {
-  assert.equal(hasAdminHymnTitle({ title_en: "", title_yoruba: "B'awon ara igbani" }), true);
-  assert.equal(hasAdminHymnTitle({ title_en: "", title_yoruba: "   " }), false);
+test("admin title validation accepts a titled uploaded hymn", () => {
+  assert.equal(hasAdminHymnTitle({ title_en: "A hymn" }), true);
+  assert.equal(hasAdminHymnTitle({ title_en: "   " }), false);
 });
 
 test("admin label falls back to the hymn number for custom records", () => {

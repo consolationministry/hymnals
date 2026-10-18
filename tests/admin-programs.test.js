@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hymns as repositoryHymns } from "../data/cac-hymns.js";
+import repositoryHymns from "../data/uploaded-hymns.js";
 import {
   createProgram,
   deleteProgram,
@@ -219,31 +219,30 @@ test("admin setup fills a partial catalog without overwriting existing records a
   await logoutAdmin();
 });
 
-test("admin views hide legacy rows outside the current photographed catalog without deleting database rows", async () => {
-  const english = repositoryHymns.find(function (hymn) { return hymn.source_hymnal === "Christ Apostolic Church Gospel Hymn Book"; });
-  const yoruba = repositoryHymns.find(function (hymn) { return hymn.source_hymnal.includes("Yoruba Hymn Book"); });
+test("admin views expose only uploaded hymns while the cleanup migration is pending", async () => {
+  const uploaded = repositoryHymns[0];
   const backend = installBackend({ hymnRows: [
-    { id: "current-english", hymn_number: english.hymn_number, source_hymnal: english.source_hymnal, title_en: english.title_en, status: "published", updated_at: "2026-10-12T00:00:00Z" },
-    { id: "current-yoruba", hymn_number: yoruba.hymn_number, source_hymnal: yoruba.source_hymnal, title_yoruba: yoruba.title_yoruba, status: "draft", updated_at: "2026-10-11T00:00:00Z" },
-    { id: "legacy-english", hymn_number: 99001, source_hymnal: english.source_hymnal, title_en: "Outside the pictured index", status: "published", updated_at: "2026-10-10T00:00:00Z" },
-    { id: "legacy-yoruba", hymn_number: 99002, source_hymnal: yoruba.source_hymnal, title_yoruba: "Outside the current Yoruba catalog", status: "draft", updated_at: "2026-10-09T00:00:00Z" },
-    { id: "custom-collection", hymn_number: 99003, source_hymnal: "Community Hymnal", title_en: "Custom collection hymn", status: "published", updated_at: "2026-10-08T00:00:00Z" }
+    { id: "uploaded-published", hymn_number: uploaded.hymn_number, source_hymnal: "Uploaded Hymn Collection", title_en: uploaded.title_en, status: "published", updated_at: "2026-10-12T00:00:00Z" },
+    { id: "uploaded-draft", hymn_number: 99002, source_hymnal: "Uploaded Hymn Collection", title_en: "Uploaded draft", status: "draft", updated_at: "2026-10-11T00:00:00Z" },
+    { id: "cac-english", hymn_number: 99001, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "CAC English hymn", status: "published", updated_at: "2026-10-10T00:00:00Z" },
+    { id: "cac-yoruba", hymn_number: 99003, source_hymnal: "Christ Apostolic Church Yoruba Hymn Book (Iwe Orin CAC)", title_yoruba: "CAC Yorùbá hymn", status: "draft", updated_at: "2026-10-09T00:00:00Z" },
+    { id: "custom-collection", hymn_number: 99004, source_hymnal: "Community Hymnal", title_en: "Custom collection hymn", status: "published", updated_at: "2026-10-08T00:00:00Z" }
   ] });
   await signIn();
 
   const hymns = await getHymnListRows();
-  assert.deepEqual(hymns.map(function (hymn) { return hymn.id; }), ["current-english", "current-yoruba", "custom-collection"]);
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.id; }), ["uploaded-published", "uploaded-draft"]);
   const drafts = await getDraftHymns();
-  assert.deepEqual(drafts.map(function (hymn) { return hymn.id; }), ["current-yoruba"]);
+  assert.deepEqual(drafts.map(function (hymn) { return hymn.id; }), ["uploaded-draft"]);
   const recent = await getRecentlyUpdatedHymns(5);
-  assert.ok(recent.every(function (hymn) { return !hymn.id.startsWith("legacy-"); }));
+  assert.ok(recent.every(function (hymn) { return hymn.source_hymnal === "Uploaded Hymn Collection"; }));
   assert.equal(backend.hymnRows.length, 5, "hidden database rows remain intact");
   await logoutAdmin();
 });
 
 test("draft list filters and paginates every draft using compact hymn rows", async () => {
   const rows = Array.from({ length: 210 }, function (_, index) {
-    return { id: "draft-page-" + index, hymn_number: index + 1, title_en: "Hymn " + (index + 1), first_line_en: "First line " + (index + 1), category: "Praise", status: index < 205 ? "draft" : "published" };
+    return { id: "draft-page-" + index, hymn_number: index + 1, title_en: "Hymn " + (index + 1), first_line_en: "First line " + (index + 1), source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: index < 205 ? "draft" : "published" };
   });
   const backend = installBackend({ hymnRows: rows });
   await signIn();
@@ -258,7 +257,7 @@ test("draft list filters and paginates every draft using compact hymn rows", asy
 
 test("admin hymn lists paginate beyond the backend's first 100 rows", async () => {
   const rows = Array.from({ length: 205 }, function (_, index) {
-    return { id: "page-" + index, hymn_number: index + 1, title_en: "Hymn " + (index + 1), first_line_en: "First line " + (index + 1), category: "Praise", status: index % 2 ? "draft" : "published" };
+    return { id: "page-" + index, hymn_number: index + 1, title_en: "Hymn " + (index + 1), first_line_en: "First line " + (index + 1), source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: index % 2 ? "draft" : "published" };
   });
   const backend = installBackend({ hymnRows: rows });
   await signIn();
@@ -270,9 +269,9 @@ test("admin hymn lists paginate beyond the backend's first 100 rows", async () =
 
 test("moving published hymns to Drafts updates every published row", async () => {
   const backend = installBackend({ hymnRows: [
-    { id: "published-1", hymn_number: 1, status: "published" },
-    { id: "published-2", hymn_number: 2, status: "published" },
-    { id: "already-draft", hymn_number: 3, status: "draft" }
+    { id: "published-1", hymn_number: 1, source_hymnal: "Uploaded Hymn Collection", status: "published" },
+    { id: "published-2", hymn_number: 2, source_hymnal: "Uploaded Hymn Collection", status: "published" },
+    { id: "already-draft", hymn_number: 3, source_hymnal: "Uploaded Hymn Collection", status: "draft" }
   ] });
   await signIn();
   assert.equal(await moveAllPublishedHymnsToDrafts(), 2);
@@ -281,17 +280,17 @@ test("moving published hymns to Drafts updates every published row", async () =>
   await logoutAdmin();
 });
 
-test("admin hymn list and editor keep the current English catalog and normalize meter titles", async () => {
+test("admin hymn list and editor show uploaded hymns and hide CAC rows", async () => {
   installBackend({ hymnRows: [
-    { id: "hymn-18", hymn_number: 18, source_hymn_number: 34, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "6.6.6.", first_line_en: "6.6.6.", source_first_line_en: "6.6.6.", verses_en: ["6.6.6.\nScripture reference", "Holy Father, hear me,\nThou art my defender,"], keywords: [] },
-    { id: "retired-1", hymn_number: 1, source_hymn_number: 1, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "Retired hymn", verses_en: ["Old verse"], keywords: [] }
+    { id: "uploaded-1", hymn_number: 10001, source_hymn_number: 34, source_hymnal: "Uploaded Hymn Collection", title_en: "6.6.6.", first_line_en: "6.6.6.", source_first_line_en: "6.6.6.", verses_en: ["6.6.6.\nScripture reference", "An uploaded hymn begins here"], keywords: [] },
+    { id: "cac-1", hymn_number: 18, source_hymn_number: 34, source_hymnal: "CAC GHB", title_en: "CAC hymn", verses_en: ["Not shown"], keywords: [] }
   ] });
   await signIn();
   const hymns = await getHymns();
   assert.equal(hymns.length, 1);
-  assert.equal(hymns[0].hymn_number, 18);
-  assert.equal(hymns[0].title_en, "Holy Father, hear me,");
-  assert.equal((await getHymn("hymn-18")).title_en, "Holy Father, hear me,");
-  assert.equal(await getHymn("retired-1"), null);
+  assert.equal(hymns[0].hymn_number, 10001);
+  assert.equal(hymns[0].title_en, "An uploaded hymn begins here");
+  assert.equal((await getHymn("uploaded-1")).title_en, "An uploaded hymn begins here");
+  assert.equal(await getHymn("cac-1"), null);
   await logoutAdmin();
 });
