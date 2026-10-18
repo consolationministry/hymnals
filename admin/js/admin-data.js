@@ -1,4 +1,4 @@
-import { hymns as repositoryHymns } from "../../data/cac-hymns.js";
+import repositoryHymns from "../../data/uploaded-hymns.js";
 import { findMissingHymnsByNumber } from "./hymn-catalog-sync.js";
 import { DEFAULT_ACTIVE_HYMNAL, isActiveHymnalId } from "../../js/hymnal-selection.js";
 import { requireAdmin } from "./admin-auth.js?v=31";
@@ -8,16 +8,8 @@ const GLOBAL_ROW_ID = "global";
 const DAILY_QUOTE_BOOKS = ["Psalms", "Proverbs"];
 const HYMNS_PAGE_SIZE = 100;
 const ADMIN_HYMN_LIST_COLUMNS = "id,hymn_number,title_en,title_yoruba,first_line_en,first_line_yoruba,verses_en,keywords,source_hymnal,source_hymn_number,source_first_line_en,category,status,updated_at";
-const HYMN_CATALOG_SYNC_VERSION = "separate-active-cac-and-uploaded-collections-v6";
+const HYMN_CATALOG_SYNC_VERSION = "uploaded-only-hymn-collection-v7";
 const HYMN_CATALOG_SYNC_KEY = "consolation-admin-hymn-catalog-sync";
-const ADMIN_CATALOG_NUMBERS_BY_SOURCE = new Map();
-repositoryHymns.forEach(function (hymn) {
-  const sourceHymnal = String(hymn.source_hymnal || "").trim();
-  const hymnNumber = Number(hymn.hymn_number);
-  if (!sourceHymnal || !Number.isInteger(hymnNumber)) return;
-  if (!ADMIN_CATALOG_NUMBERS_BY_SOURCE.has(sourceHymnal)) ADMIN_CATALOG_NUMBERS_BY_SOURCE.set(sourceHymnal, new Set());
-  ADMIN_CATALOG_NUMBERS_BY_SOURCE.get(sourceHymnal).add(hymnNumber);
-});
 
 async function adminRequest(path, options) {
   await requireAdmin();
@@ -65,34 +57,14 @@ function normalizeAdminHymn(row) {
 }
 
 function normalizeAdminHymns(rows) {
-  const hymns = asArray(rows).map(normalizeAdminHymn);
-  const isEnglishGospelHymn = function (hymn) {
-    return /\bGHB\b|Gospel Hymn Book/i.test(String(hymn.source_hymnal || ""));
-  };
-  const duplicate = hymns.find(function (hymn) {
-    return isEnglishGospelHymn(hymn) && Number(hymn.source_hymn_number) === 110;
-  });
-  const canonical = hymns.find(function (hymn) {
-    return isEnglishGospelHymn(hymn) && Number(hymn.source_hymn_number) === 86;
-  });
-  function comparableLine(value) {
-    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
-  }
-  if (duplicate && canonical && comparableLine(duplicate.first_line_en) && comparableLine(duplicate.first_line_en) === comparableLine(canonical.first_line_en)) {
-    canonical.keywords = Array.from(new Set(asArray(canonical.keywords).concat("110")));
-    return hymns.filter(function (hymn) { return hymn !== duplicate; });
-  }
-  return hymns;
+  return asArray(rows).map(normalizeAdminHymn);
 }
 
 function getVisibleAdminHymns(rows) {
-  const visibleRows = asArray(rows).filter(function (hymn) {
-    const sourceHymnal = String(hymn && hymn.source_hymnal || "").trim();
-    const catalogNumbers = ADMIN_CATALOG_NUMBERS_BY_SOURCE.get(sourceHymnal)
-      || (/\bGHB\b|Gospel Hymn Book/i.test(sourceHymnal) ? ADMIN_CATALOG_NUMBERS_BY_SOURCE.get("Christ Apostolic Church Gospel Hymn Book") : null);
-    return !catalogNumbers || catalogNumbers.has(Number(hymn.hymn_number));
+  const uploadedRows = asArray(rows).filter(function (hymn) {
+    return String(hymn && hymn.source_hymnal || "").trim() === "Uploaded Hymn Collection";
   });
-  return normalizeAdminHymns(visibleRows);
+  return normalizeAdminHymns(uploadedRows);
 }
 
 function escapeHtml(value) {
