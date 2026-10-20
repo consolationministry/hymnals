@@ -1,16 +1,19 @@
-const CACHE_NAME = "consolation-hymnal-1.1.53-dual";
+const CACHE_NAME = "consolation-hymnal-1.1.54-live-audio";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./css/theme.css",
   "./css/style.css",
+  "./css/live-audio.css",
   "./assets/consolation-launcher.png",
   "./assets/consolation-launcher-192.png",
   "./data/uploaded-hymns.js",
   "./data/uploaded-yoruba-hymns.js",
   "./js/hymnal-selection.js",
   "./js/app.js",
+  "./js/live-audio-data.js",
+  "./js/live-audio-views.js",
   "./js/favorites.js",
   "./js/hymn-service.js",
   "./js/hymn-reading.js",

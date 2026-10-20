@@ -4,6 +4,7 @@ import { createCategory, createHymn, createProgram, createService, deleteCategor
 import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "./admin-hymn-display.js?v=1";
 import { ACTIVE_HYMNALS, isActiveHymnalId, normalizeActiveHymnal } from "../../js/hymnal-selection.js";
 import { GROQ_API_KEY_STORAGE_KEY, requestGroqHymnEdit, validateGroqApiKey } from "./groq-hymn-editor.js?v=1";
+import { handleLiveAudioAdminAction, handleLiveAudioAdminSubmit, renderLiveAudioAdmin, stopAdminAudioMicTest } from "./live-audio-admin.js?v=1";
 
 const root = document.getElementById("admin-root");
 const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null, hymnRowsCache: { hymns: null, drafts: null }, hymnRowsLoading: { hymns: null, drafts: null }, hymnRowsVersion: { hymns: 0, drafts: 0 }, selectedHymnIds: new Set() };
@@ -14,6 +15,7 @@ const navigation = [
   { id: "categories", label: "Categories", icon: "layers" },
   { id: "services", label: "Service Planner", icon: "calendar" },
   { id: "programs", label: "Upcoming Programmes", icon: "event" },
+  { id: "live-audio", label: "Live Audio", icon: "radio" },
   { id: "settings", label: "Settings", icon: "settings" }
 ];
 const iconPaths = {
@@ -32,7 +34,8 @@ const iconPaths = {
   language: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/>',
   search: '<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/>',
   edit: '<path d="m15 5 4 4M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/>',
-  trash: '<path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/>'
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/>',
+  radio: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v10a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="m7 5 10-3M8 15h8"/><circle cx="8" cy="10" r="1.7"/>'
 };
 
 function escapeHtml(value) {
@@ -830,11 +833,16 @@ async function saveDailyQuoteSettings() {
 }
 function renderCurrentView() {
   root.querySelectorAll(".nav-item[data-view]").forEach(function (button) { button.setAttribute("aria-current", button.dataset.view === state.activeView ? "page" : "false"); });
+  if (state.activeView !== "live-audio") stopAdminAudioMicTest();
   if (state.activeView === "dashboard") renderDashboard();
   else if (state.activeView === "hymns" || state.activeView === "drafts") renderHymnWorkspace();
   else if (state.activeView === "categories") renderCategoryWorkspace();
   else if (state.activeView === "services") renderServiceWorkspace();
   else if (state.activeView === "programs") renderProgramWorkspace();
+  else if (state.activeView === "live-audio") {
+    const content = document.getElementById("admin-content");
+    if (content) content.innerHTML = renderLiveAudioAdmin();
+  }
   else if (state.activeView === "settings") renderSettingsWorkspace();
   else renderPlaceholder(state.activeView);
 }
@@ -1189,6 +1197,7 @@ async function setHymnStatus(id, status) {
 
 root.addEventListener("click", async function (event) {
   const button = event.target.closest("[data-action]"); if (!button) return;
+  if (state.activeView === "live-audio" && await handleLiveAudioAdminAction(button)) return;
   const action = button.dataset.action;
   if (action === "save-groq-key") {
     saveGroqApiKey();
@@ -1302,7 +1311,9 @@ root.addEventListener("click", async function (event) {
 });
 
 root.addEventListener("submit", async function (event) {
-  if (event.target.id === "admin-login-form") {
+  if (handleLiveAudioAdminSubmit(event)) {
+    return;
+  } else if (event.target.id === "admin-login-form") {
     event.preventDefault(); const email = document.getElementById("admin-email"); const password = document.getElementById("admin-password");
     const feedback = document.getElementById("login-error"); const submit = document.getElementById("login-submit"); const label = submit.querySelector(".login-button-label");
     feedback.textContent = "";

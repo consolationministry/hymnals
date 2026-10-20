@@ -14,6 +14,8 @@ The website and Android app share a mobile-first interface and a Supabase-backed
 - Offline-capable web app with a service-worker update prompt
 - Android app update checks, APK download, and Android installer handoff
 - Anonymous attendance votes and comments on programme announcement posts
+- A branded Live Audio member page with searchable programme cards, listener reactions, and anonymous comments
+- A protected Live Audio admin workspace for programme drafts, publishing, categories, and local microphone checks
 - A separate, administrator-only web workspace at `/admin/`
 - Published English and Yorùbá hymns, plus programmes and service plans from any date, load in the public web app and Android app from Supabase
 
@@ -69,4 +71,4 @@ The static website and service worker are in the repository root and can be publ
 
 The app catalog includes 128 user-supplied English hymns and 122 user-supplied Yorùbá hymns. The documents did not include separate publication or licensing information, so both collections remain marked “User-supplied; rights not verified.” Source details are in `data/SOURCES.md`.
 
-Member favorites and reading preferences are stored only in the current browser/device; they do not sync between devices. Members do not need an account. The separate admin account is only for the protected web workspace. Audio and projector mode are not included.
+Member favorites and reading preferences are stored only in the current browser/device; they do not sync between devices. The first Live Audio interface also stores its programmes, comments, reactions, and listener starts in local browser storage for preview only. An administrator can attach an HTTPS audio stream URL, but peer-to-peer WebRTC broadcasting, shared listener totals, and shared comments require a signaling and data service and are not active yet. Members do not need an account. The separate admin account is only for the protected web workspace. Projector mode is not included.
