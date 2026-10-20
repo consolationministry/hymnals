@@ -1,8 +1,8 @@
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
-import { DEFAULT_ACTIVE_HYMNAL, filterHymnsForActiveHymnal, isActiveHymnalId, normalizeActiveHymnal } from "./hymnal-selection.js";
+import { DEFAULT_ACTIVE_HYMNAL, filterHymnsForActiveHymnal, isActiveHymnalId, isManagedHymnSource, normalizeActiveHymnal, UPLOADED_HYMN_SOURCE, UPLOADED_YORUBA_HYMN_SOURCE } from "./hymnal-selection.js";
 
-const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-uploaded-v6";
+const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-dual-v7";
 const ACTIVE_HYMNAL_CACHE_KEY = "cerc-active-hymnal-v2";
 const PUBLIC_HYMN_COLUMNS = [
   "id",
@@ -16,6 +16,7 @@ const PUBLIC_HYMN_COLUMNS = [
   "verses_yoruba",
   "chorus_en",
   "chorus_yoruba",
+  "hymnal_note",
   "keywords",
   "author_en",
   "source_hymnal",
@@ -57,12 +58,14 @@ function normalizePublishedRows(rows) {
   const normalized = rows
     .filter(function (row) {
       if (!row || row.status !== "published" || !Number.isInteger(Number(row.hymn_number)) || Number(row.hymn_number) <= 0) return false;
-      return asString(row.source_hymnal).trim() === "Uploaded Hymn Collection";
+      return isManagedHymnSource(asString(row.source_hymnal).trim());
     })
     .map(function (row) {
       const versesEn = asStringArray(row.verses_en);
       const titleEn = asString(row.title_en);
-      const isUploadedCollection = asString(row.source_hymnal) === "Uploaded Hymn Collection";
+      const sourceHymnal = asString(row.source_hymnal).trim();
+      const isUploadedCollection = sourceHymnal === UPLOADED_HYMN_SOURCE;
+      const isYorubaCollection = sourceHymnal === UPLOADED_YORUBA_HYMN_SOURCE;
       const hasMeterTitle = isMeterTitle(titleEn);
       const firstVerseLine = firstLine(versesEn);
       const lyricLine = firstLine(hasMeterTitle && isMeterTitle(firstVerseLine) ? versesEn.slice(1) : versesEn);
@@ -78,10 +81,13 @@ function normalizePublishedRows(rows) {
         verses_yoruba: asStringArray(row.verses_yoruba),
         chorus_en: asString(row.chorus_en),
         chorus_yoruba: asString(row.chorus_yoruba),
+        hymnal_note: asString(row.hymnal_note),
         keywords: asStringArray(row.keywords),
         author_en: asString(row.author_en),
-        source_hymnal: asString(row.source_hymnal),
-        source_number_label: asString(row.source_number_label) || String(row.source_hymn_number || row.hymn_number) + (isUploadedCollection && VARIOUS_SOURCE_LABEL_HYMN_NUMBERS.has(Number(row.hymn_number)) ? "V" : ""),
+        source_hymnal: sourceHymnal,
+        source_number_label: asString(row.source_number_label) || (isYorubaCollection
+          ? String(row.source_hymn_number || row.hymn_number).padStart(3, "0")
+          : String(row.source_hymn_number || row.hymn_number) + (isUploadedCollection && VARIOUS_SOURCE_LABEL_HYMN_NUMBERS.has(Number(row.hymn_number)) ? "V" : "")),
         source_publication_year: row.source_publication_year || null,
         source_hymn_number: row.source_hymn_number ? Number(row.source_hymn_number) : null,
         source_first_line_en: hasMeterTitle ? lyricLine : asString(row.source_first_line_en),

@@ -1,6 +1,7 @@
 import repositoryHymns from "../../data/uploaded-hymns.js";
+import repositoryYorubaHymns from "../../data/uploaded-yoruba-hymns.js";
 import { findMissingHymnsByNumber } from "./hymn-catalog-sync.js";
-import { DEFAULT_ACTIVE_HYMNAL, isActiveHymnalId } from "../../js/hymnal-selection.js";
+import { DEFAULT_ACTIVE_HYMNAL, isActiveHymnalId, isManagedHymnSource } from "../../js/hymnal-selection.js";
 import { requireAdmin } from "./admin-auth.js?v=31";
 import { supabaseRequest } from "./supabase-client.js?v=31";
 
@@ -8,7 +9,7 @@ const GLOBAL_ROW_ID = "global";
 const DAILY_QUOTE_BOOKS = ["Psalms", "Proverbs"];
 const HYMNS_PAGE_SIZE = 100;
 const ADMIN_HYMN_LIST_COLUMNS = "id,hymn_number,title_en,title_yoruba,first_line_en,first_line_yoruba,verses_en,keywords,source_hymnal,source_hymn_number,source_first_line_en,category,status,updated_at";
-const HYMN_CATALOG_SYNC_VERSION = "uploaded-only-hymn-collection-v7";
+const HYMN_CATALOG_SYNC_VERSION = "uploaded-and-yoruba-hymn-collections-v8";
 const HYMN_CATALOG_SYNC_KEY = "consolation-admin-hymn-catalog-sync";
 
 async function adminRequest(path, options) {
@@ -62,7 +63,7 @@ function normalizeAdminHymns(rows) {
 
 function getVisibleAdminHymns(rows) {
   const uploadedRows = asArray(rows).filter(function (hymn) {
-    return String(hymn && hymn.source_hymnal || "").trim() === "Uploaded Hymn Collection";
+    return isManagedHymnSource(String(hymn && hymn.source_hymnal || "").trim());
   });
   return normalizeAdminHymns(uploadedRows);
 }
@@ -180,7 +181,7 @@ function normalizeHymnData(value, existing) {
 }
 
 export async function initializeAdminData() {
-  const importRows = repositoryHymns.map(function (hymn) {
+  const importRows = repositoryHymns.concat(repositoryYorubaHymns).map(function (hymn) {
     const versesEn = asArray(hymn.verses_en);
     const versesYoruba = asArray(hymn.verses_yoruba);
     const row = {
@@ -193,6 +194,7 @@ export async function initializeAdminData() {
       verses_yoruba: versesYoruba,
       chorus_en: hymn.chorus_en || "",
       chorus_yoruba: hymn.chorus_yoruba || "",
+      hymnal_note: hymn.hymnal_note || "",
       keywords: asArray(hymn.keywords),
       author_en: hymn.author_en || "",
       source_hymnal: hymn.source_hymnal || "",
@@ -221,9 +223,9 @@ export async function initializeAdminData() {
 
   let rowsToImport = importRows;
   if (alreadySynced) {
-    const uploadedRows = importRows.filter(function (hymn) { return hymn.source_hymnal === "Uploaded Hymn Collection"; });
-    const storedUploadedRows = await getAllAdminRows("rest/v1/hymns?select=hymn_number&source_hymnal=eq.Uploaded%20Hymn%20Collection&order=hymn_number.asc");
-    rowsToImport = findMissingHymnsByNumber(uploadedRows, storedUploadedRows);
+    const storedHymnRows = await getAllAdminRows("rest/v1/hymns?select=hymn_number,source_hymnal&order=hymn_number.asc");
+    const storedManagedRows = storedHymnRows.filter(function (hymn) { return isManagedHymnSource(hymn.source_hymnal); });
+    rowsToImport = findMissingHymnsByNumber(importRows, storedManagedRows);
     if (!rowsToImport.length) return { imported: 0 };
   }
 

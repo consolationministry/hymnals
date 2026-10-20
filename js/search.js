@@ -19,6 +19,7 @@ export function searchHymns(hymns, query, category) {
       hymn.first_line_en,
       hymn.source_first_line_en,
       hymn.first_line_yoruba,
+      hymn.hymnal_note,
       hymn.author_en,
       hymn.category,
       hymn.chorus_en,

@@ -1,4 +1,4 @@
-const CACHE_NAME = "consolation-hymnal-1.1.51-uploaded-only";
+const CACHE_NAME = "consolation-hymnal-1.1.52-dual";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
@@ -8,6 +8,7 @@ const PRECACHE_URLS = [
   "./assets/consolation-launcher.png",
   "./assets/consolation-launcher-192.png",
   "./data/uploaded-hymns.js",
+  "./data/uploaded-yoruba-hymns.js",
   "./js/hymnal-selection.js",
   "./js/app.js",
   "./js/favorites.js",

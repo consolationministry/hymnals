@@ -236,9 +236,11 @@ function renderFavorites() {
   return '<section class="page">' + pageHeading("Favorites", "Your saved hymns stay on this device.") + renderLanguageArea() + hymnList(saved, emptyTitle, emptyMessage) + '</section>';
 }
 
-function poemSection(label, verses, chorus, languageCode, hasMeterPreface) {
-  const partsMarkup = getReadingParts(verses, chorus, { hasMeterPreface: hasMeterPreface === true }).map(function (part) {
-    if (part.type === "heading") {
+function poemSection(label, verses, chorus, languageCode, hasMeterPreface, hymnalNote) {
+  const readingParts = getReadingParts(verses, chorus, { hasMeterPreface: hasMeterPreface === true });
+  if (hymnalNote) readingParts.unshift({ type: "note", text: hymnalNote });
+  const partsMarkup = readingParts.map(function (part) {
+    if (part.type === "heading" || part.type === "note") {
       return '<div class="verse-block hymnal-note" role="note"><span class="verse-label">Hymnal note</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
     }
     if (part.type === "chorus") {
@@ -439,7 +441,7 @@ function renderReader() {
     : '<span lang="yo">' + escapeHtml(hymn.first_line_yoruba) + '</span>';
   let sections = hasEnglish
     ? poemSection("English", hymn.verses_en, hymn.chorus_en, "en", showEnglishGospelMeterHeading)
-    : poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo");
+    : poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo", false, hymn.hymnal_note);
   let translationNote = "";
   const hasYoruba = hasYorubaText(hymn);
   if (state.settings.language === "yoruba") {
@@ -470,9 +472,9 @@ function renderSettings() {
   return '<section class="page">' + pageHeading("Settings", "Make the hymn book comfortable for you.") +
     '<section class="settings-group"><h2>Appearance</h2><p class="settings-description">Choose how the app looks on this device.</p><div class="preference-choices">' + themeChoice("light", "Light", "sun") + themeChoice("dark", "Dark", "moon") + themeChoice("system", "System", "settings") + '</div></section>' +
     '<section class="settings-group"><h2>Accent colour</h2><p class="settings-description">Choose from six colours. Your choice works with light and dark mode.</p><div class="accent-grid">' + accentChoices + '</div></section>' +
-    '<section class="settings-group"><h2>Reading</h2><p class="settings-description">Set your preferred hymn language and text size. Text-size changes apply across the app. Yorùbá text is still being sourced.</p><div class="setting-row"><span><strong>Language</strong><small>Choose which hymn text to show.</small></span>' + languageToggle() + '</div><div class="setting-row"><span><strong>Text size</strong><small id="settings-font-value">' + size + ' px</small></span><input class="setting-range" id="settings-font-size" type="range" min="17" max="32" step="1" value="' + size + '" aria-label="Text size across the app" data-testid="input-font-size"></div><p class="verse-text setting-preview" style="--hymn-size:' + size + 'px">The hymn text will use this size.</p></section>' +
+    '<section class="settings-group"><h2>Reading</h2><p class="settings-description">Set your preferred hymn language and text size. English and Yorùbá are available as separate hymn collections.</p><div class="setting-row"><span><strong>Language</strong><small>Choose which hymn text to show.</small></span>' + languageToggle() + '</div><div class="setting-row"><span><strong>Text size</strong><small id="settings-font-value">' + size + ' px</small></span><input class="setting-range" id="settings-font-size" type="range" min="17" max="32" step="1" value="' + size + '" aria-label="Text size across the app" data-testid="input-font-size"></div><p class="verse-text setting-preview" style="--hymn-size:' + size + 'px">The hymn text will use this size.</p></section>' +
     '<div class="settings-actions"><button class="button-primary settings-save" type="button" data-action="save-settings" data-testid="button-save-settings">' + icon("check") + ' Save settings</button></div>' +
-    '<section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal · Version ' + APP_VERSION + '</small></span></div><p class="about-copy">The built-in collection contains 152 English hymns and 152 Yorùbá hymns, presented as separate church hymn books. Meter-only English headings use each hymn’s opening lyric line as its title. Duplicate English hymn 110 is merged with hymn 86, and both numbers find the same entry. The collections remain separate because their numbers are not a verified translation mapping. See data/SOURCES.md for catalog notes.</p><div class="setting-note" style="margin-top:14px"><strong>Publishing and attribution</strong><br>Hymns marked Published in the admin workspace appear in the public catalog. Confirm the source attribution and publishing permission before publishing additional material.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
+    '<section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal · Version ' + APP_VERSION + '</small></span></div><p class="about-copy">The catalog contains 128 English hymns and 122 user-provided Yorùbá hymns in separate collections. Printed numbers are preserved, and matching numbers are not treated as translations. See data/SOURCES.md for catalog notes.</p><div class="setting-note" style="margin-top:14px"><strong>Publishing and attribution</strong><br>Hymns marked Published in the admin workspace appear in the public catalog. Confirm the source attribution and publishing permission before publishing additional material.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
 }
 
 function finishSplash() {
