@@ -29,6 +29,7 @@ function programMeta(program) {
   if (program.speaker) items.push("<span>" + escapeHtml(program.speaker) + "</span>");
   if (program.date) items.push("<span>" + escapeHtml(formattedDate(program.date)) + "</span>");
   if (program.venue) items.push("<span>" + escapeHtml(program.venue) + "</span>");
+  if (program.onAir && program.listenCount) items.push("<span>" + escapeHtml(program.listenCount) + " listening</span>");
   return items.length ? '<div class="audio-program-meta">' + items.join("") + "</div>" : "";
 }
 
@@ -57,10 +58,10 @@ export function renderHomeAudioCard() {
 
 export function renderLiveAudioPage(data, query, category) {
   const programs = data.programs.filter(function (program) { return program.status === "published"; });
-  const livePrograms = programs.filter(function (program) { return program.onAir && program.streamUrl; });
+  const livePrograms = programs.filter(function (program) { return program.onAir && program.liveSessionId; });
   const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
   const formalPrograms = programs.filter(function (program) {
-    if (program.onAir && program.streamUrl) return false;
+    if (program.onAir && program.liveSessionId) return false;
     const matchesQuery = !normalizedQuery || (program.title + " " + program.category + " " + program.speaker + " " + program.description)
       .toLocaleLowerCase().includes(normalizedQuery);
     const matchesCategory = !category || program.category === category;
@@ -73,10 +74,11 @@ export function renderLiveAudioPage(data, query, category) {
   }).join("");
   return '<section class="page live-audio-page">' +
     '<div class="page-heading"><h1>Listen</h1><p>Live audio and published programmes from Consolation Evangelical and Revival Church.</p></div>' +
+    (data.error ? '<p class="audio-service-error" role="alert">' + escapeHtml(data.error) + "</p>" : "") +
     '<section class="live-audio-hero" aria-label="Live audio status"><div class="live-audio-hero-copy">' +
     '<p class="live-audio-kicker">' + (livePrograms.length ? '<span class="live-audio-badge is-live">Live now</span>' : '<span class="live-audio-badge">Church radio</span>') + "</p>" +
     "<h2>" + (livePrograms.length ? "Join the service in progress." : "Stay close to the church community.") + "</h2>" +
-    "<p>" + (livePrograms.length ? "Choose an audio programme below. Live audio playback is available when the stream is connected." : "No audio stream is on air right now. Published programmes will appear here when the church adds them.") + "</p></div>" +
+    "<p>" + (livePrograms.length ? "Choose a programme and connect to the live audio room." : "No programme is live right now. Published programmes will appear here when the church adds them.") + "</p></div>" +
     '<div class="live-audio-emblem"><img src="./assets/consolation-launcher.png" alt="Consolation Evangelical and Revival Church"></div></section>' +
     '<section class="audio-section" aria-labelledby="audio-live-heading"><div class="audio-section-heading"><div><h2 id="audio-live-heading">Live programmes</h2><p>Currently marked on air by the admin.</p></div></div>' +
     (livePrograms.length ? '<div class="audio-live-carousel" aria-label="Live audio programmes">' + livePrograms.map(function (program) { return programCard(program, true); }).join("") + "</div>" : emptyState("Nothing is live right now", "When a published programme is set on air, it will appear in this row.")) + "</section>" +
@@ -84,11 +86,13 @@ export function renderLiveAudioPage(data, query, category) {
     '<div class="audio-controls"><label class="sr-only" for="live-audio-search">Search programmes</label><input class="audio-search-input" id="live-audio-search" type="search" value="' + escapeHtml(query) + '" placeholder="Search programmes…" data-live-audio-search>' +
     '<label class="sr-only" for="live-audio-category">Filter by category</label><select class="audio-category-select" id="live-audio-category" data-live-audio-category>' + selectOptions + "</select></div>" +
     (formalPrograms.length ? '<div class="audio-program-grid">' + formalPrograms.map(function (program) { return programCard(program, false); }).join("") + "</div>" :
+      data.loading ? emptyState("Loading programmes", "Checking for current broadcasts and published programmes…") :
       emptyState(programs.length ? "No programmes match" : "No programmes published yet", programs.length ? "Try a different title or category." : "Published programmes from the admin workspace will be listed here.")) +
-    '<p class="audio-preview-notice">This first-phase preview keeps programme details, comments, reactions, and listener counts in this browser only. WebRTC broadcasting and shared listener totals need a signaling and data service.</p></section></section>';
+    '<p class="audio-preview-notice">Live audio is sent directly between listeners and the church broadcaster. Some mobile or corporate networks may need a TURN relay.</p></section></section>';
 }
 
-export function renderLiveAudioListener(data, programId) {
+export function renderLiveAudioListener(data, programId, options) {
+  const opts = options || {};
   const program = data.programs.find(function (item) { return item.id === programId && item.status === "published"; });
   if (!program) {
     return '<section class="page audio-listener-page"><button class="audio-back-button" type="button" data-action="back-to-live-audio">‹ Back to Listen</button>' +
@@ -96,9 +100,14 @@ export function renderLiveAudioListener(data, programId) {
   }
   const counts = liveAudioCounts(data, program.id);
   const comments = data.comments.filter(function (comment) { return comment.programId === program.id; }).slice(-12).reverse();
-  const player = program.streamUrl
-    ? '<div class="audio-player"><audio controls preload="none" src="' + escapeHtml(program.streamUrl) + '" aria-label="Listen to ' + escapeHtml(program.title) + '"></audio><p class="audio-player-note">' + (program.onAir ? "Live audio stream. Playback may take a moment to connect." : "Audio stream provided by the church.") + "</p></div>"
-    : '<div class="audio-player"><p class="audio-player-note">Audio playback will appear here when this programme has a secure stream URL. Peer-to-peer WebRTC is not connected in this preview.</p></div>';
+  const isLive = program.onAir && Boolean(program.liveSessionId);
+  const player = isLive
+    ? '<div class="audio-player"><audio controls playsinline preload="none" data-live-audio-player aria-label="Listen to ' + escapeHtml(program.title) + '"></audio>' +
+      '<p class="audio-player-note" data-live-audio-status aria-live="polite">' + escapeHtml(opts.status || "Connect to join the live audio room.") + "</p>" +
+      '<div class="audio-live-actions"><button class="button-primary" type="button" data-action="connect-live-audio" data-program-id="' + escapeHtml(program.id) + '"' +
+      (opts.connecting || opts.connected ? " disabled" : "") + ">" + (opts.connecting ? "Connecting…" : opts.connected ? "Connected" : "Connect to live audio") + "</button>" +
+      (opts.connected || opts.connecting ? '<button class="button-secondary" type="button" data-action="disconnect-live-audio">Stop listening</button>' : "") + "</div></div>"
+    : '<div class="audio-player"><p class="audio-player-note">This programme is not live right now. Return to Listen to see when the next broadcast begins.</p></div>';
   const commentList = comments.length
     ? '<ul class="audio-comment-list">' + comments.map(function (comment) {
       return '<li class="audio-comment"><p>' + escapeHtml(comment.body) + '</p><time datetime="' + escapeHtml(comment.createdAt) + '">' + escapeHtml(formattedDate(comment.createdAt)) + "</time></li>";
@@ -108,11 +117,12 @@ export function renderLiveAudioListener(data, programId) {
     .map(escapeHtml).join(" · ");
   return '<section class="page audio-listener-page"><button class="audio-back-button" type="button" data-action="back-to-live-audio">' +
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg> Back to Listen</button>' +
+    (data.error ? '<p class="audio-service-error" role="alert">' + escapeHtml(data.error) + "</p>" : "") +
     '<article class="audio-listener-card">' +
     (program.imageUrl ? '<div class="audio-listener-art"><img src="' + escapeHtml(program.imageUrl) + '" alt=""></div>' : '<div class="audio-listener-art"><span class="audio-listener-art-placeholder">' + radioIcon() + "</span></div>") +
     '<div class="audio-listener-body"><div class="audio-listener-title-row"><div><h1>' + escapeHtml(program.title) + "</h1>" +
     '<p class="audio-listener-speaker">' + (meta || "Consolation Evangelical and Revival Church") + "</p></div>" +
-    (program.onAir ? '<span class="live-audio-badge is-live">On air</span>' : '<span class="live-audio-badge">Published programme</span>') + "</div>" +
+    (isLive ? '<span class="live-audio-badge is-live">On air</span>' : '<span class="live-audio-badge">Published programme</span>') + "</div>" +
     player + (program.description ? '<p class="audio-listener-description">' + escapeHtml(program.description) + "</p>" : "") +
     '<span class="audio-listener-timer" data-audio-listen-timer aria-live="polite"></span>' +
     '<div class="audio-reactions" aria-label="Reactions">' +
@@ -123,6 +133,6 @@ export function renderLiveAudioListener(data, programId) {
     '<form class="audio-comment-form" data-audio-comment-form data-program-id="' + escapeHtml(program.id) + '"><label class="sr-only" for="audio-comment-input">Your comment</label>' +
     '<textarea id="audio-comment-input" name="comment" maxlength="280" required placeholder="Encourage someone listening…"></textarea>' +
     '<button class="button-primary" type="submit">Post comment</button></form>' + commentList + "</section></div></article>" +
-    '<p class="audio-preview-notice">Comments and reactions in this preview are stored on this device only; they are not visible to other listeners.</p></section>';
+    '<p class="audio-preview-notice">Comments and reactions are shared with other listeners. Comments are public and do not display your name.</p></section>';
 }
 

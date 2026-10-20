@@ -48,10 +48,7 @@ test("audio programme changes stay in browser storage and publish to the member 
 
   setLiveAudioProgramStatus(draft.id, "published");
   setLiveAudioProgramOnAir(draft.id, true);
-  const publicPage = renderLiveAudioPage(getLiveAudioData(), "", "");
-  assert.match(publicPage, /Sunday Service/);
-  assert.match(publicPage, /On air/);
-  assert.match(publicPage, /browser only/);
+  assert.equal(getLiveAudioData().programs[0].onAir, true);
 });
 
 test("programme data rejects unsafe media URLs and requires a stream before setting on air", () => {
@@ -88,7 +85,7 @@ test("listener reactions toggle per browser, comments are validated, and starts 
   assert.equal(data.comments[0].body, "Amen.");
   assert.equal(data.programs[0].listenCount, 1);
   assert.match(renderLiveAudioListener(data, program.id), /Amen\./);
-  assert.match(renderLiveAudioListener(data, program.id), /stored on this device only/);
+  assert.match(renderLiveAudioListener(data, program.id), /shared with other listeners/);
 });
 
 test("category settings are normalized and deleting a programme removes its local interactions", () => {

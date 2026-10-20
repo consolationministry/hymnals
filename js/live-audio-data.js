@@ -231,6 +231,9 @@ export function getLiveAudioVisitorId() {
 }
 
 export function liveAudioReactionSelected(data, programId, type) {
+  if (data && data.myReactions && Array.isArray(data.myReactions[programId])) {
+    return data.myReactions[programId].includes(type);
+  }
   const id = visitorId();
   return Boolean(data && data.visitorReactions && data.visitorReactions[programId] && data.visitorReactions[programId][type] === id);
 }
