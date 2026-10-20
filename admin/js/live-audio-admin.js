@@ -40,6 +40,7 @@ function icon(name) {
     radio: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v10a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="m7 5 10-3M8 15h8"/><circle cx="8" cy="10" r="1.7"/>',
     check: '<path d="m5 12 4 4L19 6"/>',
     edit: '<path d="m15 5 4 4M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/>',
+    back: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
     trash: '<path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/>'
   };
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[name] || "") + "</svg>";
@@ -50,7 +51,7 @@ function tabButton(id, label) {
 }
 
 function localNotice() {
-  return '<div class="audio-admin-notice" role="note"><strong>Browser-only preview.</strong> Broadcast details, reactions, comments, and listener starts are stored on this device. Mic test stays on the device; WebRTC publishing and cross-device data need a signaling/backend setup.</div>';
+  return '<div class="audio-admin-notice" role="note"><strong>Browser-only preview.</strong> Broadcast details, reactions, comments, and listener starts are stored on this device. The microphone check is in Broadcast settings and stays local; WebRTC publishing and cross-device data need a signaling/backend setup.</div>';
 }
 
 function renderStats(data) {
@@ -104,7 +105,7 @@ function renderProgramForm(data) {
     return '<option value="' + escapeHtml(category) + '"' + (category === item.category ? " selected" : "") + ">" + escapeHtml(category) + "</option>";
   }).join("");
   return '<section class="audio-admin-form-wrap"><div class="page-heading"><div><h1>' + (existing ? "Edit programme" : "New programme") +
-    '</h1><p>Programme details are saved to this browser preview.</p></div><button class="button button-secondary" type="button" data-action="audio-admin-cancel">Cancel</button></div>' +
+    '</h1><p>Programme details are saved to this browser preview.</p></div><button class="button button-secondary audio-admin-back" type="button" data-action="audio-admin-back">' + icon("back") + "Back to broadcasts</button></div>" +
     '<form class="panel audio-admin-form" id="live-audio-program-form">' +
     '<div class="audio-admin-form-grid"><div class="admin-field"><label for="audio-title">Programme title <span aria-hidden="true">*</span></label><input class="form-input" id="audio-title" name="title" maxlength="120" value="' + escapeHtml(item.title) + '" required></div>' +
     '<div class="admin-field"><label for="audio-speaker">Speaker</label><input class="form-input" id="audio-speaker" name="speaker" maxlength="100" value="' + escapeHtml(item.speaker) + '"></div>' +
@@ -119,14 +120,15 @@ function renderProgramForm(data) {
 }
 
 function renderSettings(data) {
-  return '<section class="page-heading"><div><h1>Audio settings</h1><p>Manage audio categories while keeping the app’s church identity unchanged.</p></div></section>' +
+  return '<section class="page-heading"><div><h1>Broadcast settings</h1><p>Check the microphone locally and manage audio categories. Broadcasting still needs a signaling service.</p></div><button class="button button-secondary audio-admin-back" type="button" data-action="audio-admin-back">' + icon("back") + "Back to broadcasts</button></section>" +
+    '<div class="audio-settings-mic">' + renderMicTest() + "</div>" +
     '<section class="panel audio-admin-settings"><div class="audio-brand-preview"><img src="../assets/consolation-launcher.png" alt="" width="58" height="58"><div><strong>Consolation Evangelical and Revival Church</strong><span>Occupy Till I Come · Existing app branding</span></div></div>' +
     '<form id="audio-categories-form"><div class="admin-field"><label for="audio-categories">Programme categories</label><textarea class="form-textarea" id="audio-categories" name="categories" rows="5">' + escapeHtml(data.categories.join(", ")) +
     '</textarea><p class="field-hint">Separate categories with commas. Existing programmes keep their current category label.</p></div><button class="button button-primary" type="submit">Save categories</button></form></section>';
 }
 
 function renderMicTest() {
-  return '<section class="panel audio-mic-panel"><header class="panel-header"><div><h2>Microphone check</h2><p>Test the microphone locally before a future live-broadcast setup.</p></div></header><div class="panel-body"><p class="audio-mic-explanation">This check requests browser microphone permission and displays a local level meter. It does not record or transmit audio.</p><div class="audio-mic-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-audio-mic-level></span></div><p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">Microphone is off.</p><div class="audio-mic-actions"><button class="button button-secondary" type="button" data-action="audio-admin-mic-test">Test microphone</button><button class="button button-secondary" type="button" data-action="audio-admin-mic-stop" hidden>Stop test</button></div></div></section>';
+  return '<section class="panel audio-mic-panel"><header class="panel-header"><div><h2>Microphone check before going live</h2><p>Test the microphone locally before a future live-broadcast setup.</p></div></header><div class="panel-body"><p class="audio-mic-explanation">This check requests browser microphone permission and displays a local level meter. It does not record or transmit audio.</p><div class="audio-mic-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-audio-mic-level></span></div><p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">Microphone is off.</p><div class="audio-mic-actions"><button class="button button-secondary" type="button" data-action="audio-admin-mic-test">Test microphone</button><button class="button button-secondary" type="button" data-action="audio-admin-mic-stop" hidden>Stop test</button></div></div></section>';
 }
 
 export function renderLiveAudioAdmin() {
@@ -134,13 +136,13 @@ export function renderLiveAudioAdmin() {
   if (editingId) return renderProgramForm(data);
   if (activeTab === "settings") return localNotice() + renderSettings(data);
   const listingTabs = '<div class="audio-admin-tabs" role="group" aria-label="Filter programmes">' +
-    tabButton("programs", "All programmes") + tabButton("drafts", "Drafts") + tabButton("published", "Published") + tabButton("settings", "Settings") + "</div>";
+    tabButton("programs", "All programmes") + tabButton("drafts", "Drafts") + tabButton("published", "Published") + tabButton("settings", "Broadcast settings") + "</div>";
   const listActions = '<div class="audio-admin-toolbar"><div><h2>' + (activeTab === "drafts" ? "Drafts" : activeTab === "published" ? "Published programmes" : "Broadcast management") +
     '</h2><p>Manage programme information for the member Listen page.</p></div><div class="audio-admin-toolbar-actions">' +
     (activeTab === "drafts" ? '<button class="button button-secondary" type="button" data-action="audio-admin-export">Export drafts</button>' : "") +
     '<button class="button button-primary" type="button" data-action="audio-admin-new">' + icon("check") + " New programme</button></div></div>";
-  return '<section><div class="page-heading"><div><h1>Live Audio</h1><p>Broadcast setup for the existing Consolation Hymnal.</p></div></div>' +
-    localNotice() + renderStats(data) + renderMicTest() + listingTabs + listActions + renderProgramRows(data) + "</section>";
+  return '<section><div class="page-heading"><div><h1>Live Audio</h1><p>Broadcast setup for the existing Consolation Hymnal.</p></div><button class="button button-secondary audio-admin-back" type="button" data-action="navigate" data-view="dashboard">' + icon("back") + "Back to admin dashboard</button></div>" +
+    localNotice() + renderStats(data) + listingTabs + listActions + renderProgramRows(data) + "</section>";
 }
 
 function rerender() {
@@ -245,6 +247,12 @@ export async function handleLiveAudioAdminAction(button) {
   }
   if (action === "audio-admin-cancel") {
     editingId = null;
+    rerender();
+    return true;
+  }
+  if (action === "audio-admin-back") {
+    editingId = null;
+    activeTab = "programs";
     rerender();
     return true;
   }

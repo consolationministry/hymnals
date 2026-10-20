@@ -15,7 +15,7 @@ The website and Android app share a mobile-first interface and a Supabase-backed
 - Android app update checks, APK download, and Android installer handoff
 - Anonymous attendance votes and comments on programme announcement posts
 - A branded Live Audio member page with searchable programme cards, listener reactions, and anonymous comments
-- A protected Live Audio admin workspace for programme drafts, publishing, categories, and local microphone checks
+- A protected Live Audio admin workspace for programme drafts, publishing, categories, back navigation, and a local microphone check in Broadcast settings
 - A separate, administrator-only web workspace at `/admin/`
 - Published English and Yorùbá hymns, plus programmes and service plans from any date, load in the public web app and Android app from Supabase
 
