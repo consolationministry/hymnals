@@ -107,6 +107,8 @@
 .audio-player { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface-soft); }
 .audio-player audio { display: block; width: 100%; min-height: 44px; }
 .audio-player-note { margin: 0; color: var(--muted); font-size: .83rem; line-height: 1.45; }
+.audio-live-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.audio-service-error { margin: 0 0 14px; padding: 12px 14px; border: 1px solid #e7a9b4; border-radius: 12px; color: #982640; background: #fff2f4; font-size: .85rem; line-height: 1.5; }
 .audio-listener-description { margin: 0; color: var(--ink); line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
 .audio-reactions { display: flex; flex-wrap: wrap; gap: 9px; padding-top: 14px; border-top: 1px solid var(--line); }
 .audio-reaction-button { display: inline-flex; min-height: 43px; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: var(--surface); font: inherit; font-size: .88rem; font-weight: 750; cursor: pointer; }
