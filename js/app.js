@@ -12,6 +12,8 @@ import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
 import { APP_VERSION } from "./version.js";
 import { remainingSplashMs } from "./splash-timing.js";
 import { displayCollectionLabel, displayHymnalName } from "./hymnal-labels.js";
+import { LIVE_AUDIO_STORAGE_KEY, addLiveAudioComment, getLiveAudioData, recordLiveAudioListen, toggleLiveAudioReaction } from "./live-audio-data.js";
+import { renderHomeAudioCard, renderLiveAudioListener, renderLiveAudioPage } from "./live-audio-views.js";
 
 const splashStartedAt = Date.now();
 const CHURCH_MOTTO = "Occupy Till I Come";
@@ -29,7 +31,7 @@ const updateMessage = document.getElementById("update-message");
 const updateVersion = document.getElementById("update-version");
 const updateStatus = document.getElementById("update-status");
 const updateInstallButton = document.getElementById("update-install");
-const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
+const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, liveAudioData: getLiveAudioData(), liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
@@ -49,7 +51,8 @@ const iconPaths = {
   moon: '<path d="M20.7 14.4A8.8 8.8 0 0 1 9.6 3.3 8.8 8.8 0 1 0 20.7 14.4Z"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
-  arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>'
+  arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  radio: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v10a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="m7 5 10-3M8 15h8"/><circle cx="8" cy="10" r="1.7"/>'
 };
 
 function icon(name, extraClass) {
@@ -85,7 +88,7 @@ function languageToggle() {
 
 function renderHeader() {
   const activeView = state.view === "reader" ? state.readerReturnView : state.view;
-  const items = [["home", "Home"], ["hymns", "Hymns"], ["programs", "Upcoming Programmes"], ["services", "Service Plans"], ["favorites", "Favorites"], ["recent", "Recently viewed"], ["settings", "Settings"]];
+  const items = [["home", "Home"], ["listen", "Live Audio"], ["hymns", "Hymns"], ["programs", "Upcoming Programmes"], ["services", "Service Plans"], ["favorites", "Favorites"], ["recent", "Recently viewed"], ["settings", "Settings"]];
   const menu = '<nav id="header-nav-menu" class="header-nav-menu" aria-label="Main menu"' + (state.menuOpen ? "" : " hidden") + '>' + items.map(function (item) {
       return '<button class="header-nav-item" type="button" data-action="navigate" data-view="' + item[0] + '" aria-current="' + (activeView === item[0] ? "page" : "false") + '" data-testid="menu-' + item[0] + '">' + item[1] + '</button>';
     }).join("") + '</nav>'
@@ -212,7 +215,7 @@ function renderHome() {
   } else {
     collection = '<div class="home-hymn-list" aria-live="polite">' + visibleHymns.map(homeHymn).join("") + '</div>';
   }
-  return '<section class="page home-page">' + renderHomeSearch() + '<div class="home-language">' + languageToggle() + '</div>' + collection + '</section>';
+  return '<section class="page home-page">' + renderHomeAudioCard() + renderHomeSearch() + '<div class="home-language">' + languageToggle() + '</div>' + collection + '</section>';
 }
 function renderHymnLibrary() {
   const results = searchHymns(state.hymns, state.query, state.category).filter(state.settings.language === "yoruba" ? hasYorubaText : hasEnglishText);
@@ -498,6 +501,9 @@ function render() {
   applyPreferences();
   renderHeader();
   if (state.view === "home") main.innerHTML = renderHome();
+  else if (state.view === "listen") main.innerHTML = state.selectedLiveAudioProgramId
+    ? renderLiveAudioListener(state.liveAudioData, state.selectedLiveAudioProgramId)
+    : renderLiveAudioPage(state.liveAudioData, state.liveAudioQuery, state.liveAudioCategory);
   else if (state.view === "hymns") main.innerHTML = renderHymnLibrary();
   else if (state.view === "programs") main.innerHTML = renderPublicProgramsPage();
   else if (state.view === "services") main.innerHTML = renderPublicServicePlansPage();
@@ -506,7 +512,7 @@ function render() {
   else if (state.view === "settings") main.innerHTML = renderSettings();
   else main.innerHTML = renderReader();
   renderNav();
-  document.title = state.view === "reader" ? "Hymn " + String(state.selectedNumber).padStart(2, "0") + " · Consolation Hymnal" : "Consolation Hymnal";
+  document.title = state.view === "reader" ? "Hymn " + String(state.selectedNumber).padStart(2, "0") + " · Consolation Hymnal" : state.view === "listen" ? "Listen · Consolation Hymnal" : "Consolation Hymnal";
 }
 
 function setSettings(changes, persist = true) {
@@ -538,14 +544,41 @@ function openHymn(number) {
 }
 
 function navigate(view) {
-  if (!["home", "hymns", "programs", "services", "favorites", "recent", "settings"].includes(view)) return;
+  if (!["home", "listen", "hymns", "programs", "services", "favorites", "recent", "settings"].includes(view)) return;
+  if (state.view === "listen" && view !== "listen") stopLiveAudioTimer();
   state.view = view;
   state.searchOpen = false;
   state.menuOpen = false;
+  if (view === "listen") {
+    state.selectedLiveAudioProgramId = null;
+    state.liveAudioData = getLiveAudioData();
+  }
   if (view !== "hymns") state.category = "";
   render();
   window.scrollTo(0, 0);
   main.focus({ preventScroll: true });
+}
+
+function stopLiveAudioTimer() {
+  if (state.liveAudioTimer) window.clearInterval(state.liveAudioTimer);
+  state.liveAudioTimer = null;
+  state.liveAudioStartedAt = null;
+}
+
+function updateLiveAudioTimer() {
+  const label = main.querySelector("[data-audio-listen-timer]");
+  if (!label || !state.liveAudioStartedAt) return;
+  const elapsed = Math.max(0, Math.floor((Date.now() - state.liveAudioStartedAt) / 1000));
+  const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
+  const seconds = String(elapsed % 60).padStart(2, "0");
+  label.textContent = "Listening · " + minutes + ":" + seconds;
+}
+
+function beginLiveAudioTimer() {
+  stopLiveAudioTimer();
+  state.liveAudioStartedAt = Date.now();
+  updateLiveAudioTimer();
+  state.liveAudioTimer = window.setInterval(updateLiveAudioTimer, 1000);
 }
 
 function updateSearch(value, selectionStart, selectionEnd) {
@@ -652,6 +685,30 @@ document.addEventListener("click", function (event) {
     state.searchOpen = false;
     render();
   } else if (action === "open-hymn") openHymn(target.dataset.number);
+  else if (action === "open-live-audio") {
+    state.liveAudioData = getLiveAudioData();
+    state.selectedLiveAudioProgramId = target.dataset.programId;
+    state.view = "listen";
+    state.menuOpen = false;
+    stopLiveAudioTimer();
+    render();
+    window.scrollTo(0, 0);
+    main.focus({ preventScroll: true });
+  } else if (action === "back-to-live-audio") {
+    stopLiveAudioTimer();
+    state.selectedLiveAudioProgramId = null;
+    state.liveAudioData = getLiveAudioData();
+    render();
+  } else if (action === "audio-reaction") {
+    try {
+      state.liveAudioData = toggleLiveAudioReaction(target.dataset.programId, target.dataset.reaction);
+      render();
+      const button = main.querySelector('[data-action="audio-reaction"][data-reaction="' + target.dataset.reaction + '"]');
+      if (button) button.focus();
+    } catch (error) {
+      showToast(error && error.message ? error.message : "The reaction could not be saved.");
+    }
+  }
   else if (action === "toggle-programme-description") {
     const programId = target.dataset.programId;
     state.programmeDescriptionsExpanded[programId] = !state.programmeDescriptionsExpanded[programId];
@@ -700,7 +757,16 @@ document.addEventListener("keydown", function (event) {
 });
 
 document.addEventListener("input", function (event) {
-  if (event.target.id === "hymn-search") {
+  if (event.target.matches("[data-live-audio-search]")) {
+    state.liveAudioQuery = event.target.value;
+    state.liveAudioData = getLiveAudioData();
+    render();
+    const input = document.getElementById("live-audio-search");
+    if (input) {
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  } else if (event.target.id === "hymn-search") {
     const start = event.target.selectionStart == null ? event.target.value.length : event.target.selectionStart;
     const end = event.target.selectionEnd == null ? event.target.value.length : event.target.selectionEnd;
     updateSearch(event.target.value, start, end);
@@ -715,8 +781,26 @@ document.addEventListener("input", function (event) {
   }
 });
 
+document.addEventListener("change", function (event) {
+  if (!event.target.matches("[data-live-audio-category]")) return;
+  state.liveAudioCategory = event.target.value;
+  state.liveAudioData = getLiveAudioData();
+  render();
+});
+
 document.addEventListener("submit", function (event) {
-  if (event.target.matches("[data-search-form]")) {
+  if (event.target.matches("[data-audio-comment-form]")) {
+    event.preventDefault();
+    const programId = event.target.dataset.programId;
+    const input = event.target.elements.comment;
+    try {
+      state.liveAudioData = addLiveAudioComment(programId, input.value);
+      render();
+      showToast("Comment saved on this device.");
+    } catch (error) {
+      showToast(error && error.message ? error.message : "Comment could not be saved.");
+    }
+  } else if (event.target.matches("[data-search-form]")) {
     event.preventDefault();
     if (state.view !== "home") {
       state.view = "hymns";
@@ -725,6 +809,21 @@ document.addEventListener("submit", function (event) {
     render();
     window.scrollTo(0, 0);
   }
+});
+
+document.addEventListener("play", function (event) {
+  if (!event.target.matches || !event.target.matches(".audio-listener-card audio") || event.target.dataset.sessionCounted) return;
+  event.target.dataset.sessionCounted = "true";
+  const programId = state.selectedLiveAudioProgramId;
+  if (!programId) return;
+  state.liveAudioData = recordLiveAudioListen(programId);
+  beginLiveAudioTimer();
+}, true);
+
+window.addEventListener("storage", function (event) {
+  if (event.key !== LIVE_AUDIO_STORAGE_KEY) return;
+  state.liveAudioData = getLiveAudioData();
+  if (state.view === "listen" || state.view === "home") render();
 });
 
 if (window.matchMedia) {
