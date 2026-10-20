@@ -5,9 +5,10 @@ import { findMissingHymnsByNumber } from "../admin/js/hymn-catalog-sync.js";
 
 const adminData = readFileSync(new URL("../admin/js/admin-data.js", import.meta.url), "utf8");
 
-test("the cached catalog sync checks Supabase for missing Original Consolation Hymns", () => {
-  assert.ok(adminData.includes("source_hymnal=eq.Uploaded%20Hymn%20Collection"));
-  assert.ok(adminData.includes("findMissingHymnsByNumber(uploadedRows, storedUploadedRows)"));
+test("catalog sync includes both uploaded collections and checks for missing records", () => {
+  assert.ok(adminData.includes("repositoryHymns.concat(repositoryYorubaHymns)"));
+  assert.ok(adminData.includes("select=hymn_number,source_hymnal"));
+  assert.ok(adminData.includes("findMissingHymnsByNumber(importRows, storedManagedRows)"));
 });
 
 test("only uploaded hymns missing from Supabase are returned for repair", () => {

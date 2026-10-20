@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import repositoryHymns from "../data/uploaded-hymns.js";
+import repositoryYorubaHymns from "../data/uploaded-yoruba-hymns.js";
 import {
   createProgram,
   deleteProgram,
@@ -201,29 +202,36 @@ test("daily quote preferences persist to the shared backend and require a source
   await logoutAdmin();
 });
 
-test("admin setup fills a partial catalog without overwriting existing records and imports new hymns as drafts", async () => {
+test("admin setup imports both collections as drafts without overwriting existing records", async () => {
+  const catalogCount = repositoryHymns.length + repositoryYorubaHymns.length;
   const existing = { id: "existing-hymn-1", hymn_number: repositoryHymns[0].hymn_number, title_en: "Existing reviewed title", status: "published", category: repositoryHymns[0].category };
   const backend = installBackend({ hymnRows: [existing] });
   await signIn();
   const result = await initializeAdminData();
-  assert.equal(result.imported, repositoryHymns.length - 1);
-  assert.equal(backend.hymnRows.length, repositoryHymns.length);
+  assert.equal(result.imported, catalogCount - 1);
+  assert.equal(backend.hymnRows.length, catalogCount);
   assert.equal(backend.hymnRows[0].title_en, "Existing reviewed title");
   assert.equal(backend.hymnRows[0].status, "published");
-  assert.equal(backend.importedRows.length, repositoryHymns.length - 1);
+  assert.equal(backend.importedRows.length, catalogCount - 1);
   assert.equal(backend.importedRows[0].status, "draft");
   assert.equal(backend.importedRows[0].published_at, null);
   assert.equal(backend.importedRows[0].author_en, repositoryHymns[1].author_en || "");
   assert.match(backend.importedRows[0].body_html_en, /^<p>/);
+  const yorubaDraft = backend.importedRows.find(function (hymn) { return hymn.source_hymnal === "Uploaded Yorùbá Hymn Collection"; });
+  assert.ok(yorubaDraft);
+  assert.equal(yorubaDraft.status, "draft");
+  assert.equal(yorubaDraft.hymnal_note, repositoryYorubaHymns[0].hymnal_note);
   assert.equal((await initializeAdminData()).imported, 0);
   await logoutAdmin();
 });
 
-test("admin views expose only uploaded hymns while the cleanup migration is pending", async () => {
+test("admin views show both uploaded collections and hide legacy or custom sources", async () => {
   const uploaded = repositoryHymns[0];
+  const yoruba = repositoryYorubaHymns[0];
   const backend = installBackend({ hymnRows: [
     { id: "uploaded-published", hymn_number: uploaded.hymn_number, source_hymnal: "Uploaded Hymn Collection", title_en: uploaded.title_en, status: "published", updated_at: "2026-10-12T00:00:00Z" },
     { id: "uploaded-draft", hymn_number: 99002, source_hymnal: "Uploaded Hymn Collection", title_en: "Uploaded draft", status: "draft", updated_at: "2026-10-11T00:00:00Z" },
+    { id: "yoruba-published", hymn_number: yoruba.hymn_number, source_hymnal: "Uploaded Yorùbá Hymn Collection", title_yoruba: yoruba.title_yoruba, status: "published", updated_at: "2026-10-10T00:00:00Z" },
     { id: "cac-english", hymn_number: 99001, source_hymnal: "Christ Apostolic Church Gospel Hymn Book", title_en: "CAC English hymn", status: "published", updated_at: "2026-10-10T00:00:00Z" },
     { id: "cac-yoruba", hymn_number: 99003, source_hymnal: "Christ Apostolic Church Yoruba Hymn Book (Iwe Orin CAC)", title_yoruba: "CAC Yorùbá hymn", status: "draft", updated_at: "2026-10-09T00:00:00Z" },
     { id: "custom-collection", hymn_number: 99004, source_hymnal: "Community Hymnal", title_en: "Custom collection hymn", status: "published", updated_at: "2026-10-08T00:00:00Z" }
@@ -231,12 +239,12 @@ test("admin views expose only uploaded hymns while the cleanup migration is pend
   await signIn();
 
   const hymns = await getHymnListRows();
-  assert.deepEqual(hymns.map(function (hymn) { return hymn.id; }), ["uploaded-published", "uploaded-draft"]);
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.id; }), ["uploaded-published", "uploaded-draft", "yoruba-published"]);
   const drafts = await getDraftHymns();
   assert.deepEqual(drafts.map(function (hymn) { return hymn.id; }), ["uploaded-draft"]);
   const recent = await getRecentlyUpdatedHymns(5);
-  assert.ok(recent.every(function (hymn) { return hymn.source_hymnal === "Uploaded Hymn Collection"; }));
-  assert.equal(backend.hymnRows.length, 5, "hidden database rows remain intact");
+  assert.ok(recent.every(function (hymn) { return hymn.source_hymnal === "Uploaded Hymn Collection" || hymn.source_hymnal === "Uploaded Yorùbá Hymn Collection"; }));
+  assert.equal(backend.hymnRows.length, 6, "hidden database rows remain intact");
   await logoutAdmin();
 });
 

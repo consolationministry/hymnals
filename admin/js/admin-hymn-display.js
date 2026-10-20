@@ -1,9 +1,12 @@
+import { UPLOADED_YORUBA_HYMN_SOURCE } from "../../js/hymnal-selection.js";
+
 export function adminHymnNumberLabel(hymn) {
   const record = hymn || {};
   const internalNumber = String(record.hymn_number == null ? "" : record.hymn_number);
   const sourceNumber = Number(record.source_hymn_number);
   if (Number.isInteger(sourceNumber) && sourceNumber > 0) {
-    return "Book #" + sourceNumber + " · record ID " + internalNumber;
+    const printedNumber = record.source_hymnal === UPLOADED_YORUBA_HYMN_SOURCE ? String(sourceNumber).padStart(3, "0") : String(sourceNumber);
+    return "Book #" + printedNumber + " · record ID " + internalNumber;
   }
   return "Hymn #" + internalNumber;
 }

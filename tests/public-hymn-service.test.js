@@ -5,7 +5,7 @@ import { getAllHymns, getHymnByNumber } from "../js/hymn-service.js";
 import { filterHymnsForActiveHymnal } from "../js/hymnal-selection.js";
 import { writeLocal } from "../js/local-store.js";
 
-const PUBLISHED_CACHE_KEY = "cerc-published-hymns-uploaded-v6";
+const PUBLISHED_CACHE_KEY = "cerc-published-hymns-dual-v7";
 
 function installStorage() {
   const values = new Map();
@@ -40,17 +40,20 @@ test("the bundled catalog contains only the 128 uploaded hymns", () => {
   assert.equal(new Set(uploadedHymns.map(function (hymn) { return hymn.hymn_number; })).size, 128);
 });
 
-test("the active filter returns uploaded hymns only, even for an old CAC selection", () => {
-  const uploaded = { source_hymnal: "Uploaded Hymn Collection" };
+test("the active filter keeps the uploaded English and Yorùbá collections separate", () => {
+  const english = { source_hymnal: "Uploaded Hymn Collection" };
+  const yoruba = { source_hymnal: "Uploaded Yorùbá Hymn Collection" };
   const rows = [
     { source_hymnal: "Christ Apostolic Church Gospel Hymn Book" },
-    { source_hymnal: "Christ Apostolic Church Yoruba Hymn Book (Iwe Orin CAC)" },
-    { source_hymnal: "CAC GHB" },
-    uploaded,
+    { source_hymnal: "CAC YHB" },
+    english,
+    yoruba,
     { source_hymnal: "Community Hymnal" }
   ];
-  assert.deepEqual(filterHymnsForActiveHymnal(rows, "cac"), [uploaded]);
-  assert.deepEqual(filterHymnsForActiveHymnal(rows, "uploaded"), [uploaded]);
+  assert.deepEqual(filterHymnsForActiveHymnal(rows, "both"), [english, yoruba]);
+  assert.deepEqual(filterHymnsForActiveHymnal(rows, "uploaded"), [english]);
+  assert.deepEqual(filterHymnsForActiveHymnal(rows, "yoruba"), [yoruba]);
+  assert.deepEqual(filterHymnsForActiveHymnal(rows, "cac"), [english, yoruba]);
 });
 
 test("the public catalog does not fall back to bundled hymns when offline", async () => {
@@ -69,26 +72,30 @@ test("legacy CAC cache keys are ignored after switching to uploaded-only", async
   assert.deepEqual(await getAllHymns(), []);
 });
 
-test("published results include uploaded hymns only and keep drafts hidden", async () => {
+test("published results include both uploaded collections and keep drafts hidden", async () => {
   const values = installStorage();
   let hymnRequest;
   globalThis.fetch = async function (url, options) {
-    if (String(url).includes("/rpc/get_active_hymnal")) return response("cac");
+    if (String(url).includes("/rpc/get_active_hymnal")) return response("both");
     hymnRequest = { url: String(url), options };
     return response([
       { id: "uploaded-2", hymn_number: 10038, source_hymn_number: 63, title_en: "Uploaded variant", source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: "published", verses_en: ["Uploaded verse"] },
+      { id: "yoruba-2", hymn_number: 20001, source_hymn_number: 2, title_yoruba: "Aleluya! Orin t’o dun", first_line_yoruba: "Aleluya! Orin t’o dun,", source_hymnal: "Uploaded Yorùbá Hymn Collection", category: "Yorùbá Hymn Book", status: "published", verses_yoruba: ["Aleluya! Orin t’o dun,\nOhun ayo ti ki ku;"], hymnal_note: "Ifi 19:1" },
       { id: "cac-english", hymn_number: 18, title_en: "CAC English hymn", source_hymnal: "CAC GHB", status: "published", verses_en: ["CAC verse"] },
-      { id: "other", hymn_number: 20000, title_en: "Other collection hymn", source_hymnal: "Community Hymnal", status: "published", verses_en: ["Other verse"] },
+      { id: "other", hymn_number: 30000, title_en: "Other collection hymn", source_hymnal: "Community Hymnal", status: "published", verses_en: ["Other verse"] },
       { id: "uploaded-draft", hymn_number: 10002, title_en: "Draft", source_hymnal: "Uploaded Hymn Collection", status: "draft", verses_en: ["Draft verse"] },
       { id: "uploaded-1", hymn_number: 10000, source_hymn_number: 2, title_en: "Uploaded hymn", source_hymnal: "Uploaded Hymn Collection", status: "published", verses_en: ["Uploaded verse"] }
     ]);
   };
 
   const hymns = await getAllHymns();
-  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [10000, 10038]);
-  assert.deepEqual(hymns.map(function (hymn) { return hymn.source_hymnal; }), ["Uploaded Hymn Collection", "Uploaded Hymn Collection"]);
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [10000, 10038, 20001]);
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.source_hymnal; }), ["Uploaded Hymn Collection", "Uploaded Hymn Collection", "Uploaded Yorùbá Hymn Collection"]);
   assert.equal(hymns[1].source_number_label, "63V");
-  assert.deepEqual(JSON.parse(values.get(PUBLISHED_CACHE_KEY)).map(function (hymn) { return hymn.hymn_number; }), [10000, 10038]);
+  assert.equal(hymns[2].source_number_label, "002");
+  assert.equal(hymns[2].hymnal_note, "Ifi 19:1");
+  assert.deepEqual(JSON.parse(values.get(PUBLISHED_CACHE_KEY)).map(function (hymn) { return hymn.hymn_number; }), [10000, 10038, 20001]);
+  assert.match(hymnRequest.url, /hymnal_note/);
   assert.match(hymnRequest.url, /status=eq\.published/);
   assert.match(hymnRequest.url, /hymn_number\.asc/);
   assert.equal(hymnRequest.options.headers.authorization, "Bearer " + hymnRequest.options.headers.apikey);
@@ -115,14 +122,15 @@ test("uploaded meter-only titles are normalized to the first lyric line", async 
   assert.equal(hymns[0].source_first_line_en, hymns[0].title_en);
 });
 
-test("cached data is filtered to uploaded hymns while the backend is unavailable", async () => {
+test("cached data keeps both uploaded collections and filters legacy CAC rows", async () => {
   installStorage().set(PUBLISHED_CACHE_KEY, JSON.stringify([
     { hymn_number: 10000, title_en: "Uploaded hymn", source_hymnal: "Uploaded Hymn Collection", status: "published", verses_en: ["Uploaded verse"] },
+    { hymn_number: 20001, title_yoruba: "Yorùbá hymn", source_hymnal: "Uploaded Yorùbá Hymn Collection", status: "published", verses_yoruba: ["Yorùbá verse"] },
     { hymn_number: 18, title_en: "CAC hymn", source_hymnal: "CAC GHB", status: "published", verses_en: ["CAC verse"] }
   ]));
   globalThis.fetch = async function () { throw new Error("backend unavailable"); };
   const hymns = await getAllHymns();
-  assert.deepEqual(hymns.map(function (hymn) { return hymn.title_en; }), ["Uploaded hymn"]);
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [10000, 20001]);
 });
 
 test("a successful empty result clears the cache and stays empty offline", async () => {
@@ -138,14 +146,16 @@ test("a successful empty result clears the cache and stays empty offline", async
   assert.deepEqual(await getAllHymns(), []);
 });
 
-test("hymn lookup uses the same uploaded-only catalog as the app", async () => {
+test("hymn lookup uses the same two-collection catalog as the app", async () => {
   installStorage();
   globalThis.fetch = async function () {
     return response([
       { id: "uploaded", hymn_number: 10000, title_en: "Uploaded hymn", source_hymnal: "Uploaded Hymn Collection", status: "published", verses_en: ["Uploaded verse"] },
+      { id: "yoruba", hymn_number: 20001, title_yoruba: "Yorùbá hymn", source_hymnal: "Uploaded Yorùbá Hymn Collection", status: "published", verses_yoruba: ["Yorùbá verse"] },
       { id: "cac", hymn_number: 18, title_en: "CAC hymn", source_hymnal: "CAC GHB", status: "published", verses_en: ["CAC verse"] }
     ]);
   };
   assert.equal((await getHymnByNumber(10000)).title_en, "Uploaded hymn");
+  assert.equal((await getHymnByNumber(20001)).title_yoruba, "Yorùbá hymn");
   assert.equal(await getHymnByNumber(18), null);
 });
