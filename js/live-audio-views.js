@@ -54,15 +54,6 @@ function emptyState(title, message) {
   return '<div class="audio-empty-state">' + radioIcon() + "<h3>" + escapeHtml(title) + "</h3><p>" + escapeHtml(message) + "</p></div>";
 }
 
-export function renderHomeAudioCard() {
-  return '<section class="hero-card audio-home-card" aria-label="Church live audio">' +
-    '<div class="hero-copy"><p class="hero-kicker">' + radioIcon() + " CHURCH LIVE AUDIO</p>" +
-    "<h2>Listen together, wherever you are.</h2>" +
-    "<p>Open the live audio room or browse published church programmes.</p>" +
-    '<button class="button-primary" type="button" data-action="navigate" data-view="listen">' + radioIcon() + " Open Listen</button></div>" +
-    '<img class="hero-mark" src="./assets/consolation-launcher.png" alt="" width="96" height="96"></section>';
-}
-
 function audioLibraryArtwork(program, className) {
   if (program && program.imageUrl) {
     return '<div class="' + className + '"><img src="' + escapeHtml(program.imageUrl) + '" alt="" loading="lazy"></div>';
