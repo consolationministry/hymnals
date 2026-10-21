@@ -1,8 +1,9 @@
-import { createLiveAudioId, getLiveAudioVisitorId, liveAudioRequest } from "./live-audio-realtime.js";
+import { createLiveAudioId, createLiveAudioRecordingSignedUrl, getLiveAudioVisitorId, liveAudioRequest } from "./live-audio-realtime.js";
 
 const DEFAULT_CATEGORIES = ["Bible Study", "Sunday Service", "Prayer Meeting", "Worship", "Youth Service", "Other"];
 const REACTION_TYPES = ["love", "clap", "fire"];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const RECORDING_URL_CACHE = new Map();
 
 function asArray(value) {
   return Array.isArray(value) ? value : value && typeof value === "object" ? [value] : [];
@@ -35,11 +36,23 @@ function normalizeProgram(row) {
     status: row.status === "published" ? "published" : "draft",
     onAir: row.is_live === true && Boolean(row.live_session_id),
     liveSessionId: String(row.live_session_id || ""),
+    recordingPath: String(row.recording_path || ""),
+    recordingDurationSeconds: Math.max(0, Number(row.recording_duration_seconds) || 0),
+    recordingUrl: "",
     streamUrl: "",
     listenCount: 0,
     createdAt: String(row.created_at || ""),
     updatedAt: String(row.updated_at || "")
   };
+}
+
+async function resolveRecordingUrl(program) {
+  if (!program.recordingPath) return "";
+  const cached = RECORDING_URL_CACHE.get(program.recordingPath);
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
+  const url = await createLiveAudioRecordingSignedUrl(program.recordingPath);
+  if (url) RECORDING_URL_CACHE.set(program.recordingPath, { url, expiresAt: Date.now() + 55 * 60 * 1000 });
+  return url;
 }
 
 export function emptyLiveAudioData() {
@@ -56,12 +69,23 @@ export function emptyLiveAudioData() {
 }
 
 export async function loadPublicLiveAudioData() {
-  const programRows = await liveAudioRequest(
-    "live_audio_programs?select=id,title,description,speaker,category,image_url,venue,program_date,status,is_live,live_session_id,live_started_at,created_at,updated_at&status=eq.published&order=created_at.desc"
-  );
+  let programRows;
+  try {
+    programRows = await liveAudioRequest(
+      "live_audio_programs?select=id,title,description,speaker,category,image_url,venue,program_date,status,is_live,live_session_id,live_started_at,recording_path,recording_duration_seconds,created_at,updated_at&status=eq.published&order=created_at.desc"
+    );
+  } catch (error) {
+    if (!/recording_path|recording_duration_seconds|setup is not finished/i.test(error.message || "")) throw error;
+    programRows = await liveAudioRequest(
+      "live_audio_programs?select=id,title,description,speaker,category,image_url,venue,program_date,status,is_live,live_session_id,live_started_at,created_at,updated_at&status=eq.published&order=created_at.desc"
+    );
+  }
   const programs = asArray(programRows).map(normalizeProgram).filter(Boolean);
   const data = emptyLiveAudioData();
   data.programs = programs;
+  await Promise.all(programs.map(async program => {
+    program.recordingUrl = await resolveRecordingUrl(program);
+  }));
   data.categories = Array.from(new Set(programs.map(program => program.category)))
     .sort((left, right) => left.localeCompare(right));
   if (!data.categories.length) data.categories = DEFAULT_CATEGORIES.slice();

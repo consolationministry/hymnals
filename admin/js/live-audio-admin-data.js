@@ -1,6 +1,7 @@
-import { supabaseRequest } from "./supabase-client.js?v=31";
+import { supabaseRequest } from "./supabase-client.js?v=32";
 
 const CATEGORIES = ["Bible Study", "Sunday Service", "Prayer Meeting", "Worship", "Youth Service", "Other"];
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function asArray(value) {
   return Array.isArray(value) ? value : value && typeof value === "object" ? [value] : [];
@@ -20,6 +21,8 @@ function normalizeProgram(row) {
     onAir: row.is_live === true,
     liveSessionId: row.live_session_id || "",
     liveStartedAt: row.live_started_at || "",
+    recordingPath: String(row.recording_path || ""),
+    recordingDurationSeconds: Math.max(0, Number(row.recording_duration_seconds) || 0),
     createdAt: row.created_at || "",
     updatedAt: row.updated_at || "",
     listenCount: Math.max(0, Number(row.listener_count) || 0)
@@ -106,6 +109,50 @@ export async function deleteAdminLiveAudioProgram(programId) {
   await supabaseRequest("rest/v1/live_audio_programs?id=eq." + encodeURIComponent(programId), { method: "DELETE" });
 }
 
+export async function uploadAdminLiveAudioRecording(programId, sessionId, recording) {
+  if (!UUID_PATTERN.test(String(programId || "")) || !UUID_PATTERN.test(String(sessionId || ""))) {
+    throw new Error("This broadcast recording could not be identified.");
+  }
+  if (!recording || !recording.blob || !recording.blob.size) {
+    throw new Error("There is no audio recording to upload.");
+  }
+
+  const format = String(recording.contentType || recording.blob.type || "").split(";")[0].trim().toLowerCase();
+  const extensions = { "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a" };
+  const extension = extensions[format];
+  if (!extension) throw new Error("The recording uses an unsupported audio format.");
+
+  const storagePath = programId + "/" + sessionId + "." + extension;
+  const encodedPath = storagePath.split("/").map(encodeURIComponent).join("/");
+  const storageEndpoint = "storage/v1/object/live-audio-recordings/" + encodedPath;
+  await supabaseRequest(storageEndpoint, {
+    method: "POST",
+    headers: { "content-type": format },
+    body: recording.blob
+  });
+
+  try {
+    const rows = await supabaseRequest(
+      "rest/v1/live_audio_programs?id=eq." + encodeURIComponent(programId) + "&select=*",
+      {
+        method: "PATCH",
+        prefer: "return=representation",
+        body: {
+          recording_path: storagePath,
+          recording_duration_seconds: Math.max(1, Math.round(Number(recording.durationSeconds) || 1)),
+          updated_at: new Date().toISOString()
+        }
+      }
+    );
+    const row = asArray(rows)[0];
+    if (!row) throw new Error("The recording uploaded, but its broadcast details could not be saved.");
+    return normalizeProgram(row);
+  } catch (error) {
+    await supabaseRequest(storageEndpoint, { method: "DELETE" }).catch(() => {});
+    throw error;
+  }
+}
+
 export async function saveAdminLiveAudioCategories(categories) {
   const names = Array.from(new Set((Array.isArray(categories) ? categories : [])
     .map(value => String(value || "").trim().slice(0, 48))
@@ -148,13 +195,15 @@ export async function startAdminLiveAudioProgram(programId, sessionId) {
   return normalizeProgram(row);
 }
 
-export async function endAdminLiveAudioProgram(programId) {
+export async function endAdminLiveAudioProgram(programId, status) {
+  const finalStatus = status === "draft" ? "draft" : "published";
   const rows = await supabaseRequest(
     "rest/v1/live_audio_programs?id=eq." + encodeURIComponent(programId) + "&select=*",
     {
       method: "PATCH",
       prefer: "return=representation",
       body: {
+        status: finalStatus,
         is_live: false,
         live_session_id: null,
         live_started_at: null,

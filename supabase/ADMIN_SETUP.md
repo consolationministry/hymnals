@@ -21,6 +21,7 @@ This repository keeps the member hymnal static and offline-capable. The admin pa
    Replace the example with the approved admin email. The email is intentionally not stored in this public repository.
 10. Open the admin URL and sign in. The admin sync imports any missing English and Yorùbá source-catalog records as drafts; it preserves existing rows and publication statuses. Review the new Yorùbá drafts, then publish them from the admin workspace to make them visible to members.
 11. For the web-only Live Audio broadcast flow, run `migrations/202610200001_live_audio.sql`. This creates separate audio programme and anonymous interaction tables. Audio is sent directly between the admin's and listeners' browsers with WebRTC; this SQL does not add or modify Android-native code. Keep the Supabase Realtime service enabled because it carries WebRTC session signaling. A TURN relay is needed for some mobile-carrier or corporate networks that block direct peer connections.
+12. To automatically record completed web broadcasts and keep recordings private until publication, run `migrations/202610210001_live_audio_recordings.sql`. The admin browser uploads the processed audio when a broadcast ends; choosing Draft keeps it hidden from the public Listen page, and choosing Publish enables public playback.
 
 The browser uses only the Supabase project URL and a publishable key. Row-level security denies unauthenticated access and checks the `admin_users` table for every admin-data operation. Do not disable RLS or add a service-role/secret key to client-side files.
 

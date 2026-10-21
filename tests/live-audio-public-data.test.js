@@ -23,9 +23,11 @@ afterEach(() => {
   else globalThis.fetch = originalFetch;
 });
 
-function installBackend() {
+function installBackend(options) {
+  const opts = options || {};
   const calls = [];
   const values = new Map([["cerc-live-audio-visitor-v1", VISITOR_ID]]);
+  let recordingSchemaRejected = false;
   globalThis.window = {
     localStorage: {
       getItem(key) { return values.has(key) ? values.get(key) : null; },
@@ -36,6 +38,16 @@ function installBackend() {
     const url = new URL(input);
     const body = options && options.body ? JSON.parse(options.body) : null;
     calls.push({ path: url.pathname, method: options && options.method || "GET", body });
+    if (opts.missingRecordingColumns && !recordingSchemaRejected &&
+        url.pathname.endsWith("/live_audio_programs") &&
+        url.searchParams.get("select").includes("recording_path")) {
+      recordingSchemaRejected = true;
+      return {
+        ok: false,
+        status: 400,
+        async text() { return JSON.stringify({ message: "column live_audio_programs.recording_path does not exist" }); }
+      };
+    }
     let payload = null;
     if (url.pathname.endsWith("/live_audio_programs")) {
       payload = [{
@@ -48,10 +60,14 @@ function installBackend() {
         venue: "Main church",
         program_date: "2026-10-20",
         status: "published",
-        is_live: true,
-        live_session_id: SESSION_ID,
+        is_live: opts.isLive === undefined ? true : opts.isLive,
+        live_session_id: opts.isLive === false ? null : SESSION_ID,
+        recording_path: opts.recordingPath || null,
+        recording_duration_seconds: opts.recordingPath ? 42 : 0,
         created_at: "2026-10-20T10:00:00.000Z"
       }];
+    } else if (url.pathname.includes("/storage/v1/object/sign/live-audio-recordings/")) {
+      payload = { signedURL: "/object/sign/live-audio-recordings/" + opts.recordingPath + "?token=test-token" };
     } else if (url.pathname.endsWith("/rpc/get_live_audio_interactions")) {
       payload = [{
         program_id: PROGRAM_ID,
@@ -124,12 +140,43 @@ test("public audio interactions call the anonymous RPCs with validated payloads"
   assert.equal(calls.length, callCount);
 });
 
+test("published recordings get temporary public playback URLs and an archive player", async () => {
+  const recordingPath = PROGRAM_ID + "/" + SESSION_ID + ".webm";
+  const calls = installBackend({ recordingPath, isLive: false });
+  const data = await loadPublicLiveAudioData();
+  const program = data.programs[0];
+
+  assert.equal(program.recordingPath, recordingPath);
+  assert.match(program.recordingUrl, /^https:\/\/.+\/storage\/v1\/object\/sign\/live-audio-recordings\//);
+  assert.match(program.recordingUrl, /token=test-token/);
+  assert.deepEqual(calls[1].body, { expiresIn: 3600 });
+  assert.match(renderLiveAudioPage(data, "", ""), /Play recording/);
+  const listener = renderLiveAudioListener(data, PROGRAM_ID);
+  assert.match(listener, /data-recorded-audio-player/);
+  assert.match(listener, /src="https:\/\/.+token=test-token/);
+  assert.doesNotMatch(listener, /data-action="connect-live-audio"/);
+});
+
+test("live audio remains available before the recording migration is applied", async () => {
+  const calls = installBackend({ missingRecordingColumns: true });
+  const data = await loadPublicLiveAudioData();
+
+  assert.equal(data.programs[0].title, "Sunday Service");
+  assert.equal(data.programs[0].recordingUrl, "");
+  assert.equal(calls[0].path.endsWith("/live_audio_programs"), true);
+  assert.equal(calls[1].path.endsWith("/live_audio_programs"), true);
+});
+
 test("published live audio and listener interactions are granted to anonymous visitors", async () => {
   const migration = await readFile(new URL("../supabase/migrations/202610200001_live_audio.sql", import.meta.url), "utf8");
+  const recordingsMigration = await readFile(new URL("../supabase/migrations/202610210001_live_audio_recordings.sql", import.meta.url), "utf8");
   const publicClient = await readFile(new URL("../js/live-audio-public-data.js", import.meta.url), "utf8");
 
   assert.match(migration, /create policy live_audio_programs_public_read on public\.live_audio_programs\s+for select to anon, authenticated using \(status = 'published'\)/);
   assert.match(migration, /grant execute on function public\.get_live_audio_interactions\(uuid\[\], uuid\) to anon, authenticated/);
   assert.match(migration, /grant execute on function public\.record_live_audio_listen\(uuid, uuid, uuid\) to anon, authenticated/);
+  assert.match(recordingsMigration, /values \(\s*'live-audio-recordings',\s*'live-audio-recordings',\s*false,/);
+  assert.match(recordingsMigration, /create policy live_audio_recordings_published_read on storage\.objects\s+for select to anon, authenticated/);
+  assert.match(recordingsMigration, /p\.recording_path = name\s+and p\.status = 'published'/);
   assert.doesNotMatch(publicClient, /initializeAdminAuth|loginAdmin|requireAdmin/i);
 });

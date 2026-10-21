@@ -6,9 +6,11 @@ import {
   saveAdminLiveAudioCategories,
   saveAdminLiveAudioProgram,
   setAdminLiveAudioStatus,
-  startAdminLiveAudioProgram
+  startAdminLiveAudioProgram,
+  uploadAdminLiveAudioRecording
 } from "./live-audio-admin-data.js";
 import { createLiveAudioId } from "../../js/live-audio-realtime.js";
+import { startLiveAudioRecording } from "../../js/live-audio-recording.js?v=1";
 import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=2";
 
 let activeTab = "programs";
@@ -21,6 +23,8 @@ let activeMicEngine = null;
 let activeMicFrame = null;
 let activeBroadcaster = null;
 let activeBroadcastId = null;
+let activeRecording = null;
+let activeRecordingSessionId = null;
 let audioSettings = Object.assign({}, DEFAULT_AUDIO_SETTINGS);
 let activeMicMuted = false;
 let activeListenerCount = 0;
@@ -684,34 +688,40 @@ async function beginBroadcast(programId) {
   activeSignalStatus = "connecting";
   studioInteractions = null;
   studioInteractionsError = "";
-  const publisher = await startLiveAudioPublisher({
-    programId,
-    sessionId,
-    stream: mic.stream,
-    onStatus: status => {
-      activeSignalStatus = status;
-      const node = document.querySelector("[data-audio-mic-status]");
-      if (node && status === "connected") node.textContent = "Connected. Waiting for listeners…";
-      if (node && status === "disconnected" && activeBroadcaster) node.textContent = "Signaling disconnected; broadcast may no longer reach new listeners.";
-      const connection = document.querySelector("[data-studio-connection]");
-      if (connection) {
-        connection.textContent = studioConnectionLabel();
-        const wrapper = connection.closest(".audio-studio-connection");
-        if (wrapper) wrapper.classList.toggle("is-disconnected", status === "disconnected");
-      }
-    },
-    onListenerCount: count => {
-      activeListenerCount = count;
-      const node = document.querySelector("[data-audio-listener-count]");
-      if (node) node.textContent = count + (count === 1 ? " listener connected" : " listeners connected");
-      const studioNode = document.querySelector("[data-studio-live-listeners]");
-      if (studioNode) studioNode.textContent = String(count);
-    }
-  });
+  let publisher = null;
+  let recorder = null;
+  let startedProgram = null;
   try {
-    const startedProgram = await startAdminLiveAudioProgram(programId, sessionId);
+    publisher = await startLiveAudioPublisher({
+      programId,
+      sessionId,
+      stream: mic.stream,
+      onStatus: status => {
+        activeSignalStatus = status;
+        const node = document.querySelector("[data-audio-mic-status]");
+        if (node && status === "connected") node.textContent = "Connected. Waiting for listeners…";
+        if (node && status === "disconnected" && activeBroadcaster) node.textContent = "Signaling disconnected; broadcast may no longer reach new listeners.";
+        const connection = document.querySelector("[data-studio-connection]");
+        if (connection) {
+          connection.textContent = studioConnectionLabel();
+          const wrapper = connection.closest(".audio-studio-connection");
+          if (wrapper) wrapper.classList.toggle("is-disconnected", status === "disconnected");
+        }
+      },
+      onListenerCount: count => {
+        activeListenerCount = count;
+        const node = document.querySelector("[data-audio-listener-count]");
+        if (node) node.textContent = count + (count === 1 ? " listener connected" : " listeners connected");
+        const studioNode = document.querySelector("[data-studio-live-listeners]");
+        if (studioNode) studioNode.textContent = String(count);
+      }
+    });
+    recorder = startLiveAudioRecording(mic.stream);
+    startedProgram = await startAdminLiveAudioProgram(programId, sessionId);
     activeBroadcaster = publisher;
     activeBroadcastId = programId;
+    activeRecording = recorder;
+    activeRecordingSessionId = sessionId;
     if (cachedData) {
       cachedData.programs = cachedData.programs.map(item => item.id === programId ? startedProgram : item);
     }
@@ -730,20 +740,44 @@ async function beginBroadcast(programId) {
     startStudioTimers();
     toast("You are live. Listeners can now join from the web Listen page.");
   } catch (error) {
-    await publisher.stop();
+    if (recorder) await recorder.stop().catch(() => {});
+    if (publisher) await publisher.stop().catch(() => {});
+    if (startedProgram) await endAdminLiveAudioProgram(programId, "draft").catch(() => {});
     activeBroadcaster = null;
     activeBroadcastId = null;
+    activeRecording = null;
+    activeRecordingSessionId = null;
     throw error;
   }
 }
 
 async function endBroadcast(programId) {
-  if (!window.confirm("End this live broadcast now? Listeners will be disconnected.")) return false;
+  const program = cachedData && cachedData.programs.find(item => item.id === programId);
+  const title = program ? program.title : "this broadcast";
+  if (!window.confirm("End " + title + " now? Listeners will be disconnected. You’ll choose whether to publish the recording next.")) return false;
+  const hasLocalRecording = Boolean(activeRecording && activeRecordingSessionId && activeBroadcastId === programId);
+  const publishPrompt = hasLocalRecording
+    ? 'Publish "' + title + '" and its recording on the public Listen page now? Choose Cancel to save it as a draft.'
+    : 'This tab has no local recording for "' + title + '". Publish the programme details on the public Listen page? Choose Cancel to save it as a draft.';
+  const finalStatus = window.confirm(publishPrompt) ? "published" : "draft";
+  let recordingError = null;
   if (activeBroadcaster && activeBroadcastId === programId) {
     await activeBroadcaster.stop();
+    if (activeRecording) {
+      try {
+        const recording = await activeRecording.stop();
+        await uploadAdminLiveAudioRecording(programId, activeRecordingSessionId, recording);
+      } catch (error) {
+        recordingError = error;
+      }
+    } else {
+      recordingError = new Error("The stream did not produce an audio recording.");
+    }
     stopStudioTimers();
     activeBroadcaster = null;
     activeBroadcastId = null;
+    activeRecording = null;
+    activeRecordingSessionId = null;
     studioVisible = false;
     activeMicMuted = false;
     activeListenerCount = 0;
@@ -754,14 +788,20 @@ async function endBroadcast(programId) {
     if (activeMicEngine) await activeMicEngine.stop();
     activeMicEngine = null;
   }
-  await endAdminLiveAudioProgram(programId);
+  await endAdminLiveAudioProgram(programId, recordingError ? "draft" : finalStatus);
   cachedData = await loadAdminLiveAudioData();
   editingId = null;
   wizardStep = 1;
   activeTab = "programs";
   studioVisible = false;
   rerender();
-  toast("Broadcast ended.");
+  if (recordingError) {
+    toast("Broadcast ended and saved as a draft, but its recording could not be uploaded. " + (recordingError.message || "Try again after checking the connection."));
+  } else if (finalStatus === "published") {
+    toast("Broadcast ended and published on the public Listen page.");
+  } else {
+    toast("Broadcast ended and saved as a draft. Publish it later from Drafts.");
+  }
   return true;
 }
 

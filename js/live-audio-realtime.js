@@ -38,12 +38,16 @@ export async function liveAudioRequest(path, options) {
     throw new Error("Live Audio is not configured yet. Ask the administrator to finish the web audio setup.");
   }
   const opts = options || {};
+  const normalizedPath = String(path).replace(/^\/+/, "");
+  const endpoint = normalizedPath.startsWith("storage/v1/")
+    ? normalizedPath
+    : "rest/v1/" + normalizedPath;
   const headers = new Headers(opts.headers || {});
   headers.set("apikey", SUPABASE_PUBLISHABLE_KEY);
   headers.set("authorization", "Bearer " + SUPABASE_PUBLISHABLE_KEY);
   headers.set("accept", "application/json");
   if (opts.body !== undefined) headers.set("content-type", "application/json");
-  const response = await fetch(SUPABASE_URL.replace(/\/+$/, "") + "/rest/v1/" + String(path).replace(/^\/+/, ""), {
+  const response = await fetch(SUPABASE_URL.replace(/\/+$/, "") + "/" + endpoint, {
     method: opts.method || "GET",
     cache: "no-store",
     headers,
@@ -62,6 +66,35 @@ export async function liveAudioRequest(path, options) {
     throw new Error(typeof details === "string" ? details : "Live Audio could not reach the church service. Check the connection and try again.");
   }
   return payload;
+}
+
+export async function createLiveAudioRecordingSignedUrl(recordingPath) {
+  const parts = String(recordingPath || "").split("/");
+  if (parts.length !== 2 || !UUID_PATTERN.test(parts[0])) return "";
+  const file = parts[1].match(/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.(webm|ogg|m4a)$/i);
+  if (!file || !UUID_PATTERN.test(file[1])) return "";
+
+  try {
+    const response = await liveAudioRequest(
+      "storage/v1/object/sign/live-audio-recordings/" + parts.map(encodeURIComponent).join("/"),
+      { method: "POST", body: { expiresIn: 3600 } }
+    );
+    const signedPath = String(response && (response.signedURL || response.signedUrl) || "");
+    if (!signedPath) return "";
+
+    const base = SUPABASE_URL.replace(/\/+$/, "");
+    const resolved = /^https?:\/\//i.test(signedPath)
+      ? new URL(signedPath)
+      : new URL(
+        signedPath.startsWith("/storage/v1/")
+          ? base + signedPath
+          : base + "/storage/v1" + (signedPath.startsWith("/") ? signedPath : "/" + signedPath)
+      );
+    if (resolved.origin !== new URL(base).origin || resolved.protocol !== "https:") return "";
+    return resolved.href;
+  } catch (error) {
+    return "";
+  }
 }
 
 function signalEndpoint() {

@@ -7,7 +7,11 @@ import {
   renderLiveAudioAdmin,
   renderLiveAudioStudio
 } from "../admin/js/live-audio-admin.js";
-import { loadAdminLiveAudioInteractions } from "../admin/js/live-audio-admin-data.js";
+import {
+  endAdminLiveAudioProgram,
+  loadAdminLiveAudioInteractions,
+  uploadAdminLiveAudioRecording
+} from "../admin/js/live-audio-admin-data.js";
 
 const originalWindow = globalThis.window;
 const originalDocument = globalThis.document;
@@ -28,6 +32,7 @@ afterEach(() => {
 function installAdminEnvironment() {
   const values = new Map();
   const programs = [];
+  const calls = [];
   const categories = ["Bible Study", "Sunday Service"];
   const stats = { total_broadcasts: 0, total_listeners: 0, total_likes: 0, total_comments: 0 };
   globalThis.window = {
@@ -47,6 +52,7 @@ function installAdminEnvironment() {
   globalThis.fetch = async (input, options) => {
     const url = new URL(input);
     const method = options && options.method || "GET";
+    calls.push({ url, method, body: options && options.body, headers: options && options.headers });
     let body = null;
     if (url.pathname.endsWith("/live_audio_programs")) {
       if (method === "GET") body = programs.slice();
@@ -101,6 +107,7 @@ function installAdminEnvironment() {
     constructor(form) { this.form = form; }
     entries() { return Object.entries(this.form.values)[Symbol.iterator](); }
   };
+  programs.calls = calls;
   return programs;
 }
 
@@ -211,4 +218,53 @@ test("live studio loads real listen, reaction, and recent-comment counts", async
   assert.equal(interactions.commentCount, 1);
   assert.deepEqual([interactions.loveCount, interactions.clapCount, interactions.fireCount], [4, 2, 1]);
   assert.equal(interactions.comments[0].body, "God is good!");
+});
+
+test("ending a remote live broadcast can save it as a draft", async () => {
+  const programs = installAdminEnvironment();
+  programs.push({
+    id: "123e4567-e89b-42d3-a456-426614174000",
+    title: "Sunday Service",
+    status: "published",
+    is_live: true,
+    live_session_id: "123e4567-e89b-42d3-a456-426614174001"
+  });
+  await ensureLiveAudioAdminLoaded();
+  const prompts = [];
+  const answers = [true, false];
+  globalThis.window.confirm = message => {
+    prompts.push(message);
+    return answers.shift();
+  };
+
+  await handleLiveAudioAdminAction({
+    dataset: { action: "audio-admin-stop-live", id: "123e4567-e89b-42d3-a456-426614174000" }
+  });
+
+  assert.equal(programs[0].status, "draft");
+  assert.equal(programs[0].is_live, false);
+  assert.match(prompts[1], /save it as a draft/i);
+});
+
+test("completed recordings upload audio bytes and save their private storage path", async () => {
+  const programs = installAdminEnvironment();
+  const programId = "123e4567-e89b-42d3-a456-426614174000";
+  const sessionId = "123e4567-e89b-42d3-a456-426614174001";
+  programs.push({ id: programId, title: "Sunday Service", status: "published", is_live: true });
+
+  const saved = await uploadAdminLiveAudioRecording(programId, sessionId, {
+    blob: new Blob(["captured audio"], { type: "audio/webm" }),
+    contentType: "audio/webm",
+    durationSeconds: 42
+  });
+
+  assert.equal(saved.recordingPath, programId + "/" + sessionId + ".webm");
+  assert.equal(saved.recordingDurationSeconds, 42);
+  const upload = programs.calls.find(call => call.url.pathname.includes("/storage/v1/object/live-audio-recordings/"));
+  assert.ok(upload);
+  assert.equal(upload.method, "POST");
+  assert.ok(upload.body instanceof Blob);
+
+  const ended = await endAdminLiveAudioProgram(programId, "draft");
+  assert.equal(ended.status, "draft");
 });
