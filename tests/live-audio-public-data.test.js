@@ -112,8 +112,8 @@ test("public audio loads published Supabase programmes and shared listener inter
 
   assert.match(renderLiveAudioPage(data, "", ""), /Listen now/);
   const listener = renderLiveAudioListener(data, PROGRAM_ID);
-  assert.match(listener, /data-live-audio-player/);
-  assert.match(listener, /data-action="connect-live-audio"/);
+  assert.match(listener, /<audio autoplay controls playsinline[^>]*data-live-audio-player/);
+  assert.doesNotMatch(listener, /data-action="connect-live-audio"|data-action="disconnect-live-audio"|Stop listening/);
   assert.match(listener, /Amen!/);
   assert.match(listener, /shared with other listeners/);
   assert.match(listener, /audio-listener-header/);
