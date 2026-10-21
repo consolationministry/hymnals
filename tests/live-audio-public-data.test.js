@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { afterEach, test } from "node:test";
 import { liveAudioReactionSelected } from "../js/live-audio-data.js";
 import {
@@ -121,4 +122,14 @@ test("public audio interactions call the anonymous RPCs with validated payloads"
   await assert.rejects(togglePublicLiveAudioReaction(PROGRAM_ID, "unknown"), /supported reaction/);
   await assert.rejects(recordPublicLiveAudioListen("not-a-uuid", SESSION_ID), /identified/);
   assert.equal(calls.length, callCount);
+});
+
+test("published live audio and listener interactions are granted to anonymous visitors", async () => {
+  const migration = await readFile(new URL("../supabase/migrations/202610200001_live_audio.sql", import.meta.url), "utf8");
+  const publicClient = await readFile(new URL("../js/live-audio-public-data.js", import.meta.url), "utf8");
+
+  assert.match(migration, /create policy live_audio_programs_public_read on public\.live_audio_programs\s+for select to anon, authenticated using \(status = 'published'\)/);
+  assert.match(migration, /grant execute on function public\.get_live_audio_interactions\(uuid\[\], uuid\) to anon, authenticated/);
+  assert.match(migration, /grant execute on function public\.record_live_audio_listen\(uuid, uuid, uuid\) to anon, authenticated/);
+  assert.doesNotMatch(publicClient, /initializeAdminAuth|loginAdmin|requireAdmin/i);
 });
