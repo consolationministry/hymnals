@@ -1,6 +1,7 @@
 import {
   deleteAdminLiveAudioProgram,
   endAdminLiveAudioProgram,
+  loadAdminLiveAudioInteractions,
   loadAdminLiveAudioData,
   saveAdminLiveAudioCategories,
   saveAdminLiveAudioProgram,
@@ -21,6 +22,14 @@ let activeMicFrame = null;
 let activeBroadcaster = null;
 let activeBroadcastId = null;
 let audioSettings = Object.assign({}, DEFAULT_AUDIO_SETTINGS);
+let activeMicMuted = false;
+let activeListenerCount = 0;
+let activeSignalStatus = "connecting";
+let studioInteractions = null;
+let studioInteractionsError = "";
+let studioRefreshTimer = null;
+let studioClockTimer = null;
+let studioVisible = false;
 let availableMicrophones = [];
 let selectedMicrophoneId = "";
 let microphoneScanPending = false;
@@ -45,6 +54,47 @@ function formatDate(value) {
   const parsed = new Date(value.length === 10 ? value + "T12:00:00" : value);
   if (Number.isNaN(parsed.getTime())) return "Date not set";
   return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(parsed);
+}
+
+function formatElapsed(value) {
+  const startedAt = new Date(value || "").getTime();
+  if (!Number.isFinite(startedAt)) return "00:00:00";
+  const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return [hours, minutes, seconds % 60].map(part => String(part).padStart(2, "0")).join(":");
+}
+
+function formatClock(value) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "Recently";
+  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+function safeImageUrl(value) {
+  try {
+    const parsed = new URL(String(value || "").trim());
+    return parsed.protocol === "https:" ? parsed.href : "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function studioConnectionLabel() {
+  if (activeSignalStatus === "connected") return "Audio room connected";
+  if (activeSignalStatus === "disconnected") return "Reconnecting signal";
+  return "Connecting audio room";
+}
+
+function renderStudioComments(comments) {
+  if (!Array.isArray(comments) || !comments.length) {
+    return '<div class="audio-studio-chat-empty"><span aria-hidden="true">✦</span><strong>No listener comments yet</strong><p>New comments will appear here while you’re live.</p></div>';
+  }
+  return comments.map(comment =>
+    '<article class="audio-studio-comment"><span class="audio-studio-comment-avatar" aria-hidden="true">L</span><div class="audio-studio-comment-body">' +
+    '<div class="audio-studio-comment-meta"><strong>Listener</strong><time datetime="' + escapeHtml(comment.createdAt) + '">' +
+    escapeHtml(formatClock(comment.createdAt)) + '</time></div><p>' + escapeHtml(comment.body) + "</p></div></article>"
+  ).join("");
 }
 
 function icon(name) {
@@ -371,6 +421,58 @@ function renderSettings(data) {
     escapeHtml(data.categories.join(", ")) + '</textarea><p class="field-hint">Separate categories with commas. Existing broadcasts keep their current category label.</p></div><button class="button button-primary" type="submit">Save categories</button></form></section>';
 }
 
+export function renderLiveAudioStudio(program) {
+  const imageUrl = safeImageUrl(program.imageUrl);
+  const artwork = imageUrl
+    ? '<img class="audio-studio-artwork" src="' + escapeHtml(imageUrl) + '" alt="" loading="lazy">'
+    : '<img class="audio-studio-artwork audio-studio-artwork-fallback" src="../assets/demo-church-mark.svg" alt="" loading="lazy">';
+  const interactions = studioInteractions;
+  const reactionTotal = interactions
+    ? interactions.loveCount + interactions.clapCount + interactions.fireCount
+    : null;
+  const duration = formatElapsed(program.liveStartedAt);
+  return '<section class="audio-live-studio" aria-label="Live Audio control room">' +
+    '<header class="audio-studio-header"><div><p class="audio-studio-kicker">ON AIR CONTROL ROOM</p><h1>Live Audio Studio</h1><p>Monitor your microphone and listener activity while the service is live.</p></div>' +
+    '<div class="audio-studio-header-actions"><button class="button button-secondary" type="button" data-action="audio-admin-back">' + icon("back") + 'Back to broadcasts</button>' +
+    '<button class="button audio-studio-end" type="button" data-action="audio-admin-stop-live" data-id="' + escapeHtml(program.id) + '">End broadcast</button></div></header>' +
+    '<div class="audio-studio-layout"><div class="audio-studio-main">' +
+    '<section class="audio-studio-stage" aria-label="Live audio programme"><div class="audio-studio-artwork-wrap">' + artwork + '<div class="audio-studio-artwork-shade"></div>' +
+    '<div class="audio-studio-stage-content"><span class="audio-studio-live-pill"><i></i> LIVE</span>' +
+    '<p class="audio-studio-church">CONSOLATION EVANGELICAL AND REVIVAL CHURCH</p><h2>' + escapeHtml(program.title) + '</h2>' +
+    '<p class="audio-studio-program-meta">' + escapeHtml(program.speaker || "Minister not set") + " · " + escapeHtml(program.category) + '</p>' +
+    '<div class="audio-studio-wave-wrap"><canvas class="audio-waveform audio-studio-waveform" data-audio-waveform width="920" height="124" aria-label="Live microphone waveform" role="img"></canvas></div>' +
+    '<div class="audio-studio-stage-footer"><span>Audio-only broadcast · Listen on the public web player</span><span class="audio-studio-connection" role="status"><i></i><span data-studio-connection>' + escapeHtml(studioConnectionLabel()) + '</span></span></div></div></div></section>' +
+    '<section class="audio-studio-metrics" aria-label="Live broadcast metrics">' +
+    '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">◷</span><div><small>STREAM DURATION</small><strong data-studio-duration data-started-at="' + escapeHtml(program.liveStartedAt) + '">' + duration + '</strong></div></article>' +
+    '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">◉</span><div><small>CONNECTED LISTENERS</small><strong data-studio-live-listeners>' + String(activeListenerCount) + '</strong></div></article>' +
+    '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">♫</span><div><small>TOTAL LISTENS</small><strong data-studio-total-listens>' + (interactions ? String(interactions.listenCount) : "—") + '</strong></div></article>' +
+    '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">♡</span><div><small>REACTIONS</small><strong data-studio-reaction-total>' + (reactionTotal === null ? "—" : String(reactionTotal)) + '</strong></div></article></section>' +
+    '<div class="audio-studio-workspace">' +
+    '<section class="audio-studio-panel audio-studio-mixer"><header><div><p class="audio-studio-kicker">SOUND MIXER</p><h2>Microphone controls</h2></div><span class="audio-studio-mic-live"><i></i>MIC LIVE</span></header>' +
+    '<div class="audio-mixer-grid">' +
+    rangeControl("bass", "Bass", -12, 12, 1, audioSettings.bass, " dB") +
+    rangeControl("mid", "Mid", -12, 12, 1, audioSettings.mid, " dB") +
+    rangeControl("treble", "Treble", -12, 12, 1, audioSettings.treble, " dB") +
+    rangeControl("pitch", "Pitch", -4, 4, 1, audioSettings.pitch, " st") +
+    rangeControl("gain", "Mic level", -12, 6, 1, audioSettings.gain, " dB") +
+    '</div><p class="audio-studio-panel-note">Changes apply to the live microphone immediately.</p></section>' +
+    '<section class="audio-studio-panel audio-studio-mic-panel"><header><div><p class="audio-studio-kicker">INPUT MONITOR</p><h2>Microphone level</h2></div></header>' +
+    '<div class="audio-mic-meter audio-studio-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-audio-mic-level></span></div>' +
+    '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">Broadcast is live. Keep this browser tab open while streaming.</p>' +
+    '<button class="button audio-studio-mute" type="button" data-action="audio-admin-toggle-mic" data-mic-mute-button aria-pressed="' + String(activeMicMuted) + '">' +
+    (activeMicMuted ? "Unmute microphone" : "Mute microphone") + '</button></section></div>' +
+    '<section class="audio-studio-reactions" aria-label="Listener reactions"><div class="audio-studio-reaction-heading"><div><p class="audio-studio-kicker">LIVE ENGAGEMENT</p><h2>Listener reactions</h2></div><span>All-time counts</span></div>' +
+    '<div class="audio-studio-reaction-list">' +
+    '<article><span aria-hidden="true">❤️</span><strong data-studio-love-count>' + (interactions ? String(interactions.loveCount) : "—") + '</strong><small>Love</small></article>' +
+    '<article><span aria-hidden="true">👏</span><strong data-studio-clap-count>' + (interactions ? String(interactions.clapCount) : "—") + '</strong><small>Claps</small></article>' +
+    '<article><span aria-hidden="true">🔥</span><strong data-studio-fire-count>' + (interactions ? String(interactions.fireCount) : "—") + '</strong><small>Fire</small></article>' +
+    '<article><span aria-hidden="true">✉</span><strong data-studio-comment-count>' + (interactions ? String(interactions.commentCount) : "—") + '</strong><small>Comments</small></article></div></section>' +
+    '</div><aside class="audio-studio-chat"><header><div><p class="audio-studio-kicker">LISTENER MESSAGES</p><h2>Live comments</h2></div><span class="audio-studio-chat-count" data-studio-chat-count>' + (interactions ? String(interactions.commentCount) : "—") + '</span></header>' +
+    '<p class="audio-studio-chat-subtitle">Recent messages from listeners on the public player.</p><p class="audio-studio-refresh-error" data-studio-refresh-error role="status" hidden></p>' +
+    '<div class="audio-studio-chat-list" data-live-comments role="log" aria-live="polite" aria-relevant="additions">' + renderStudioComments(interactions ? interactions.comments : []) + '</div>' +
+    '<footer><span class="audio-studio-chat-foot-dot"></span>Updates automatically while you’re live</footer></aside></div></section>';
+}
+
 function renderLiveAudioContent() {
   if (!cachedData) {
     if (!loadingPromise) void refreshAdminData().catch(() => {});
@@ -378,6 +480,10 @@ function renderLiveAudioContent() {
       (loadError ? "Live Audio setup needs attention" : "Loading Live Audio…") + "</h2><p>" +
       escapeHtml(loadError || "Connecting to the church broadcast service.") + "</p>" +
       (loadError ? '<button class="button button-primary" type="button" data-action="audio-admin-retry">Retry</button>' : "") + "</section>";
+  }
+  if (studioVisible && activeBroadcaster && activeBroadcastId) {
+    const liveProgram = cachedData.programs.find(program => program.id === activeBroadcastId);
+    if (liveProgram) return renderLiveAudioStudio(liveProgram);
   }
   if (wizardStep === 1 && editingId !== null) return renderProgramDetails(cachedData);
   if (wizardStep === 2 && editingId !== null) return renderBroadcastSettings(cachedData);
@@ -392,7 +498,7 @@ function renderLiveAudioContent() {
     '<div class="audio-admin-toolbar-actions">' +
     (activeTab === "drafts" ? '<button class="button button-secondary" type="button" data-action="audio-admin-export">Export drafts</button>' : "") +
     '<button class="button button-primary" type="button" data-action="audio-admin-new">' + icon("radio") + "Go live</button></div></div>" +
-    (activeBroadcaster ? '<p class="audio-live-admin-banner" role="status"><span class="live-dot"></span>Broadcast is live. Keep this browser tab open while streaming.</p>' : "") +
+    (activeBroadcaster ? '<div class="audio-live-admin-banner" role="status"><span class="live-dot"></span><span>Broadcast is live. Keep this browser tab open while streaming.</span><button class="audio-admin-open-studio" type="button" data-action="audio-admin-open-studio">Open control room</button></div>' : "") +
     renderProgramRows(cachedData) + "</section>";
 }
 
@@ -400,7 +506,8 @@ function rerender() {
   const content = document.getElementById("admin-content");
   if (content) {
     const shell = content.closest(".admin-shell");
-    if (shell) shell.classList.toggle("audio-broadcast-shell", (wizardStep === 1 || wizardStep === 2) && editingId !== null);
+    if (shell) shell.classList.toggle("audio-broadcast-shell",
+      (wizardStep === 1 || wizardStep === 2) && editingId !== null || Boolean(activeBroadcaster));
     content.innerHTML = renderLiveAudioAdmin();
     if (wizardStep === 2 && editingId !== null) void refreshMicrophoneOptions();
   }
@@ -408,6 +515,61 @@ function rerender() {
     const status = document.querySelector("[data-audio-mic-status]");
     if (status) status.textContent = "Broadcast is live.";
   }
+}
+
+function updateStudioActivity() {
+  const setText = (selector, value) => {
+    const node = document.querySelector(selector);
+    if (node) node.textContent = String(value);
+  };
+  if (studioInteractions) {
+    setText("[data-studio-total-listens]", studioInteractions.listenCount);
+    setText("[data-studio-reaction-total]", studioInteractions.loveCount + studioInteractions.clapCount + studioInteractions.fireCount);
+    setText("[data-studio-love-count]", studioInteractions.loveCount);
+    setText("[data-studio-clap-count]", studioInteractions.clapCount);
+    setText("[data-studio-fire-count]", studioInteractions.fireCount);
+    setText("[data-studio-comment-count]", studioInteractions.commentCount);
+    setText("[data-studio-chat-count]", studioInteractions.commentCount);
+    const comments = document.querySelector("[data-live-comments]");
+    if (comments) comments.innerHTML = renderStudioComments(studioInteractions.comments);
+  }
+  const error = document.querySelector("[data-studio-refresh-error]");
+  if (error) {
+    error.textContent = studioInteractionsError;
+    error.hidden = !studioInteractionsError;
+  }
+}
+
+async function refreshStudioActivity(programId) {
+  if (!programId) return;
+  try {
+    studioInteractions = await loadAdminLiveAudioInteractions(programId);
+    studioInteractionsError = "";
+  } catch (error) {
+    studioInteractionsError = "Couldn’t refresh listener activity. Showing the last available update.";
+  }
+  updateStudioActivity();
+}
+
+function updateStudioClock() {
+  const node = document.querySelector("[data-studio-duration]");
+  if (node) node.textContent = formatElapsed(node.dataset.startedAt);
+}
+
+function startStudioTimers() {
+  if (studioRefreshTimer) window.clearInterval(studioRefreshTimer);
+  if (studioClockTimer) window.clearInterval(studioClockTimer);
+  studioRefreshTimer = window.setInterval(() => {
+    if (activeBroadcastId) void refreshStudioActivity(activeBroadcastId);
+  }, 15000);
+  studioClockTimer = window.setInterval(updateStudioClock, 1000);
+}
+
+function stopStudioTimers() {
+  if (studioRefreshTimer) window.clearInterval(studioRefreshTimer);
+  if (studioClockTimer) window.clearInterval(studioClockTimer);
+  studioRefreshTimer = null;
+  studioClockTimer = null;
 }
 
 function updateMeter() {
@@ -420,6 +582,10 @@ function updateMeter() {
   if (level) level.style.width = percent + "%";
   if (canvas) {
     const context = canvas.getContext("2d");
+    if (!context) {
+      activeMicFrame = requestAnimationFrame(updateMeter);
+      return;
+    }
     const samples = activeMicEngine.waveform();
     const width = canvas.width;
     const height = canvas.height;
@@ -513,33 +679,60 @@ async function beginBroadcast(programId) {
   if (!program) throw new Error("Choose a saved programme first.");
   const mic = await ensureMicEngine();
   const sessionId = createLiveAudioId();
+  activeMicMuted = false;
+  activeListenerCount = 0;
+  activeSignalStatus = "connecting";
+  studioInteractions = null;
+  studioInteractionsError = "";
   const publisher = await startLiveAudioPublisher({
     programId,
     sessionId,
     stream: mic.stream,
     onStatus: status => {
+      activeSignalStatus = status;
       const node = document.querySelector("[data-audio-mic-status]");
       if (node && status === "connected") node.textContent = "Connected. Waiting for listeners…";
       if (node && status === "disconnected" && activeBroadcaster) node.textContent = "Signaling disconnected; broadcast may no longer reach new listeners.";
+      const connection = document.querySelector("[data-studio-connection]");
+      if (connection) {
+        connection.textContent = studioConnectionLabel();
+        const wrapper = connection.closest(".audio-studio-connection");
+        if (wrapper) wrapper.classList.toggle("is-disconnected", status === "disconnected");
+      }
     },
     onListenerCount: count => {
+      activeListenerCount = count;
       const node = document.querySelector("[data-audio-listener-count]");
       if (node) node.textContent = count + (count === 1 ? " listener connected" : " listeners connected");
+      const studioNode = document.querySelector("[data-studio-live-listeners]");
+      if (studioNode) studioNode.textContent = String(count);
     }
   });
   try {
-    await startAdminLiveAudioProgram(programId, sessionId);
+    const startedProgram = await startAdminLiveAudioProgram(programId, sessionId);
     activeBroadcaster = publisher;
     activeBroadcastId = programId;
-    cachedData = await loadAdminLiveAudioData();
+    if (cachedData) {
+      cachedData.programs = cachedData.programs.map(item => item.id === programId ? startedProgram : item);
+    }
+    try {
+      cachedData = await loadAdminLiveAudioData();
+    } catch (error) {
+      // Keep the confirmed live record already returned by the start request.
+    }
     editingId = programId;
-    wizardStep = 2;
+    wizardStep = 3;
+    studioVisible = true;
     rerender();
     const status = document.querySelector("[data-audio-mic-status]");
     if (status) status.textContent = "Broadcast is live. Keep this browser tab open while streaming.";
+    await refreshStudioActivity(programId);
+    startStudioTimers();
     toast("You are live. Listeners can now join from the web Listen page.");
   } catch (error) {
     await publisher.stop();
+    activeBroadcaster = null;
+    activeBroadcastId = null;
     throw error;
   }
 }
@@ -548,8 +741,14 @@ async function endBroadcast(programId) {
   if (!window.confirm("End this live broadcast now? Listeners will be disconnected.")) return false;
   if (activeBroadcaster && activeBroadcastId === programId) {
     await activeBroadcaster.stop();
+    stopStudioTimers();
     activeBroadcaster = null;
     activeBroadcastId = null;
+    studioVisible = false;
+    activeMicMuted = false;
+    activeListenerCount = 0;
+    studioInteractions = null;
+    studioInteractionsError = "";
     if (activeMicFrame) cancelAnimationFrame(activeMicFrame);
     activeMicFrame = null;
     if (activeMicEngine) await activeMicEngine.stop();
@@ -557,6 +756,10 @@ async function endBroadcast(programId) {
   }
   await endAdminLiveAudioProgram(programId);
   cachedData = await loadAdminLiveAudioData();
+  editingId = null;
+  wizardStep = 1;
+  activeTab = "programs";
+  studioVisible = false;
   rerender();
   toast("Broadcast ended.");
   return true;
@@ -574,6 +777,7 @@ export async function handleLiveAudioAdminAction(button) {
     activeTab = button.dataset.tab;
     editingId = null;
     wizardStep = 1;
+    studioVisible = false;
     await stopAdminAudioMicTest();
     rerender();
     return true;
@@ -581,6 +785,7 @@ export async function handleLiveAudioAdminAction(button) {
   if (action === "audio-admin-new") {
     editingId = "new";
     wizardStep = 1;
+    studioVisible = false;
     await stopAdminAudioMicTest();
     rerender();
     return true;
@@ -588,6 +793,7 @@ export async function handleLiveAudioAdminAction(button) {
   if (action === "audio-admin-edit" || action === "audio-admin-go-live") {
     editingId = button.dataset.id;
     wizardStep = 1;
+    studioVisible = false;
     audioSettings = Object.assign({}, DEFAULT_AUDIO_SETTINGS);
     await stopAdminAudioMicTest();
     rerender();
@@ -598,6 +804,14 @@ export async function handleLiveAudioAdminAction(button) {
     editingId = null;
     wizardStep = 1;
     activeTab = "programs";
+    studioVisible = false;
+    rerender();
+    return true;
+  }
+  if (action === "audio-admin-open-studio") {
+    editingId = activeBroadcastId;
+    wizardStep = 3;
+    studioVisible = Boolean(activeBroadcaster && activeBroadcastId);
     rerender();
     return true;
   }
@@ -649,6 +863,18 @@ export async function handleLiveAudioAdminAction(button) {
     await stopAdminAudioMicTest();
     return true;
   }
+  if (action === "audio-admin-toggle-mic") {
+    activeMicMuted = !activeMicMuted;
+    if (activeMicEngine) {
+      activeMicEngine.stream.getAudioTracks().forEach(track => { track.enabled = !activeMicMuted; });
+    }
+    const muteButton = document.querySelector("[data-mic-mute-button]");
+    if (muteButton) {
+      muteButton.setAttribute("aria-pressed", String(activeMicMuted));
+      muteButton.textContent = activeMicMuted ? "Unmute microphone" : "Mute microphone";
+    }
+    return true;
+  }
   if (action === "audio-admin-go-live-now") {
     try { await beginBroadcast(button.dataset.id); }
     catch (error) { toast(error.message || "The broadcast could not start."); }
@@ -666,6 +892,7 @@ export async function handleLiveAudioAdminAction(button) {
       cachedData = await loadAdminLiveAudioData();
       editingId = null;
       wizardStep = 1;
+      studioVisible = false;
       rerender();
       toast("Draft saved.");
     } catch (error) { toast(error.message || "Draft could not be saved."); }
