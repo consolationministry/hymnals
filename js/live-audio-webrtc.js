@@ -203,6 +203,7 @@ export async function startLiveAudioPublisher(options) {
   const localClientId = "host-" + opts.sessionId;
   const peers = new Map();
   const peerIceQueues = new Map();
+  const pendingPeerConnections = new Map();
   let channel = null;
   let closed = false;
   let handleSignal = null;
@@ -212,6 +213,11 @@ export async function startLiveAudioPublisher(options) {
   });
 
   const closePeer = clientId => {
+    const pending = pendingPeerConnections.get(clientId);
+    if (pending) {
+      pending.cancelled = true;
+      pendingPeerConnections.delete(clientId);
+    }
     const peer = peers.get(clientId);
     if (!peer) return;
     peers.delete(clientId);
@@ -234,14 +240,25 @@ export async function startLiveAudioPublisher(options) {
       }
       return;
     }
-    if (message.type !== "offer" || message.to !== localClientId || peers.has(message.from)) return;
+    if (message.type !== "offer" || message.to !== localClientId ||
+        peers.has(message.from) || pendingPeerConnections.has(message.from)) return;
     const limit = Math.max(1, Number(opts.maxListeners) || 16);
-    if (peers.size >= limit) {
+    if (peers.size + pendingPeerConnections.size >= limit) {
       channel.send({ type: "full", sessionId: opts.sessionId, from: localClientId, to: message.from });
       return;
     }
+    const pending = { cancelled: false };
+    pendingPeerConnections.set(message.from, pending);
     try {
-      const peer = makeAudioPeerConnection();
+      const peer = await makeAudioPeerConnection({
+        programId: opts.programId,
+        sessionId: opts.sessionId
+      });
+      if (closed || pending.cancelled) {
+        peer.close();
+        return;
+      }
+      pendingPeerConnections.delete(message.from);
       const iceQueue = createLiveAudioIceCandidateQueue(peer);
       peers.set(message.from, peer);
       peerIceQueues.set(message.from, iceQueue);
@@ -272,8 +289,11 @@ export async function startLiveAudioPublisher(options) {
       });
       if (opts.onListenerCount) opts.onListenerCount(peers.size);
     } catch (error) {
+      pendingPeerConnections.delete(message.from);
       closePeer(message.from);
-      channel.send({ type: "failed", sessionId: opts.sessionId, from: localClientId, to: message.from });
+      if (!closed && !pending.cancelled) {
+        channel.send({ type: "failed", sessionId: opts.sessionId, from: localClientId, to: message.from });
+      }
     }
   };
 
@@ -283,6 +303,8 @@ export async function startLiveAudioPublisher(options) {
       if (closed) return;
       closed = true;
       channel.send({ type: "ended", sessionId: opts.sessionId, from: localClientId });
+      pendingPeerConnections.forEach(pending => { pending.cancelled = true; });
+      pendingPeerConnections.clear();
       Array.from(peers.keys()).forEach(closePeer);
       channel.close();
       if (opts.onStatus) opts.onStatus("disconnected");
@@ -345,7 +367,10 @@ export async function startLiveAudioListener(options) {
     }
   });
   try {
-    peer = makeAudioPeerConnection();
+    peer = await makeAudioPeerConnection({
+      programId: opts.programId,
+      sessionId: opts.sessionId
+    });
     iceQueue = createLiveAudioIceCandidateQueue(peer);
     earlyRemoteCandidates.splice(0).forEach(candidate => {
       void iceQueue.addRemoteCandidate(candidate).catch(() => {});
