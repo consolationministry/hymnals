@@ -30,7 +30,7 @@ import {
   toggleAudioMute,
   toggleAudioPlayback
 } from "./live-audio-player.js";
-import { renderHomeAudioCard, renderLiveAudioListener, renderLiveAudioPage } from "./live-audio-views.js";
+import { renderLiveAudioListener, renderLiveAudioPage } from "./live-audio-views.js";
 
 const splashStartedAt = Date.now();
 const CHURCH_MOTTO = "Occupy Till I Come";
@@ -69,7 +69,8 @@ const iconPaths = {
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
   arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
-  radio: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v10a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="m7 5 10-3M8 15h8"/><circle cx="8" cy="10" r="1.7"/>'
+  radio: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v10a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="m7 5 10-3M8 15h8"/><circle cx="8" cy="10" r="1.7"/>',
+  mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/>'
 };
 
 function icon(name, extraClass) {
@@ -105,9 +106,9 @@ function languageToggle() {
 
 function renderHeader() {
   const activeView = state.view === "reader" ? state.readerReturnView : state.view;
-  const items = [["home", "Home"], ["listen", "Live Audio"], ["hymns", "Hymns"], ["programs", "Upcoming Programmes"], ["services", "Service Plans"], ["favorites", "Favorites"], ["recent", "Recently viewed"], ["settings", "Settings"]];
+  const items = [["home", "Home"], ["listen", "Stream Live", "mic"], ["hymns", "Hymns"], ["programs", "Upcoming Programmes"], ["services", "Service Plans"], ["favorites", "Favorites"], ["recent", "Recently viewed"], ["settings", "Settings"]];
   const menu = '<nav id="header-nav-menu" class="header-nav-menu" aria-label="Main menu"' + (state.menuOpen ? "" : " hidden") + '>' + items.map(function (item) {
-      return '<button class="header-nav-item" type="button" data-action="navigate" data-view="' + item[0] + '" aria-current="' + (activeView === item[0] ? "page" : "false") + '" data-testid="menu-' + item[0] + '">' + item[1] + '</button>';
+      return '<button class="header-nav-item" type="button" data-action="navigate" data-view="' + item[0] + '" aria-current="' + (activeView === item[0] ? "page" : "false") + '" data-testid="menu-' + item[0] + '">' + (item[2] ? icon(item[2], "header-nav-item-icon") : "") + '<span>' + item[1] + '</span></button>';
     }).join("") + '</nav>'
   const searchExpanded = state.view === "home"
     ? state.searchOpen || Boolean(state.query)
@@ -232,7 +233,7 @@ function renderHome() {
   } else {
     collection = '<div class="home-hymn-list" aria-live="polite">' + visibleHymns.map(homeHymn).join("") + '</div>';
   }
-  return '<section class="page home-page">' + renderHomeAudioCard() + renderHomeSearch() + '<div class="home-language">' + languageToggle() + '</div>' + collection + '</section>';
+  return '<section class="page home-page">' + renderHomeSearch() + '<div class="home-language">' + languageToggle() + '</div>' + collection + '</section>';
 }
 function renderHymnLibrary() {
   const results = searchHymns(state.hymns, state.query, state.category).filter(state.settings.language === "yoruba" ? hasYorubaText : hasEnglishText);

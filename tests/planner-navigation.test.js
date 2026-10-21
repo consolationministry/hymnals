@@ -4,6 +4,7 @@ import test from "node:test";
 
 const adminApp = readFileSync(new URL("../admin/js/admin-app.js", import.meta.url), "utf8");
 const memberApp = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+const liveAudioViews = readFileSync(new URL("../js/live-audio-views.js", import.meta.url), "utf8");
 const memberContent = readFileSync(new URL("../js/public-content.js", import.meta.url), "utf8");
 const memberStyles = readFileSync(new URL("../css/style.css", import.meta.url), "utf8");
 
@@ -26,6 +27,15 @@ test("Member app has separate programme and service pages in its menus", () => {
   assert.match(memberApp, /renderPublicPrograms\(content\.programs, content\.programsAvailable\)/);
   assert.match(memberApp, /renderPublicServicePlans\(content\.servicePlans, content\.servicePlansAvailable\)/);
   assert.match(memberStyles, /grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/);
+});
+
+test("public home removes the live-audio banner and adds Stream Live to the menu with a mic icon", () => {
+  assert.doesNotMatch(memberApp, /renderHomeAudioCard/);
+  assert.doesNotMatch(liveAudioViews, /renderHomeAudioCard|CHURCH LIVE AUDIO|Open Listen/);
+  assert.match(memberApp, /\["listen", "Stream Live", "mic"\]/);
+  assert.match(memberApp, /icon\(item\[2\], "header-nav-item-icon"\)/);
+  assert.match(memberApp, /mic: '<rect x="9" y="2" width="6" height="12" rx="3"\/>/);
+  assert.match(memberStyles, /\.header-nav-item-icon/);
 });
 
 test("Upcoming Programmes renders a newest-first, full-width flyer and voting feed", () => {

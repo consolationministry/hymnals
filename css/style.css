@@ -430,6 +430,9 @@ html[data-theme="dark"] .reader-heading {
   box-shadow: var(--shadow);
 }
 .header-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-height: 44px;
   padding: 9px 12px;
   border: 0;
@@ -440,6 +443,7 @@ html[data-theme="dark"] .reader-heading {
   text-align: left;
   cursor: pointer;
 }
+.header-nav-item-icon { width: 19px; height: 19px; flex: 0 0 auto; color: var(--accent); }
 .header-nav-item:hover, .header-nav-item[aria-current="page"] { color: var(--accent); background: var(--accent-soft); }
 .brand-subtitle { letter-spacing: .035em; }
 .home-page { max-width: 760px; }
