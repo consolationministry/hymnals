@@ -93,14 +93,17 @@ export async function supabaseRequest(path, options) {
   if (!isSupabaseConfigured()) throw new SupabaseRequestError("Admin backend configuration is missing.", 0, "NOT_CONFIGURED");
   const session = opts.session || (!opts.publicOnly ? getStoredSession() : null);
   const headers = new Headers(opts.headers || {});
+  const blobBody = typeof Blob !== "undefined" && opts.body instanceof Blob;
   headers.set("apikey", SUPABASE_PUBLISHABLE_KEY);
-  if (!headers.has("content-type") && opts.body !== undefined) headers.set("content-type", "application/json");
+  if (!headers.has("content-type") && opts.body !== undefined && !blobBody) headers.set("content-type", "application/json");
   if (!headers.has("accept")) headers.set("accept", "application/json");
   headers.set("authorization", "Bearer " + (session && session.access_token ? session.access_token : SUPABASE_PUBLISHABLE_KEY));
   if (opts.prefer) headers.set("prefer", opts.prefer);
 
   const init = { method: opts.method || "GET", headers: headers };
-  if (opts.body !== undefined) init.body = typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body);
+  if (opts.body !== undefined) {
+    init.body = blobBody ? opts.body : typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body);
+  }
   const response = await fetch(makeUrl(path), init);
   const payload = await parseResponse(response);
 
