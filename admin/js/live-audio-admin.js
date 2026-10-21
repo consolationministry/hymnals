@@ -8,7 +8,7 @@ import {
   startAdminLiveAudioProgram
 } from "./live-audio-admin-data.js";
 import { createLiveAudioId } from "../../js/live-audio-realtime.js";
-import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js";
+import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=2";
 
 let activeTab = "programs";
 let editingId = null;
@@ -21,6 +21,9 @@ let activeMicFrame = null;
 let activeBroadcaster = null;
 let activeBroadcastId = null;
 let audioSettings = Object.assign({}, DEFAULT_AUDIO_SETTINGS);
+let availableMicrophones = [];
+let selectedMicrophoneId = "";
+let microphoneScanPending = false;
 
 function escapeHtml(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, character => ({
@@ -48,6 +51,11 @@ function icon(name) {
   const paths = {
     radio: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v10a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="m7 5 10-3M8 15h8"/><circle cx="8" cy="10" r="1.7"/>',
     back: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
+    mic: '<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>',
+    wifi: '<path d="M5 12.55a11 11 0 0 1 14.08 0M8.5 16.1a5.5 5.5 0 0 1 7 0M12 20h.01"/>',
+    check: '<path d="m5 12 4 4L19 6"/>',
+    shield: '<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/>',
+    speaker: '<path d="M4 10v4h4l5 4V6l-5 4H4Z"/><path d="M17 9a5 5 0 0 1 0 6M19 6a9 9 0 0 1 0 12"/>',
     edit: '<path d="m15 5 4 4M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/>',
     trash: '<path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/>'
   };
@@ -234,35 +242,125 @@ function rangeControl(id, label, min, max, step, value, unit) {
     '" data-audio-control="' + id + '"><span class="audio-control-ends"><small>' + min + unit + "</small><small>" + max + unit + "</small></span></label>";
 }
 
+function renderHealthRow(label, value, healthy, iconName) {
+  return '<div class="audio-health-row"><span class="audio-health-icon">' + icon(iconName) + '</span><span class="audio-health-copy"><strong>' +
+    label + '</strong><small>' + value + '</small></span><span class="audio-health-state' +
+    (healthy ? " is-healthy" : " is-warning") + '">' + (healthy ? "Ready" : "Check") + "</span></div>";
+}
+
+function renderMicrophoneOptions() {
+  const options = ['<option value="">System default microphone</option>'];
+  availableMicrophones.forEach((device, index) => {
+    const label = device.label || "Microphone " + (index + 1);
+    options.push('<option value="' + escapeHtml(device.deviceId) + '"' +
+      (device.deviceId === selectedMicrophoneId ? " selected" : "") + ">" + escapeHtml(label) + "</option>");
+  });
+  return options.join("");
+}
+
+async function refreshMicrophoneOptions() {
+  if (microphoneScanPending || typeof navigator === "undefined" ||
+      !navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== "function") return;
+  const select = document.querySelector("[data-audio-mic-select]");
+  if (!select) return;
+  microphoneScanPending = true;
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    availableMicrophones = devices.filter(device => device.kind === "audioinput");
+    select.innerHTML = renderMicrophoneOptions();
+    select.value = selectedMicrophoneId;
+  } catch (error) {
+    // Device names are optional; the browser's default microphone remains available.
+  } finally {
+    microphoneScanPending = false;
+  }
+}
+
 function renderBroadcastSettings(data) {
   const program = data.programs.find(item => item.id === editingId);
   if (!program) return '<div class="audio-admin-empty"><h2>Programme not found</h2><p>Go back and choose a broadcast again.</p></div>';
   const isLive = program.onAir;
-  return '<section class="audio-admin-form-wrap"><div class="page-heading"><div><p class="audio-wizard-step">STEP 2 OF 2</p><h1>Microphone &amp; broadcast settings</h1><p>Test your voice, adjust the sound, then go live.</p></div>' +
-    '<button class="button button-secondary audio-admin-back" type="button" data-action="audio-admin-back">' + icon("back") + "Back to broadcasts</button></div>" +
-    '<div class="audio-current-program"><span class="audio-current-icon">' + icon("radio") + '</span><div><small>READY TO BROADCAST</small><strong>' +
-    escapeHtml(program.title) + '</strong><span>' + escapeHtml(program.speaker || "Minister not set") + " · " + escapeHtml(program.category) +
-    "</span></div></div>" +
-    '<section class="panel audio-mic-panel"><header class="panel-header"><div><h2>Microphone check</h2><p>Mic stays in this browser. It is not recorded or sent until you choose Go live.</p></div></header>' +
-    '<div class="panel-body"><canvas class="audio-waveform" data-audio-waveform width="760" height="112" aria-label="Live microphone waveform" role="img"></canvas>' +
+  const browser = typeof navigator === "undefined" ? null : navigator;
+  const secure = typeof window !== "undefined" && window.isSecureContext === true;
+  const online = browser ? browser.onLine !== false : false;
+  const micSupported = Boolean(browser && browser.mediaDevices && typeof browser.mediaDevices.getUserMedia === "function");
+  const audioSupported = typeof AudioContext === "function" ||
+    (typeof window !== "undefined" && typeof window.webkitAudioContext === "function");
+  const webrtcSupported = typeof RTCPeerConnection === "function" ||
+    (typeof window !== "undefined" && typeof window.RTCPeerConnection === "function");
+  const canGoLive = secure && online && micSupported && audioSupported && webrtcSupported;
+  const micReady = Boolean(activeMicEngine || activeBroadcaster);
+  const readyToBroadcast = micReady && canGoLive;
+  const previewImage = program.imageUrl
+    ? '<img class="audio-stream-artwork" src="' + escapeHtml(program.imageUrl) + '" alt="" loading="lazy">'
+    : '<div class="audio-stream-artwork-placeholder"><img src="../assets/demo-church-mark.svg" alt=""><span>Consolation Evangelical<br>and Revival Church</span></div>';
+  const liveStatus = isLive
+    ? (activeBroadcastId === program.id ? "Broadcast is live. Keep this browser tab open." : "Marked live, but this session is not connected.")
+    : activeMicEngine ? "Microphone is working. Audio stays local until you go live." : "Test your microphone before going live.";
+  return '<section class="audio-mic-test-page">' +
+    '<header class="audio-mic-test-heading"><button class="audio-broadcast-back" type="button" data-action="audio-admin-back-to-details">' +
+    icon("back") + "Back to Broadcast Settings</button>" +
+    '<div class="audio-mic-test-heading-row"><div class="audio-mic-title"><span class="audio-mic-title-icon">' + icon("mic") + '</span><div>' +
+    '<p class="audio-wizard-step">LIVE AUDIO · SETUP</p><h1>Mic &amp; Audio Test</h1><p>Test your microphone and adjust audio before going live.</p></div></div>' +
+    '<div class="audio-broadcast-steps audio-mic-progress" aria-label="Broadcast setup progress">' +
+    '<span class="is-complete"><b>' + icon("check") + '</b>Settings</span><i></i><span class="is-current"><b>2</b>Mic Test</span>' +
+    '<i></i><span><b>3</b>Preview</span><i></i><span><b>4</b>Go Live</span></div></div></header>' +
+    '<div class="audio-mic-test-layout"><div class="audio-mic-main">' +
+    '<section class="audio-mic-check-card" aria-labelledby="audio-mic-check-title">' +
+    '<div class="audio-mic-check-controls"><div class="audio-mic-check-intro"><span class="audio-mic-test-icon">' + icon("mic") + '</span><div>' +
+    '<h2 id="audio-mic-check-title">Microphone Test</h2><p>Speak to check your audio input.</p></div></div>' +
+    '<div class="audio-mic-status-pill' + (micReady ? " is-ready" : "") + '" data-audio-ready-status>' +
+    '<span class="audio-status-dot"></span>' + (micReady ? "Microphone is working" : "Microphone not tested") + '</div>' +
+    '<label class="audio-device-select" for="audio-mic-device"><span>Select microphone</span><select id="audio-mic-device" data-audio-mic-select>' +
+    renderMicrophoneOptions() + '</select></label>' +
+    '<div class="audio-mic-actions">' + (isLive
+      ? '<span class="audio-mic-live-indicator"><i></i>Broadcast is live</span>'
+      : '<button class="button button-secondary" type="button" data-action="audio-admin-mic-test">' +
+        (activeMicEngine ? "Test Again" : "Test microphone") + '</button><button class="button button-secondary" type="button" data-action="audio-admin-mic-stop" ' +
+        (activeMicEngine && !activeBroadcaster ? "" : "hidden") + '>Stop test</button>') + '</div></div>' +
+    '<div class="audio-mic-visual"><div class="audio-mic-visual-heading"><strong>Audio Preview</strong><span>Input level only · no local playback</span></div>' +
+    '<canvas class="audio-waveform audio-mic-waveform" data-audio-waveform width="760" height="150" aria-label="Live microphone waveform" role="img"></canvas>' +
     '<div class="audio-mic-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-audio-mic-level></span></div>' +
-    '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">' +
-    (isLive ? (activeBroadcastId === program.id ? "Broadcast is live." : "Broadcast is marked live, but this admin session is not connected.") : "Microphone is off.") + "</p>" +
-    (isLive ? '<p class="audio-listener-count" data-audio-listener-count>0 listeners connected</p>' : "") +
-    '<div class="audio-mic-actions">' +
-    (isLive
-      ? '<button class="button button-secondary audio-admin-stop" type="button" data-action="audio-admin-stop-live" data-id="' + escapeHtml(program.id) + '">End broadcast</button>'
-      : '<button class="button button-secondary" type="button" data-action="audio-admin-mic-test">Test microphone</button><button class="button button-primary" type="button" data-action="audio-admin-go-live-now" data-id="' + escapeHtml(program.id) + '">Go live</button>') +
-    '<button class="button button-secondary" type="button" data-action="audio-admin-mic-stop" hidden>Stop mic test</button></div></div></section>' +
-    '<section class="panel audio-mixer-panel"><header class="panel-header"><div><h2>Voice sound</h2><p>Small adjustments are best. Keep the mic level out of the red.</p></div></header><div class="audio-mixer-grid">' +
-    rangeControl("bass", "Bass", -12, 12, 1, audioSettings.bass, " dB") +
-    rangeControl("mid", "Mid", -12, 12, 1, audioSettings.mid, " dB") +
+    '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">' + escapeHtml(liveStatus) + '</p>' +
+    (isLive ? '<p class="audio-listener-count" data-audio-listener-count>0 listeners connected</p>' : "") + '</div></section>' +
+    '<section class="panel audio-mixer-panel"><header class="panel-header"><div><h2>Audio Editing &amp; Effects</h2><p>Adjust the voice signal before it reaches listeners.</p></div></header>' +
+    '<div class="audio-mixer-grid">' + rangeControl("bass", "Bass", -12, 12, 1, audioSettings.bass, " dB") +
     rangeControl("treble", "Treble", -12, 12, 1, audioSettings.treble, " dB") +
+    rangeControl("mid", "Mid", -12, 12, 1, audioSettings.mid, " dB") +
     rangeControl("pitch", "Pitch", -4, 4, 1, audioSettings.pitch, " st") +
-    rangeControl("gain", "Mic level", -12, 6, 1, audioSettings.gain, " dB") +
-    '</div><p class="field-hint">Pitch shift is subtle and browser-dependent. For listeners on networks that block direct peer connections, a TURN relay will be needed.</p></section>' +
-    '<div class="audio-admin-form-footer"><span class="field-hint">Going live publishes the programme and sends processed mic audio directly to listeners with WebRTC.</span>' +
-    '<div class="form-actions-right"><button class="button button-secondary" type="button" data-action="audio-admin-save-draft">Save draft</button></div></div></section>';
+    rangeControl("gain", "Mic level", -12, 6, 1, audioSettings.gain, " dB") + '</div>' +
+    '<p class="field-hint">Adjustments are applied to the outgoing broadcast. Pitch shift depends on browser audio-worklet support.</p></section>' +
+    '<div class="audio-mic-check-grid"><section class="panel audio-mic-device-check"><header class="panel-header"><div><h2>Audio Device Check</h2><p>Make sure your input and browser are ready.</p></div></header>' +
+    '<div class="audio-check-status-grid">' + renderHealthRow("Microphone", micReady ? "Connected" : "Test required", micReady, "mic") +
+    renderHealthRow("Audio processing", audioSupported ? "Supported" : "Unavailable", audioSupported, "speaker") +
+    renderHealthRow("Connection security", secure ? "HTTPS browser context" : "HTTPS required", secure, "shield") + '</div></section>' +
+    '<section class="panel audio-mic-system-check"><header class="panel-header"><div><h2>System Check</h2><p>Live connection requirements.</p></div></header>' +
+    '<div class="audio-system-status-list">' + renderHealthRow("Browser network status", online ? "Online" : "Offline", online, "wifi") +
+    renderHealthRow("WebRTC audio", webrtcSupported ? "Available" : "Not supported", webrtcSupported, "radio") + '</div>' +
+    '<p class="audio-system-note">Some networks may block direct WebRTC audio; a TURN relay may be needed.</p></section></div></div>' +
+    '<aside class="audio-mic-side">' +
+    '<section class="audio-live-preview-card"><header class="audio-side-heading"><h2>Live Preview</h2><span class="audio-preview-mode"><i></i>' +
+    (isLive ? "On Air" : "Preview Mode") + '</span></header><div class="audio-stream-artwork-wrap">' + previewImage +
+    '<span class="audio-stream-badge' + (isLive ? " is-live" : "") + '">' + (isLive ? "LIVE" : "PREVIEW") + '</span>' +
+    '<div class="audio-stream-artwork-copy"><strong>' + escapeHtml(program.title) + '</strong><span>Consolation Evangelical and Revival Church</span></div></div></section>' +
+    '<section class="audio-stream-details-card"><header class="audio-side-heading"><h2>Stream Details</h2></header><dl class="audio-stream-details">' +
+    '<div><dt>' + icon("radio") + 'Title</dt><dd>' + escapeHtml(program.title) + '</dd></div>' +
+    '<div><dt>' + icon("mic") + 'Minister</dt><dd>' + escapeHtml(program.speaker || "Not set") + '</dd></div>' +
+    '<div><dt>' + icon("shield") + 'Venue</dt><dd>' + escapeHtml(program.venue || "Not set") + '</dd></div>' +
+    '<div><dt>' + icon("check") + 'Date</dt><dd>' + escapeHtml(program.date ? formatDate(program.date) : "Not set") + '</dd></div>' +
+    '<div><dt>' + icon("wifi") + 'Category</dt><dd>' + escapeHtml(program.category || "Other") + '</dd></div></dl></section>' +
+    '<section class="audio-network-status-card"><header class="audio-side-heading"><h2>Network &amp; Audio Status</h2></header><div class="audio-network-status-list">' +
+    renderHealthRow("Browser network status", online ? "Online" : "Offline", online, "wifi") +
+    renderHealthRow("Microphone", micReady ? "Input detected" : "Test required", micReady, "mic") +
+    renderHealthRow("WebRTC", webrtcSupported ? "Supported" : "Unavailable", webrtcSupported, "radio") + '</div></section>' +
+    '<section class="audio-go-live-card"><span class="audio-go-live-mark">' + icon(micReady || isLive ? "check" : "mic") + '</span>' +
+    '<h2>' + (isLive ? "You’re Live!" : readyToBroadcast ? "You’re Ready!" : "Ready when you are") + '</h2>' +
+    '<p>' + (isLive ? "Listeners can join from the public Listen page." : readyToBroadcast ? "Your microphone is working. Start the broadcast when ready." : "Test your microphone, then start the broadcast.") + '</p>' +
+    (isLive
+      ? '<button class="button button-secondary audio-admin-stop audio-go-live-button" type="button" data-action="audio-admin-stop-live" data-id="' + escapeHtml(program.id) + '">End Broadcast</button>'
+      : '<button class="button button-primary audio-go-live-button" type="button" data-action="audio-admin-go-live-now" data-id="' + escapeHtml(program.id) + '"' + (canGoLive ? "" : " disabled") + '>' + icon("radio") + 'Go Live <span aria-hidden="true">›</span></button>') +
+    '<p class="audio-go-live-note">' + (canGoLive ? "Your mic is only sent to listeners after you go live." : "Use HTTPS with an online browser that supports microphone and WebRTC audio.") + '</p></section>' +
+    '</aside></div></section>';
 }
 
 function renderSettings(data) {
@@ -302,8 +400,9 @@ function rerender() {
   const content = document.getElementById("admin-content");
   if (content) {
     const shell = content.closest(".admin-shell");
-    if (shell) shell.classList.toggle("audio-broadcast-shell", wizardStep === 1 && editingId !== null);
+    if (shell) shell.classList.toggle("audio-broadcast-shell", (wizardStep === 1 || wizardStep === 2) && editingId !== null);
     content.innerHTML = renderLiveAudioAdmin();
+    if (wizardStep === 2 && editingId !== null) void refreshMicrophoneOptions();
   }
   if (activeBroadcaster) {
     const status = document.querySelector("[data-audio-mic-status]");
@@ -325,10 +424,11 @@ function updateMeter() {
     const width = canvas.width;
     const height = canvas.height;
     context.clearRect(0, 0, width, height);
-    context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--surface-soft").trim() || "#f8f6fa";
+    const themeRoot = document.querySelector(".admin-shell") || document.documentElement;
+    context.fillStyle = getComputedStyle(themeRoot).getPropertyValue("--surface-soft").trim() || "#10233d";
     context.fillRect(0, 0, width, height);
-    context.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--purple").trim() || "#70409b";
-    context.lineWidth = 2;
+    context.strokeStyle = getComputedStyle(themeRoot).getPropertyValue("--purple").trim() || "#4b9bff";
+    context.lineWidth = 3;
     context.beginPath();
     for (let i = 0; i < samples.length; i += 1) {
       const x = (i / (samples.length - 1)) * width;
@@ -343,15 +443,21 @@ function updateMeter() {
 
 async function ensureMicEngine() {
   if (activeMicEngine) return activeMicEngine;
-  activeMicEngine = await createLiveAudioMicEngine({ settings: audioSettings });
+  activeMicEngine = await createLiveAudioMicEngine({ settings: audioSettings, deviceId: selectedMicrophoneId });
   const status = document.querySelector("[data-audio-mic-status]");
   if (status) status.textContent = activeMicEngine.pitchAvailable
     ? "Microphone is on. Speak to check your voice and waveform."
     : "Microphone is on. EQ and level work; pitch shift is not supported in this browser.";
   const startButton = document.querySelector('[data-action="audio-admin-mic-test"]');
   const stopButton = document.querySelector('[data-action="audio-admin-mic-stop"]');
+  const readyStatus = document.querySelector("[data-audio-ready-status]");
   if (startButton) startButton.hidden = true;
   if (stopButton) stopButton.hidden = false;
+  if (readyStatus) {
+    readyStatus.classList.add("is-ready");
+    readyStatus.innerHTML = '<span class="audio-status-dot"></span>Microphone is working';
+  }
+  void refreshMicrophoneOptions();
   updateMeter();
   return activeMicEngine;
 }
@@ -375,13 +481,20 @@ export async function stopAdminAudioMicTest() {
   const status = document.querySelector("[data-audio-mic-status]");
   const level = document.querySelector("[data-audio-mic-level]");
   const meter = document.querySelector(".audio-mic-meter");
+  const canvas = document.querySelector("[data-audio-waveform]");
   const startButton = document.querySelector('[data-action="audio-admin-mic-test"]');
   const stopButton = document.querySelector('[data-action="audio-admin-mic-stop"]');
+  const readyStatus = document.querySelector("[data-audio-ready-status]");
   if (status) status.textContent = "Microphone is off.";
   if (level) level.style.width = "0%";
   if (meter) meter.setAttribute("aria-valuenow", "0");
+  if (canvas) canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
   if (startButton) startButton.hidden = false;
   if (stopButton) stopButton.hidden = true;
+  if (readyStatus) {
+    readyStatus.classList.remove("is-ready");
+    readyStatus.innerHTML = '<span class="audio-status-dot"></span>Microphone not tested';
+  }
 }
 
 function downloadDrafts() {
@@ -488,6 +601,16 @@ export async function handleLiveAudioAdminAction(button) {
     rerender();
     return true;
   }
+  if (action === "audio-admin-back-to-details") {
+    if (activeBroadcaster) {
+      toast("End the live broadcast before changing its details.");
+      return true;
+    }
+    await stopAdminAudioMicTest();
+    wizardStep = 1;
+    rerender();
+    return true;
+  }
   if (action === "audio-admin-publish") {
     const program = cachedData.programs.find(item => item.id === button.dataset.id);
     if (!program || !window.confirm('Publish "' + program.title + '" on the web Listen page?')) return true;
@@ -518,6 +641,7 @@ export async function handleLiveAudioAdminAction(button) {
     return true;
   }
   if (action === "audio-admin-mic-test") {
+    if (activeMicEngine && !activeBroadcaster) await stopAdminAudioMicTest();
     await startMicTest();
     return true;
   }
@@ -610,6 +734,15 @@ if (typeof document !== "undefined" && document.addEventListener) {
     const unit = key === "pitch" ? " st" : " dB";
     if (output) output.value = input.value + unit;
     if (activeMicEngine) activeMicEngine.setSettings(audioSettings);
+  });
+  document.addEventListener("change", async event => {
+    const select = event.target;
+    if (!select || !select.matches || !select.matches("[data-audio-mic-select]")) return;
+    selectedMicrophoneId = select.value;
+    if (activeMicEngine && !activeBroadcaster) {
+      await stopAdminAudioMicTest();
+      await startMicTest();
+    }
   });
 }
 

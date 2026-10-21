@@ -112,7 +112,7 @@ test("Live Audio overview has real broadcast stats, a Go live action, and no aud
   assert.doesNotMatch(html, /Secure audio stream URL|streamUrl|browser preview/);
 });
 
-test("broadcast setup matches the new details layout and continues to microphone settings", async () => {
+test("broadcast setup continues into the dark microphone test and send flow", async () => {
   const programs = await prepare();
   await handleLiveAudioAdminAction({ dataset: { action: "audio-admin-new" } });
   const details = renderLiveAudioAdmin();
@@ -145,13 +145,22 @@ test("broadcast setup matches the new details layout and continues to microphone
   assert.equal(programs.length, 1);
   assert.equal(programs[0].status, "draft");
   const settings = renderLiveAudioAdmin();
-  assert.match(settings, /STEP 2 OF 2/);
-  assert.match(settings, /Microphone check/);
+  assert.match(settings, /Mic &amp; Audio Test/);
+  assert.match(settings, /audio-mic-test-layout/);
+  assert.match(settings, /Microphone Test/);
+  assert.match(settings, /Select microphone/);
+  assert.match(settings, /Live Preview/);
+  assert.match(settings, /Stream Details/);
+  assert.match(settings, /Network &amp; Audio Status/);
   assert.match(settings, /data-audio-waveform/);
   assert.match(settings, /data-audio-control="bass"/);
   assert.match(settings, /data-audio-control="treble"/);
   assert.match(settings, /data-audio-control="pitch"/);
   assert.match(settings, /data-action="audio-admin-go-live-now"/);
+  assert.match(settings, /audio-go-live-note/);
+
+  await handleLiveAudioAdminAction({ dataset: { action: "audio-admin-back-to-details" } });
+  assert.match(renderLiveAudioAdmin(), /Edit Broadcast/);
 });
 
 test("broadcast settings can return to the list and categories remain editable", async () => {

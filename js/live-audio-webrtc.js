@@ -24,11 +24,18 @@ export async function createLiveAudioMicEngine(options) {
 
   let rawStream;
   try {
+    const audioConstraints = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: false,
+      channelCount: 1
+    };
+    if (opts.deviceId) audioConstraints.deviceId = { exact: opts.deviceId };
     rawStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false, channelCount: 1 }
+      audio: audioConstraints
     });
   } catch (error) {
-    if (error && (error.name === "OverconstrainedError" || error.name === "ConstraintNotSatisfiedError")) {
+    if (!opts.deviceId && error && (error.name === "OverconstrainedError" || error.name === "ConstraintNotSatisfiedError")) {
       rawStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } else {
       throw new Error(error && error.name === "NotAllowedError"
