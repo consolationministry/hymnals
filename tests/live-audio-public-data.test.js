@@ -112,7 +112,11 @@ test("public audio loads published Supabase programmes and shared listener inter
 
   assert.match(renderLiveAudioPage(data, "", ""), /Listen now/);
   const listener = renderLiveAudioListener(data, PROGRAM_ID);
-  assert.match(listener, /<audio autoplay controls playsinline[^>]*data-live-audio-player/);
+  assert.match(listener, /<audio[^>]*autoplay playsinline[^>]*data-live-audio-player/);
+  assert.doesNotMatch(listener, /<audio[^>]*\scontrols(?:\s|>|=)/);
+  assert.match(listener, /data-audio-waveform="live"/);
+  assert.match(listener, /data-action="toggle-audio-playback" data-player-type="live"/);
+  assert.match(listener, /data-action="toggle-audio-mute" data-player-type="live"/);
   assert.doesNotMatch(listener, /data-action="connect-live-audio"|data-action="disconnect-live-audio"|Stop listening/);
   assert.match(listener, /Amen!/);
   assert.match(listener, /shared with other listeners/);
@@ -154,6 +158,11 @@ test("published recordings get temporary public playback URLs and an archive pla
   const listener = renderLiveAudioListener(data, PROGRAM_ID);
   assert.match(listener, /data-recorded-audio-player/);
   assert.match(listener, /src="https:\/\/.+token=test-token/);
+  assert.match(listener, /data-audio-seek="recorded"/);
+  assert.match(listener, /data-audio-current-time="recorded"/);
+  assert.match(listener, /data-audio-duration="recorded"/);
+  assert.match(listener, /data-audio-waveform="recorded"/);
+  assert.doesNotMatch(listener, /<audio[^>]*\scontrols(?:\s|>|=)/);
   assert.doesNotMatch(listener, /data-action="connect-live-audio"/);
 });
 

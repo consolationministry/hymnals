@@ -85,6 +85,15 @@ function audioLibraryProgramRow(program) {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 9 6-9 6z"/></svg></button></article>';
 }
 
+function audioWaveformBars() {
+  return Array.from({ length: 40 }, function () { return "<span></span>"; }).join("");
+}
+
+function audioPlayerButton(playerType, action, label, icon) {
+  return '<button class="audio-player-control audio-player-' + action + '" type="button" data-action="' + action + '" data-player-type="' + playerType + '" aria-label="' + label + '">' +
+    '<span data-audio-control-icon aria-hidden="true">' + icon + '</span></button>';
+}
+
 export function renderLiveAudioPage(data, query, category) {
   const programs = data.programs.filter(function (program) { return program.status === "published"; });
   const livePrograms = programs.filter(function (program) { return program.onAir && program.liveSessionId; });
@@ -172,23 +181,35 @@ export function renderLiveAudioListener(data, programId, options) {
   const isLive = program.onAir && Boolean(program.liveSessionId);
   const listenerCount = Math.max(0, Number(program.listenCount) || 0);
   const meta = [program.date ? formattedDate(program.date) : "", program.venue].filter(Boolean).map(escapeHtml);
-  const waveform = [22,40,28,60,36,75,31,53,88,45,68,37,96,55,73,41,83,33,62,26,49,20,38,18,45,70,34,58,26,44].map(function (height) {
-    return '<span style="height:' + height + '%"></span>';
-  }).join("");
   const artwork = program.imageUrl
     ? '<div class="audio-listener-art"><img src="' + escapeHtml(program.imageUrl) + '" alt="" loading="eager"></div>'
     : '<div class="audio-listener-art audio-listener-art-empty"><span class="audio-listener-art-placeholder">' + radioIcon() + '</span></div>';
   const player = isLive
     ? '<section class="audio-player audio-listener-player" aria-label="Live audio player"><div class="audio-listener-player-heading"><span class="audio-listener-player-live"><i></i> LIVE AUDIO</span><span class="audio-listener-player-caption">' +
       (opts.connecting ? "Joining the live broadcast…" : opts.connected ? "Live audio connected" : "Live broadcast audio") + '</span></div>' +
-      '<audio autoplay controls playsinline preload="none" data-live-audio-player aria-label="Listen to ' + escapeHtml(program.title) + '"></audio>' +
-      '<div class="audio-listener-waveform" aria-hidden="true">' + waveform + '</div>' +
+      '<audio class="audio-listener-audio-source" autoplay playsinline preload="none" data-live-audio-player data-audio-player="live" aria-hidden="true" tabindex="-1" aria-label="Listen to ' + escapeHtml(program.title) + '"></audio>' +
+      '<div class="audio-listener-controls" data-audio-player-controls="live">' +
+      '<div class="audio-listener-waveform" data-audio-waveform="live" role="img" aria-label="Live waveform responds to the broadcast audio">' + audioWaveformBars() + '</div>' +
+      '<div class="audio-player-control-row">' +
+      audioPlayerButton("live", "toggle-audio-playback", "Pause live audio", "Ⅱ") +
+      '<span class="audio-listener-timer" data-audio-listen-timer aria-live="polite"></span>' +
+      audioPlayerButton("live", "toggle-audio-mute", "Mute audio", "◖))") +
+      '<label class="audio-player-volume"><span class="sr-only">Volume</span><input type="range" min="0" max="100" step="1" value="100" data-audio-volume="live" aria-label="Live audio volume"></label>' +
+      '</div></div>' +
       '<p class="audio-player-note" data-live-audio-status aria-live="polite">' + escapeHtml(opts.status || "Opening the live audio room…") + '</p>' +
-      '<span class="audio-listener-timer" data-audio-listen-timer aria-live="polite"></span></section>'
+      '</section>'
     : program.recordingUrl
       ? '<section class="audio-player audio-listener-player" aria-label="Recorded audio player"><div class="audio-listener-player-heading"><span class="audio-listener-recorded">RECORDED BROADCAST</span><span class="audio-listener-player-caption">Listen to the full service</span></div>' +
-        '<audio controls playsinline preload="metadata" data-recorded-audio-player src="' + escapeHtml(program.recordingUrl) + '" aria-label="Play recording of ' + escapeHtml(program.title) + '"></audio>' +
-        '<p class="audio-player-note">This recording was published by the church.</p></section>'
+        '<audio class="audio-listener-audio-source" crossorigin="anonymous" playsinline preload="metadata" data-recorded-audio-player data-audio-player="recorded" src="' + escapeHtml(program.recordingUrl) + '" aria-hidden="true" tabindex="-1" aria-label="Play recording of ' + escapeHtml(program.title) + '"></audio>' +
+        '<div class="audio-listener-controls" data-audio-player-controls="recorded">' +
+        '<div class="audio-listener-waveform" data-audio-waveform="recorded" role="img" aria-label="Recording waveform; highlighted bars show playback progress">' + audioWaveformBars() + '</div>' +
+        '<input class="audio-listener-seek" type="range" min="0" max="1000" step="1" value="0" data-audio-seek="recorded" aria-label="Seek through recording" disabled>' +
+        '<div class="audio-player-control-row">' +
+        audioPlayerButton("recorded", "toggle-audio-playback", "Play recording", "▶") +
+        '<span class="audio-listener-time"><output data-audio-current-time="recorded">0:00</output><span aria-hidden="true"> / </span><output data-audio-duration="recorded">--:--</output></span>' +
+        audioPlayerButton("recorded", "toggle-audio-mute", "Mute audio", "◖))") +
+        '<label class="audio-player-volume"><span class="sr-only">Volume</span><input type="range" min="0" max="100" step="1" value="100" data-audio-volume="recorded" aria-label="Recording volume"></label>' +
+        '</div></div><p class="audio-player-note" data-audio-player-status="recorded">This recording was published by the church.</p></section>'
       : '<section class="audio-player audio-listener-player"><p class="audio-player-note">This programme is not live right now. Return to the library to see when the next broadcast begins.</p></section>';
   const commentList = comments.length
     ? '<ul class="audio-comment-list" aria-live="polite">' + comments.map(function (comment) {
