@@ -179,13 +179,11 @@ export function renderLiveAudioListener(data, programId, options) {
     ? '<div class="audio-listener-art"><img src="' + escapeHtml(program.imageUrl) + '" alt="" loading="eager"></div>'
     : '<div class="audio-listener-art audio-listener-art-empty"><span class="audio-listener-art-placeholder">' + radioIcon() + '</span></div>';
   const player = isLive
-    ? '<section class="audio-player audio-listener-player" aria-label="Live audio player"><div class="audio-listener-player-heading"><span class="audio-listener-player-live"><i></i> LIVE AUDIO</span><span class="audio-listener-player-caption">Connect to hear the broadcast</span></div>' +
-      '<audio controls playsinline preload="none" data-live-audio-player aria-label="Listen to ' + escapeHtml(program.title) + '"></audio>' +
+    ? '<section class="audio-player audio-listener-player" aria-label="Live audio player"><div class="audio-listener-player-heading"><span class="audio-listener-player-live"><i></i> LIVE AUDIO</span><span class="audio-listener-player-caption">' +
+      (opts.connecting ? "Joining the live broadcast…" : opts.connected ? "Live audio connected" : "Live broadcast audio") + '</span></div>' +
+      '<audio autoplay controls playsinline preload="none" data-live-audio-player aria-label="Listen to ' + escapeHtml(program.title) + '"></audio>' +
       '<div class="audio-listener-waveform" aria-hidden="true">' + waveform + '</div>' +
-      '<p class="audio-player-note" data-live-audio-status aria-live="polite">' + escapeHtml(opts.status || "Connect to join the live audio room.") + '</p>' +
-      '<div class="audio-live-actions"><button class="button-primary audio-listener-connect" type="button" data-action="connect-live-audio" data-program-id="' + escapeHtml(program.id) + '"' +
-      (opts.connecting || opts.connected ? " disabled" : "") + '>' + (opts.connecting ? "Connecting…" : opts.connected ? "Connected" : "Connect to live audio") + '</button>' +
-      (opts.connected || opts.connecting ? '<button class="button-secondary audio-listener-stop" type="button" data-action="disconnect-live-audio">Stop listening</button>' : "") + '</div>' +
+      '<p class="audio-player-note" data-live-audio-status aria-live="polite">' + escapeHtml(opts.status || "Opening the live audio room…") + '</p>' +
       '<span class="audio-listener-timer" data-audio-listen-timer aria-live="polite"></span></section>'
     : program.recordingUrl
       ? '<section class="audio-player audio-listener-player" aria-label="Recorded audio player"><div class="audio-listener-player-heading"><span class="audio-listener-recorded">RECORDED BROADCAST</span><span class="audio-listener-player-caption">Listen to the full service</span></div>' +

@@ -510,7 +510,8 @@ function render() {
   document.body.classList.toggle("audio-listener-mode", state.view === "listen" && Boolean(state.selectedLiveAudioProgramId));
   applyPreferences();
   renderHeader();
-  const preservedAudioPlayer = state.view === "listen" && state.selectedLiveAudioProgramId && state.liveAudioListener
+  const preservedAudioPlayer = state.view === "listen" && state.selectedLiveAudioProgramId &&
+    (state.liveAudioConnecting || state.liveAudioListener)
     ? main.querySelector("[data-live-audio-player]")
     : null;
   if (state.view === "home") main.innerHTML = renderHome();
@@ -935,13 +936,18 @@ document.addEventListener("click", function (event) {
     const selectedFilter = Array.from(main.querySelectorAll('[data-action="filter-live-audio"]')).find(function (button) { return button.dataset.category === state.liveAudioCategory; });
     if (selectedFilter) selectedFilter.focus({ preventScroll: true });
   } else if (action === "open-live-audio") {
-    state.selectedLiveAudioProgramId = target.dataset.programId;
+    const programId = target.dataset.programId;
+    const program = state.liveAudioData.programs.find(item => item.id === programId);
+    state.selectedLiveAudioProgramId = programId;
     state.view = "listen";
     state.menuOpen = false;
     stopLiveAudioTimer();
     render();
     window.scrollTo(0, 0);
     main.focus({ preventScroll: true });
+    if (program && program.onAir && program.liveSessionId) {
+      void connectLiveAudioProgram(programId);
+    }
   } else if (action === "connect-live-audio") {
     void connectLiveAudioProgram(target.dataset.programId);
   } else if (action === "disconnect-live-audio") {
