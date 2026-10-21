@@ -99,6 +99,10 @@ test("public audio loads published Supabase programmes and shared listener inter
   assert.match(listener, /data-action="connect-live-audio"/);
   assert.match(listener, /Amen!/);
   assert.match(listener, /shared with other listeners/);
+  assert.match(listener, /audio-listener-header/);
+  assert.match(listener, /Live Comments/);
+  assert.match(listener, /data-action="share-live-audio"/);
+  assert.match(listener, /3 watching/);
 });
 
 test("public audio interactions call the anonymous RPCs with validated payloads", async () => {

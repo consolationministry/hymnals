@@ -17,6 +17,13 @@ function formattedDate(value) {
   return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(date);
 }
 
+function formattedTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+}
+
 function mediaMarkup(program, className) {
   if (program.imageUrl) {
     return '<div class="' + className + '"><img src="' + escapeHtml(program.imageUrl) + '" alt="" loading="lazy"></div>';
@@ -153,45 +160,58 @@ export function renderLiveAudioPage(data, query, category) {
 export function renderLiveAudioListener(data, programId, options) {
   const opts = options || {};
   const program = data.programs.find(function (item) { return item.id === programId && item.status === "published"; });
+  const header = '<header class="audio-listener-header"><button class="audio-listener-back" type="button" data-action="back-to-live-audio" aria-label="Back to programme library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>' +
+    '<div class="audio-listener-brand"><img src="./assets/consolation-launcher.png" alt="" width="42" height="42"><span><strong>Consolation Evangelical<br>and Revival Church</strong><small>Audio Stream</small></span></div>' +
+    '<button class="audio-listener-header-profile" type="button" data-action="navigate" data-view="settings" aria-label="Open profile and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></button></header>';
   if (!program) {
-    return '<section class="page audio-listener-page"><button class="audio-back-button" type="button" data-action="back-to-live-audio">‹ Back to Listen</button>' +
-      emptyState("Programme not found", "It may have been removed or saved as a draft.") + "</section>";
+    return '<section class="page audio-listener-page">' + header + '<div class="audio-listener-content">' +
+      emptyState("Programme not found", "It may have been removed or saved as a draft.") + '</div></section>';
   }
   const counts = liveAudioCounts(data, program.id);
   const comments = data.comments.filter(function (comment) { return comment.programId === program.id; }).slice(-12).reverse();
   const isLive = program.onAir && Boolean(program.liveSessionId);
+  const listenerCount = Math.max(0, Number(program.listenCount) || 0);
+  const meta = [program.date ? formattedDate(program.date) : "", program.venue].filter(Boolean).map(escapeHtml);
+  const waveform = [22,40,28,60,36,75,31,53,88,45,68,37,96,55,73,41,83,33,62,26,49,20,38,18,45,70,34,58,26,44].map(function (height) {
+    return '<span style="height:' + height + '%"></span>';
+  }).join("");
+  const artwork = program.imageUrl
+    ? '<div class="audio-listener-art"><img src="' + escapeHtml(program.imageUrl) + '" alt="" loading="eager"></div>'
+    : '<div class="audio-listener-art audio-listener-art-empty"><span class="audio-listener-art-placeholder">' + radioIcon() + '</span></div>';
   const player = isLive
-    ? '<div class="audio-player"><audio controls playsinline preload="none" data-live-audio-player aria-label="Listen to ' + escapeHtml(program.title) + '"></audio>' +
-      '<p class="audio-player-note" data-live-audio-status aria-live="polite">' + escapeHtml(opts.status || "Connect to join the live audio room.") + "</p>" +
-      '<div class="audio-live-actions"><button class="button-primary" type="button" data-action="connect-live-audio" data-program-id="' + escapeHtml(program.id) + '"' +
-      (opts.connecting || opts.connected ? " disabled" : "") + ">" + (opts.connecting ? "Connecting…" : opts.connected ? "Connected" : "Connect to live audio") + "</button>" +
-      (opts.connected || opts.connecting ? '<button class="button-secondary" type="button" data-action="disconnect-live-audio">Stop listening</button>' : "") + "</div></div>"
-    : '<div class="audio-player"><p class="audio-player-note">This programme is not live right now. Return to Listen to see when the next broadcast begins.</p></div>';
+    ? '<section class="audio-player audio-listener-player" aria-label="Live audio player"><div class="audio-listener-player-heading"><span class="audio-listener-player-live"><i></i> LIVE AUDIO</span><span class="audio-listener-player-caption">Connect to hear the broadcast</span></div>' +
+      '<audio controls playsinline preload="none" data-live-audio-player aria-label="Listen to ' + escapeHtml(program.title) + '"></audio>' +
+      '<div class="audio-listener-waveform" aria-hidden="true">' + waveform + '</div>' +
+      '<p class="audio-player-note" data-live-audio-status aria-live="polite">' + escapeHtml(opts.status || "Connect to join the live audio room.") + '</p>' +
+      '<div class="audio-live-actions"><button class="button-primary audio-listener-connect" type="button" data-action="connect-live-audio" data-program-id="' + escapeHtml(program.id) + '"' +
+      (opts.connecting || opts.connected ? " disabled" : "") + '>' + (opts.connecting ? "Connecting…" : opts.connected ? "Connected" : "Connect to live audio") + '</button>' +
+      (opts.connected || opts.connecting ? '<button class="button-secondary audio-listener-stop" type="button" data-action="disconnect-live-audio">Stop listening</button>' : "") + '</div>' +
+      '<span class="audio-listener-timer" data-audio-listen-timer aria-live="polite"></span></section>'
+    : '<section class="audio-player audio-listener-player"><p class="audio-player-note">This programme is not live right now. Return to the library to see when the next broadcast begins.</p></section>';
   const commentList = comments.length
-    ? '<ul class="audio-comment-list">' + comments.map(function (comment) {
-      return '<li class="audio-comment"><p>' + escapeHtml(comment.body) + '</p><time datetime="' + escapeHtml(comment.createdAt) + '">' + escapeHtml(formattedDate(comment.createdAt)) + "</time></li>";
-    }).join("") + "</ul>"
-    : '<p class="audio-player-note">Be the first to leave a comment.</p>';
-  const meta = [program.category, program.speaker, program.date ? formattedDate(program.date) : "", program.venue].filter(Boolean)
-    .map(escapeHtml).join(" · ");
-  return '<section class="page audio-listener-page"><button class="audio-back-button" type="button" data-action="back-to-live-audio">' +
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg> Back to Listen</button>' +
-    (data.error ? '<p class="audio-service-error" role="alert">' + escapeHtml(data.error) + "</p>" : "") +
-    '<article class="audio-listener-card">' +
-    (program.imageUrl ? '<div class="audio-listener-art"><img src="' + escapeHtml(program.imageUrl) + '" alt=""></div>' : '<div class="audio-listener-art"><span class="audio-listener-art-placeholder">' + radioIcon() + "</span></div>") +
-    '<div class="audio-listener-body"><div class="audio-listener-title-row"><div><h1>' + escapeHtml(program.title) + "</h1>" +
-    '<p class="audio-listener-speaker">' + (meta || "Consolation Evangelical and Revival Church") + "</p></div>" +
-    (isLive ? '<span class="live-audio-badge is-live">On air</span>' : '<span class="live-audio-badge">Published programme</span>') + "</div>" +
-    player + (program.description ? '<p class="audio-listener-description">' + escapeHtml(program.description) + "</p>" : "") +
-    '<span class="audio-listener-timer" data-audio-listen-timer aria-live="polite"></span>' +
+    ? '<ul class="audio-comment-list" aria-live="polite">' + comments.map(function (comment) {
+      return '<li class="audio-comment"><span class="audio-comment-avatar" aria-hidden="true">•</span><div class="audio-comment-message"><div class="audio-comment-byline"><span>Listener</span><time datetime="' + escapeHtml(comment.createdAt) + '">' + escapeHtml(formattedTime(comment.createdAt)) + '</time></div><p>' + escapeHtml(comment.body) + '</p></div></li>';
+    }).join("") + '</ul>'
+    : '<p class="audio-comment-empty">Be the first to leave a comment.</p>';
+  return '<section class="page audio-listener-page">' + header + '<div class="audio-listener-content">' +
+    (data.error ? '<p class="audio-service-error" role="alert">' + escapeHtml(data.error) + '</p>' : "") + '<article class="audio-listener-card">' + artwork +
+    '<div class="audio-listener-art-overlay">' +
+    (isLive ? '<span class="audio-listener-live-badge"><i></i> LIVE</span><span class="audio-listener-viewers"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.2 0-7 2.1-7 4.5V21h14v-2.5c0-2.4-2.8-4.5-7-4.5Z"/></svg>' + listenerCount + '</span>' : '<span class="audio-listener-featured-badge">PUBLISHED PROGRAMME</span>') +
+    '</div><div class="audio-listener-body"><div class="audio-listener-title-row"><div><h1>' + escapeHtml(program.title) + '</h1><p class="audio-listener-speaker">' +
+    escapeHtml(program.speaker || "Consolation Evangelical and Revival Church") + '</p></div>' +
+    (isLive ? '<span class="live-audio-badge is-live">On air</span>' : '<span class="live-audio-badge">Published programme</span>') + '</div>' +
+    (meta.length || program.category ? '<div class="audio-listener-details">' + (program.category ? '<span class="audio-listener-category">' + escapeHtml(program.category) + '</span>' : "") +
+      meta.map(function (item) { return '<span>' + item + '</span>'; }).join("") + '</div>' : "") +
+    player + (program.description ? '<p class="audio-listener-description">' + escapeHtml(program.description) + '</p>' : "") +
     '<div class="audio-reactions" aria-label="Reactions">' +
-    '<button class="audio-reaction-button" type="button" data-action="audio-reaction" data-reaction="love" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "love") + '">❤️ <span>Love</span><span class="audio-reaction-count">' + counts.love + "</span></button>" +
-    '<button class="audio-reaction-button" type="button" data-action="audio-reaction" data-reaction="clap" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "clap") + '">👏 <span>Clap</span><span class="audio-reaction-count">' + counts.clap + "</span></button>" +
-    '<button class="audio-reaction-button" type="button" data-action="audio-reaction" data-reaction="fire" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "fire") + '">🔥 <span>Amen</span><span class="audio-reaction-count">' + counts.fire + "</span></button></div>" +
-    '<section class="audio-comments" aria-labelledby="audio-comments-heading"><h2 id="audio-comments-heading">Share a comment</h2>' +
-    '<form class="audio-comment-form" data-audio-comment-form data-program-id="' + escapeHtml(program.id) + '"><label class="sr-only" for="audio-comment-input">Your comment</label>' +
-    '<textarea id="audio-comment-input" name="comment" maxlength="280" required placeholder="Encourage someone listening…"></textarea>' +
-    '<button class="button-primary" type="submit">Post comment</button></form>' + commentList + "</section></div></article>" +
-    '<p class="audio-preview-notice">Comments and reactions are shared with other listeners. Comments are public and do not display your name.</p></section>';
+    '<button class="audio-reaction-button" type="button" data-action="audio-reaction" data-reaction="love" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "love") + '"><span class="audio-reaction-emoji">❤️</span><span>Love</span><span class="audio-reaction-count">' + counts.love + '</span></button>' +
+    '<button class="audio-reaction-button" type="button" data-action="audio-reaction" data-reaction="clap" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "clap") + '"><span class="audio-reaction-emoji">👏</span><span>React</span><span class="audio-reaction-count">' + counts.clap + '</span></button>' +
+    '<button class="audio-reaction-button" type="button" data-action="audio-reaction" data-reaction="fire" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "fire") + '"><span class="audio-reaction-emoji">🙏</span><span>Amen</span><span class="audio-reaction-count">' + counts.fire + '</span></button>' +
+    '<button class="audio-reaction-button audio-share-button" type="button" data-action="share-live-audio" data-program-id="' + escapeHtml(program.id) + '" aria-label="Share this programme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg><span>Share</span></button></div>' +
+    '<section class="audio-comments" aria-labelledby="audio-comments-heading"><div class="audio-comments-heading"><div><span class="audio-comments-live-dot"></span><h2 id="audio-comments-heading">Live Comments</h2></div>' +
+    '<span class="audio-comment-watchers">' + (isLive ? listenerCount + ' watching' : 'Programme comments') + '</span></div>' +
+    '<form class="audio-comment-form" data-audio-comment-form data-program-id="' + escapeHtml(program.id) + '"><label class="sr-only" for="audio-comment-input">Your anonymous comment</label>' +
+    '<textarea id="audio-comment-input" name="comment" rows="1" maxlength="280" required placeholder="Type a message…"></textarea>' +
+    '<button class="button-primary audio-comment-send" type="submit" aria-label="Post comment"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6 3 10l12 2-12 2z"/></svg></button></form>' +
+    commentList + '</section></div></article><p class="audio-preview-notice">Comments and reactions are shared with other listeners. Comments are public and anonymous; avoid sharing private information.</p></div></section>';
 }
-

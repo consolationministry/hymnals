@@ -507,6 +507,7 @@ function showToast(message) {
 
 function render() {
   document.body.classList.toggle("audio-library-mode", state.view === "listen" && !state.selectedLiveAudioProgramId);
+  document.body.classList.toggle("audio-listener-mode", state.view === "listen" && Boolean(state.selectedLiveAudioProgramId));
   applyPreferences();
   renderHeader();
   const preservedAudioPlayer = state.view === "listen" && state.selectedLiveAudioProgramId && state.liveAudioListener
@@ -871,6 +872,29 @@ async function installAvailableUpdate() {
   }
 }
 
+async function shareLiveAudioProgram(programId) {
+  const program = state.liveAudioData.programs.find(item => item.id === programId && item.status === "published");
+  if (!program) return;
+  const shareData = {
+    title: program.title,
+    text: "Listen to " + program.title + " from Consolation Evangelical and Revival Church.",
+    url: window.location.href
+  };
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(shareData.text + " " + shareData.url);
+      showToast("Programme details copied to clipboard.");
+    } else {
+      showToast("Sharing is not available on this device.");
+    }
+  } catch (error) {
+    if (error && error.name === "AbortError") return;
+    showToast("Could not share this programme.");
+  }
+}
+
 document.addEventListener("click", function (event) {
   const target = event.target.closest("[data-action]");
   if (state.menuOpen && !header.contains(event.target)) {
@@ -930,6 +954,8 @@ document.addEventListener("click", function (event) {
     state.selectedLiveAudioProgramId = null;
     render();
     void refreshLiveAudioData();
+  } else if (action === "share-live-audio") {
+    void shareLiveAudioProgram(target.dataset.programId);
   } else if (action === "audio-reaction") {
     void handleLiveAudioReaction(target.dataset.programId, target.dataset.reaction);
   }
