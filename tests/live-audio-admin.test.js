@@ -112,15 +112,17 @@ test("Live Audio overview has real broadcast stats, a Go live action, and no aud
   assert.doesNotMatch(html, /Secure audio stream URL|streamUrl|browser preview/);
 });
 
-test("Go live saves programme details, then opens microphone settings with waveform and audio controls", async () => {
+test("broadcast setup matches the new details layout and continues to microphone settings", async () => {
   const programs = await prepare();
   await handleLiveAudioAdminAction({ dataset: { action: "audio-admin-new" } });
   const details = renderLiveAudioAdmin();
-  assert.match(details, /STEP 1 OF 2/);
-  assert.match(details, /Programme title/);
-  assert.match(details, /Minister name/);
-  assert.match(details, /Cover \/ thumbnail image URL/);
-  assert.match(details, /Next: microphone settings/);
+  assert.match(details, /Create New Broadcast/);
+  assert.match(details, /audio-broadcast-layout/);
+  assert.match(details, /Broadcast title/);
+  assert.match(details, /Minister \/ Preacher/);
+  assert.match(details, /Broadcast Preview/);
+  assert.match(details, /data-preview-title/);
+  assert.match(details, /Next: Configure Stream/);
   assert.doesNotMatch(details, /Secure audio stream URL/);
 
   const formEvent = {

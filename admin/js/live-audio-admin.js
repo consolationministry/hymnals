@@ -138,21 +138,93 @@ function renderProgramDetails(data) {
   const categories = data.categories.map(category =>
     '<option value="' + escapeHtml(category) + '"' + (category === item.category ? " selected" : "") + ">" + escapeHtml(category) + "</option>"
   ).join("");
-  return '<section class="audio-admin-form-wrap"><div class="page-heading"><div><p class="audio-wizard-step">STEP 1 OF 2</p><h1>' +
-    (existing ? "Broadcast details" : "New broadcast") +
-    '</h1><p>Add the programme information before microphone setup.</p></div><button class="button button-secondary audio-admin-back" type="button" data-action="audio-admin-back">' +
-    icon("back") + "Back to broadcasts</button></div>" +
-    '<form class="panel audio-admin-form" id="live-audio-program-form"><div class="audio-admin-form-grid">' +
-    '<div class="admin-field"><label for="audio-title">Programme title <span aria-hidden="true">*</span></label><input class="form-input" id="audio-title" name="title" maxlength="120" value="' + escapeHtml(item.title) + '" required></div>' +
-    '<div class="admin-field"><label for="audio-speaker">Minister name</label><input class="form-input" id="audio-speaker" name="speaker" maxlength="100" value="' + escapeHtml(item.speaker) + '"></div>' +
-    '<div class="admin-field"><label for="audio-category">Category</label><select class="form-select" id="audio-category" name="category">' + categories + "</select></div>" +
-    '<div class="admin-field"><label for="audio-date">Programme date</label><input class="form-input" id="audio-date" name="date" type="date" value="' + escapeHtml(item.date) + '"></div>' +
-    '<div class="admin-field"><label for="audio-venue">Venue</label><input class="form-input" id="audio-venue" name="venue" maxlength="140" value="' + escapeHtml(item.venue) + '"></div>' +
-    '<div class="admin-field"><label for="audio-image">Cover / thumbnail image URL</label><input class="form-input" id="audio-image" name="imageUrl" type="url" inputmode="url" placeholder="https://…" value="' + escapeHtml(item.imageUrl) + '"><p class="field-hint">Use an HTTPS image address. This is only the programme artwork—audio comes from your microphone.</p></div>' +
-    '<div class="admin-field audio-admin-wide"><label for="audio-description">Programme description</label><textarea class="form-textarea" id="audio-description" name="description" rows="4" maxlength="2000">' + escapeHtml(item.description) + "</textarea></div>" +
-    '</div><div class="audio-admin-form-footer"><span class="field-hint">Church name, logo, and colours stay linked to the existing Consolation branding.</span><div class="form-actions-right">' +
-    '<button class="button button-secondary" type="submit" data-audio-status="draft">Save draft</button>' +
-    '<button class="button button-primary" type="submit" data-audio-next="true">Next: microphone settings</button></div></div></form></section>';
+  const image = item.imageUrl
+    ? '<img data-preview-image src="' + escapeHtml(item.imageUrl) + '" alt="" loading="lazy">'
+    : '<img data-preview-image src="" alt="" hidden>';
+  return '<section class="audio-admin-form-wrap audio-broadcast-setup"><div class="audio-broadcast-heading">' +
+    '<button class="audio-broadcast-back" type="button" data-action="audio-admin-back">' + icon("back") + "Back to broadcasts</button>" +
+    '<div class="audio-broadcast-heading-row"><div><p class="audio-wizard-step">LIVE AUDIO · SETUP</p><h1>' +
+    (existing ? "Edit Broadcast" : "Create New Broadcast") +
+    '</h1><p>Set up your programme details before testing the microphone.</p></div>' +
+    '<div class="audio-broadcast-steps" aria-label="Broadcast setup progress"><span class="is-current"><b>1</b> Details</span><i></i><span><b>2</b> Mic test</span><i></i><span><b>3</b> Go live</span></div></div></div>' +
+    '<div class="audio-broadcast-layout"><form class="audio-broadcast-form" id="live-audio-program-form">' +
+    '<section class="audio-broadcast-card audio-broadcast-intro-card" aria-label="Broadcast thumbnail and description">' +
+    '<div class="audio-thumbnail-column"><label class="audio-broadcast-label" for="audio-image">Broadcast thumbnail</label>' +
+    '<div class="audio-thumbnail-preview">' + image + '<div data-preview-placeholder ' + (item.imageUrl ? "hidden" : "") + '><img src="../assets/demo-church-mark.svg" alt=""><span>Programme artwork</span></div>' +
+    '<span class="audio-preview-badge">DRAFT</span></div>' +
+    '<div class="audio-thumbnail-url"><label for="audio-image">Thumbnail image URL</label><input class="form-input" id="audio-image" name="imageUrl" type="url" inputmode="url" placeholder="https://…" value="' + escapeHtml(item.imageUrl) + '">' +
+    '<small>Use an HTTPS image address. Uploads aren’t enabled in the existing programme storage.</small></div></div>' +
+    '<div class="audio-broadcast-primary-fields"><div class="admin-field"><label for="audio-title">Broadcast title <span aria-hidden="true">*</span></label>' +
+    '<input class="form-input" id="audio-title" name="title" maxlength="120" value="' + escapeHtml(item.title) + '" placeholder="e.g. Sunday Worship Live" required>' +
+    '<small class="audio-character-count"><span data-title-count>' + String(item.title.length) + '</span>/120</small></div>' +
+    '<div class="admin-field"><label for="audio-description">Description</label><textarea class="form-textarea" id="audio-description" name="description" rows="4" maxlength="500" placeholder="Tell listeners what to expect…">' +
+    escapeHtml(item.description) + '</textarea><small class="audio-character-count"><span data-description-count>' + String(item.description.length) + '</span>/500</small></div></div></section>' +
+    '<section class="audio-broadcast-card"><h2 class="audio-broadcast-card-title">Broadcast details</h2><div class="audio-broadcast-details-grid">' +
+    '<div class="admin-field"><label for="audio-speaker">Minister / Preacher</label><input class="form-input" id="audio-speaker" name="speaker" maxlength="100" value="' + escapeHtml(item.speaker) + '" placeholder="Minister name"></div>' +
+    '<div class="admin-field"><label for="audio-venue">Venue / Location</label><input class="form-input" id="audio-venue" name="venue" maxlength="140" value="' + escapeHtml(item.venue) + '" placeholder="Main sanctuary"></div>' +
+    '<div class="admin-field"><label for="audio-date">Broadcast date</label><input class="form-input" id="audio-date" name="date" type="date" value="' + escapeHtml(item.date) + '"></div>' +
+    '<div class="admin-field"><label for="audio-category">Programme / Service type</label><select class="form-select" id="audio-category" name="category">' + categories + "</select>" +
+    '<small class="audio-field-note">This selection is also shown as the programme category.</small></div></div></section>' +
+    '<div class="audio-broadcast-form-footer"><button class="button button-secondary" type="button" data-action="audio-admin-back">Cancel</button>' +
+    '<div><button class="button button-secondary" type="submit" data-audio-status="draft">Save draft</button>' +
+    '<button class="button button-primary" type="submit" data-audio-next="true">Next: Configure Stream <span aria-hidden="true">›</span></button></div></div></form>' +
+    '<aside class="audio-broadcast-aside"><section class="audio-broadcast-preview-card" aria-label="Broadcast preview"><h2>Broadcast Preview</h2>' +
+    '<div class="audio-broadcast-cover">' + image.replace("data-preview-image", "data-preview-image-copy") +
+    '<div data-preview-placeholder-copy ' + (item.imageUrl ? "hidden" : "") + '><img src="../assets/demo-church-mark.svg" alt=""><span>Consolation Evangelical<br>and Revival Church</span></div>' +
+    '<span class="audio-preview-badge">DRAFT</span><div class="audio-broadcast-cover-title" data-preview-title>' + escapeHtml(item.title || "Your broadcast title") + "</div></div>" +
+    '<h3 data-preview-summary-title>' + escapeHtml(item.title || "Your broadcast title") + '</h3><p class="audio-preview-summary-speaker" data-preview-speaker>' +
+    escapeHtml(item.speaker || "Minister to be announced") + '</p><div class="audio-preview-tags"><span data-preview-category>' + escapeHtml(item.category || "Other") +
+    '</span><span data-preview-status>Draft</span></div><dl class="audio-preview-summary">' +
+    '<div><dt>Venue</dt><dd data-preview-venue>' + escapeHtml(item.venue || "Venue not set") + '</dd></div>' +
+    '<div><dt>Date</dt><dd data-preview-date>' + escapeHtml(item.date ? formatDate(item.date) : "Date not set") + '</dd></div>' +
+    '<div><dt>Programme</dt><dd data-preview-programme>' + escapeHtml(item.category || "Other") + "</dd></div></dl></section>" +
+    '<section class="audio-broadcast-tips"><h2>Quick tips</h2><ul><li>Use a clear 16:9 image URL for the thumbnail.</li>' +
+    '<li>Keep the title and description easy to scan.</li><li>You can review the microphone before going live.</li></ul></section></aside></div></section>';
+}
+
+function updateBroadcastPreview(form) {
+  if (!form || !form.querySelector) return;
+  const values = Object.fromEntries(new FormData(form).entries());
+  const setText = (selector, value, fallback) => {
+    const node = document.querySelector(selector);
+    if (node) node.textContent = value || fallback;
+  };
+  const title = String(values.title || "").trim();
+  const speaker = String(values.speaker || "").trim();
+  const venue = String(values.venue || "").trim();
+  const category = String(values.category || "").trim();
+  const date = String(values.date || "").trim();
+  setText("[data-preview-title]", title, "Your broadcast title");
+  setText("[data-preview-summary-title]", title, "Your broadcast title");
+  setText("[data-preview-speaker]", speaker, "Minister to be announced");
+  setText("[data-preview-venue]", venue, "Venue not set");
+  setText("[data-preview-date]", date ? formatDate(date) : "", "Date not set");
+  setText("[data-preview-category]", category, "Other");
+  setText("[data-preview-programme]", category, "Other");
+  const count = document.querySelector("[data-description-count]");
+  if (count) count.textContent = String(String(values.description || "").length);
+  const titleCount = document.querySelector("[data-title-count]");
+  if (titleCount) titleCount.textContent = String(title.length);
+  const image = document.querySelector("[data-preview-image]");
+  const imageCopy = document.querySelector("[data-preview-image-copy]");
+  const placeholder = document.querySelector("[data-preview-placeholder]");
+  const placeholderCopy = document.querySelector("[data-preview-placeholder-copy]");
+  let safeImageUrl = "";
+  try {
+    const parsed = new URL(String(values.imageUrl || "").trim());
+    if (parsed.protocol === "https:") safeImageUrl = parsed.href;
+  } catch (error) {}
+  [image, imageCopy].forEach(node => {
+    if (!node) return;
+    if (safeImageUrl) {
+      node.src = safeImageUrl;
+      node.hidden = false;
+    } else {
+      node.removeAttribute("src");
+      node.hidden = true;
+    }
+  });
+  [placeholder, placeholderCopy].forEach(node => { if (node) node.hidden = Boolean(safeImageUrl); });
 }
 
 function rangeControl(id, label, min, max, step, value, unit) {
@@ -228,7 +300,11 @@ function renderLiveAudioContent() {
 
 function rerender() {
   const content = document.getElementById("admin-content");
-  if (content) content.innerHTML = renderLiveAudioAdmin();
+  if (content) {
+    const shell = content.closest(".admin-shell");
+    if (shell) shell.classList.toggle("audio-broadcast-shell", wizardStep === 1 && editingId !== null);
+    content.innerHTML = renderLiveAudioAdmin();
+  }
   if (activeBroadcaster) {
     const status = document.querySelector("[data-audio-mic-status]");
     if (status) status.textContent = "Broadcast is live.";
@@ -519,6 +595,12 @@ export async function handleLiveAudioAdminSubmit(event) {
 }
 
 if (typeof document !== "undefined" && document.addEventListener) {
+  const updatePreviewFromEvent = event => {
+    const form = event.target && event.target.closest && event.target.closest("#live-audio-program-form");
+    if (form) updateBroadcastPreview(form);
+  };
+  document.addEventListener("input", updatePreviewFromEvent);
+  document.addEventListener("change", updatePreviewFromEvent);
   document.addEventListener("input", event => {
     const input = event.target;
     if (!input || !input.matches || !input.matches("[data-audio-control]")) return;
