@@ -40,6 +40,29 @@ export async function loadAdminLiveAudioData() {
   };
 }
 
+export async function loadAdminLiveAudioInteractions(programId) {
+  if (!programId) return null;
+  const rows = await supabaseRequest("rest/v1/rpc/get_live_audio_interactions", {
+    method: "POST",
+    body: { p_program_ids: [programId], p_visitor_id: null }
+  });
+  const row = asArray(rows).find(item => String(item.program_id || "") === String(programId));
+  if (!row) return { loveCount: 0, clapCount: 0, fireCount: 0, commentCount: 0, listenCount: 0, comments: [] };
+  const comments = Array.isArray(row.comments) ? row.comments : [];
+  return {
+    loveCount: Math.max(0, Number(row.love_count) || 0),
+    clapCount: Math.max(0, Number(row.clap_count) || 0),
+    fireCount: Math.max(0, Number(row.fire_count) || 0),
+    commentCount: Math.max(0, Number(row.comment_count) || 0),
+    listenCount: Math.max(0, Number(row.listener_count) || 0),
+    comments: comments.filter(comment => comment && String(comment.body || "").trim()).map(comment => ({
+      id: String(comment.id || ""),
+      body: String(comment.body || "").trim().slice(0, 280),
+      createdAt: String(comment.created_at || "")
+    }))
+  };
+}
+
 export async function saveAdminLiveAudioProgram(value) {
   const payload = {
     title: String(value.title || "").trim(),

@@ -4,8 +4,10 @@ import {
   ensureLiveAudioAdminLoaded,
   handleLiveAudioAdminAction,
   handleLiveAudioAdminSubmit,
-  renderLiveAudioAdmin
+  renderLiveAudioAdmin,
+  renderLiveAudioStudio
 } from "../admin/js/live-audio-admin.js";
+import { loadAdminLiveAudioInteractions } from "../admin/js/live-audio-admin-data.js";
 
 const originalWindow = globalThis.window;
 const originalDocument = globalThis.document;
@@ -78,6 +80,16 @@ function installAdminEnvironment() {
       }
     } else if (url.pathname.endsWith("/get_live_audio_admin_stats")) {
       body = stats;
+    } else if (url.pathname.endsWith("/get_live_audio_interactions")) {
+      body = [{
+        program_id: "123e4567-e89b-42d3-a456-426614174000",
+        love_count: 4,
+        clap_count: 2,
+        fire_count: 1,
+        comment_count: 1,
+        listener_count: 19,
+        comments: [{ id: "comment-1", body: "God is good!", created_at: "2026-10-20T12:30:00.000Z" }]
+      }];
     }
     return {
       ok: true,
@@ -171,4 +183,32 @@ test("broadcast settings can return to the list and categories remain editable",
   assert.match(settings, /data-action="audio-admin-back"/);
   await handleLiveAudioAdminAction({ dataset: { action: "audio-admin-back" } });
   assert.match(renderLiveAudioAdmin(), /Back to admin dashboard/);
+});
+
+test("live studio renders an audio-first control room and escapes programme content", () => {
+  const html = renderLiveAudioStudio({
+    id: "123e4567-e89b-42d3-a456-426614174000",
+    title: "Sunday <Worship>",
+    speaker: "Pastor A",
+    category: "Sunday Service",
+    imageUrl: "javascript:alert(1)",
+    date: "2026-10-20",
+    liveStartedAt: "2026-10-20T12:00:00.000Z"
+  });
+  assert.match(html, /Live Audio Studio/);
+  assert.match(html, /Audio-only broadcast/);
+  assert.match(html, /data-audio-waveform/);
+  assert.match(html, /data-action="audio-admin-toggle-mic"/);
+  assert.match(html, /data-audio-control="bass"/);
+  assert.match(html, /Sunday &lt;Worship&gt;/);
+  assert.doesNotMatch(html, /src="javascript:/);
+});
+
+test("live studio loads real listen, reaction, and recent-comment counts", async () => {
+  installAdminEnvironment();
+  const interactions = await loadAdminLiveAudioInteractions("123e4567-e89b-42d3-a456-426614174000");
+  assert.equal(interactions.listenCount, 19);
+  assert.equal(interactions.commentCount, 1);
+  assert.deepEqual([interactions.loveCount, interactions.clapCount, interactions.fireCount], [4, 2, 1]);
+  assert.equal(interactions.comments[0].body, "God is good!");
 });
