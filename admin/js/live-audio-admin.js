@@ -796,7 +796,7 @@ async function endBroadcast(programId) {
   studioVisible = false;
   rerender();
   if (recordingError) {
-    toast("Broadcast ended and saved as a draft, but its recording could not be uploaded. " + (recordingError.message || "Try again after checking the connection."));
+    toast("Broadcast ended and saved as a draft, but no recording was saved. " + (recordingError.message || "Check the connection before your next broadcast."));
   } else if (finalStatus === "published") {
     toast("Broadcast ended and published on the public Listen page.");
   } else {
