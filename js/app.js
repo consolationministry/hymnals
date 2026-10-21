@@ -506,6 +506,7 @@ function showToast(message) {
 }
 
 function render() {
+  document.body.classList.toggle("audio-library-mode", state.view === "listen" && !state.selectedLiveAudioProgramId);
   applyPreferences();
   renderHeader();
   const preservedAudioPlayer = state.view === "listen" && state.selectedLiveAudioProgramId && state.liveAudioListener
@@ -904,7 +905,12 @@ document.addEventListener("click", function (event) {
     state.searchOpen = false;
     render();
   } else if (action === "open-hymn") openHymn(target.dataset.number);
-  else if (action === "open-live-audio") {
+  else if (action === "filter-live-audio") {
+    state.liveAudioCategory = target.dataset.category || "";
+    render();
+    const selectedFilter = Array.from(main.querySelectorAll('[data-action="filter-live-audio"]')).find(function (button) { return button.dataset.category === state.liveAudioCategory; });
+    if (selectedFilter) selectedFilter.focus({ preventScroll: true });
+  } else if (action === "open-live-audio") {
     state.selectedLiveAudioProgramId = target.dataset.programId;
     state.view = "listen";
     state.menuOpen = false;

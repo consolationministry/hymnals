@@ -56,39 +56,98 @@ export function renderHomeAudioCard() {
     '<img class="hero-mark" src="./assets/consolation-launcher.png" alt="" width="96" height="96"></section>';
 }
 
+function audioLibraryArtwork(program, className) {
+  if (program && program.imageUrl) {
+    return '<div class="' + className + '"><img src="' + escapeHtml(program.imageUrl) + '" alt="" loading="lazy"></div>';
+  }
+  return '<div class="' + className + ' audio-library-art-placeholder"><span class="audio-library-art-glow"></span><img src="./assets/consolation-launcher.png" alt="" loading="lazy"></div>';
+}
+
+function audioLibraryProgramRow(program) {
+  const isLive = Boolean(program.onAir && program.liveSessionId);
+  const meta = [program.speaker, program.date ? formattedDate(program.date) : "", program.venue]
+    .filter(Boolean);
+  if (isLive && program.listenCount) meta.push(program.listenCount + " listening");
+  return '<article class="audio-library-row" data-testid="audio-program-' + escapeHtml(program.id) + '">' +
+    audioLibraryArtwork(program, "audio-library-row-art") +
+    '<div class="audio-library-row-copy"><div class="audio-library-row-kicker"><span>' + escapeHtml(program.category) + '</span>' +
+    (isLive ? '<span class="audio-library-live-label"><i></i> Live</span>' : "") + '</div>' +
+    '<h3>' + escapeHtml(program.title) + '</h3>' +
+    (meta.length ? '<p class="audio-library-row-meta">' + meta.map(escapeHtml).join(' <span aria-hidden="true">·</span> ') + '</p>' : "") +
+    '</div><button class="audio-library-row-play" type="button" data-action="open-live-audio" data-program-id="' + escapeHtml(program.id) + '" aria-label="' + (isLive ? "Listen to " : "Open ") + escapeHtml(program.title) + '">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 9 6-9 6z"/></svg></button></article>';
+}
+
 export function renderLiveAudioPage(data, query, category) {
   const programs = data.programs.filter(function (program) { return program.status === "published"; });
   const livePrograms = programs.filter(function (program) { return program.onAir && program.liveSessionId; });
   const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
+  const isLiveFilter = category === "__live__";
+  const selectedCategory = isLiveFilter ? "" : String(category || "");
   const formalPrograms = programs.filter(function (program) {
-    if (program.onAir && program.liveSessionId) return false;
+    const isLive = program.onAir && Boolean(program.liveSessionId);
     const matchesQuery = !normalizedQuery || (program.title + " " + program.category + " " + program.speaker + " " + program.description)
       .toLocaleLowerCase().includes(normalizedQuery);
-    const matchesCategory = !category || program.category === category;
-    return matchesQuery && matchesCategory;
+    const matchesCategory = !selectedCategory || program.category === selectedCategory;
+    return (!isLiveFilter || isLive) && matchesQuery && matchesCategory;
   });
   const categoryOptions = Array.from(new Set(programs.map(function (program) { return program.category; })))
+    .filter(function (item) { return item.toLocaleLowerCase() !== "live"; })
     .sort(function (a, b) { return a.localeCompare(b); });
-  const selectOptions = '<option value="">All categories</option>' + categoryOptions.map(function (item) {
-    return '<option value="' + escapeHtml(item) + '"' + (item === category ? " selected" : "") + ">" + escapeHtml(item) + "</option>";
+  const filters = [{ value: "", label: "All" }, { value: "__live__", label: "Live" }].concat(
+    categoryOptions.map(function (item) { return { value: item, label: item }; })
+  );
+  const filterMarkup = filters.map(function (item) {
+    return '<button class="audio-library-filter' + (String(category || "") === item.value ? " is-selected" : "") + '" type="button" data-action="filter-live-audio" data-category="' + escapeHtml(item.value) + '" aria-pressed="' + (String(category || "") === item.value) + '">' +
+      (item.value === "__live__" ? '<i class="audio-library-filter-dot" aria-hidden="true"></i>' : "") + escapeHtml(item.label) + '</button>';
   }).join("");
-  return '<section class="page live-audio-page">' +
-    '<div class="page-heading"><h1>Listen</h1><p>Live audio and published programmes from Consolation Evangelical and Revival Church.</p></div>' +
-    (data.error ? '<p class="audio-service-error" role="alert">' + escapeHtml(data.error) + "</p>" : "") +
-    '<section class="live-audio-hero" aria-label="Live audio status"><div class="live-audio-hero-copy">' +
-    '<p class="live-audio-kicker">' + (livePrograms.length ? '<span class="live-audio-badge is-live">Live now</span>' : '<span class="live-audio-badge">Church radio</span>') + "</p>" +
-    "<h2>" + (livePrograms.length ? "Join the service in progress." : "Stay close to the church community.") + "</h2>" +
-    "<p>" + (livePrograms.length ? "Choose a programme and connect to the live audio room." : "No programme is live right now. Published programmes will appear here when the church adds them.") + "</p></div>" +
-    '<div class="live-audio-emblem"><img src="./assets/consolation-launcher.png" alt="Consolation Evangelical and Revival Church"></div></section>' +
-    '<section class="audio-section" aria-labelledby="audio-live-heading"><div class="audio-section-heading"><div><h2 id="audio-live-heading">Live programmes</h2><p>Currently marked on air by the admin.</p></div></div>' +
-    (livePrograms.length ? '<div class="audio-live-carousel" aria-label="Live audio programmes">' + livePrograms.map(function (program) { return programCard(program, true); }).join("") + "</div>" : emptyState("Nothing is live right now", "When a published programme is set on air, it will appear in this row.")) + "</section>" +
-    '<section class="audio-section" aria-labelledby="audio-program-heading"><div class="audio-section-heading"><div><h2 id="audio-program-heading">Programme library</h2><p>Search by title, speaker, description, or category.</p></div></div>' +
-    '<div class="audio-controls"><label class="sr-only" for="live-audio-search">Search programmes</label><input class="audio-search-input" id="live-audio-search" type="search" value="' + escapeHtml(query) + '" placeholder="Search programmes…" data-live-audio-search>' +
-    '<label class="sr-only" for="live-audio-category">Filter by category</label><select class="audio-category-select" id="live-audio-category" data-live-audio-category>' + selectOptions + "</select></div>" +
-    (formalPrograms.length ? '<div class="audio-program-grid">' + formalPrograms.map(function (program) { return programCard(program, false); }).join("") + "</div>" :
-      data.loading ? emptyState("Loading programmes", "Checking for current broadcasts and published programmes…") :
-      emptyState(programs.length ? "No programmes match" : "No programmes published yet", programs.length ? "Try a different title or category." : "Published programmes from the admin workspace will be listed here.")) +
-    '<p class="audio-preview-notice">Live audio is sent directly between listeners and the church broadcaster. Some mobile or corporate networks may need a TURN relay.</p></section></section>';
+  const feature = livePrograms[0] || programs[0] || null;
+  const waveformHeights = [22, 40, 28, 61, 38, 76, 31, 53, 88, 45, 68, 36, 96, 55, 73, 41, 83, 33, 62, 26, 49, 19, 37, 17];
+  const waveform = waveformHeights.map(function (height) { return '<span style="height:' + height + '%"></span>'; }).join("");
+  const featureMarkup = feature
+    ? '<section class="audio-library-feature" aria-label="' + (livePrograms.length ? "Live programme" : "Featured programme") + '">' +
+      audioLibraryArtwork(feature, "audio-library-feature-art") +
+      '<div class="audio-library-feature-copy"><div class="audio-library-feature-status">' +
+      (feature.onAir && feature.liveSessionId ? '<span class="audio-library-live-pill"><i></i> LIVE</span>' : '<span class="audio-library-feature-pill">FEATURED PROGRAMME</span>') +
+      '<span class="audio-library-church-label">Consolation Evangelical and Revival Church</span></div>' +
+      '<h1>' + escapeHtml(feature.title) + '</h1>' +
+      '<p class="audio-library-feature-subtitle">' + escapeHtml(feature.speaker || "Worship · Word · Fellowship") + '</p>' +
+      '<div class="audio-library-feature-meta">' + (feature.date ? '<span>' + escapeHtml(formattedDate(feature.date)) + '</span>' : "") +
+      (feature.venue ? '<span>' + escapeHtml(feature.venue) + '</span>' : "") + '</div>' +
+      '<div class="audio-library-feature-controls"><button class="audio-library-feature-play" type="button" data-action="open-live-audio" data-program-id="' + escapeHtml(feature.id) + '">' +
+      '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8 5 12 7-12 7z"/></svg>' + (feature.onAir && feature.liveSessionId ? "Listen now" : "Open programme") + '</button>' +
+      '<div class="audio-library-waveform" aria-hidden="true">' + waveform + '</div>' +
+      (feature.onAir && feature.listenCount ? '<span class="audio-library-listener-count">' + escapeHtml(feature.listenCount) + ' listening</span>' : "") +
+      '</div></div></section>'
+    : '<section class="audio-library-feature audio-library-feature-empty" aria-label="Church audio library">' +
+      audioLibraryArtwork(null, "audio-library-feature-art") +
+      '<div class="audio-library-feature-copy"><span class="audio-library-feature-pill">CHURCH AUDIO</span><h1>Listen together, wherever you are.</h1>' +
+      '<p class="audio-library-feature-subtitle">Published services and programmes from Consolation Evangelical and Revival Church will appear here.</p>' +
+      '<div class="audio-library-feature-controls"><div class="audio-library-waveform" aria-hidden="true">' + waveform + '</div></div></div></section>';
+  const listContent = formalPrograms.length
+    ? '<div class="audio-library-list" aria-live="polite">' + formalPrograms.map(audioLibraryProgramRow).join("") + '</div>'
+    : '<div class="audio-library-empty" aria-live="polite"><span class="audio-library-empty-icon">' + radioIcon() + '</span><h3>' +
+      (data.loading ? "Loading programmes" : programs.length ? "No programmes match" : "No programmes published yet") + '</h3><p>' +
+      (data.loading ? "Checking for current broadcasts and published programmes…" : programs.length ? "Try another title or category." : "Published church programmes will appear here.") + '</p></div>';
+  return '<section class="page live-audio-page audio-library-page">' +
+    '<header class="audio-library-header"><div class="audio-library-header-inner">' +
+    '<button class="audio-library-brand" type="button" data-action="navigate" data-view="home" aria-label="Go to Home"><img src="./assets/consolation-launcher.png" alt="" width="48" height="48"><span><strong>Consolation Evangelical<br>and Revival Church</strong><small>Audio Stream</small></span></button>' +
+    '<div class="audio-library-header-actions"><a class="audio-library-header-icon" href="#live-audio-search" aria-label="Jump to programme search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/></svg></a>' +
+    '<button class="audio-library-header-icon" type="button" data-action="navigate" data-view="programs" aria-label="Upcoming programmes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></button>' +
+    '<button class="audio-library-avatar" type="button" data-action="navigate" data-view="settings" aria-label="Open profile and settings">C</button></div></div></header>' +
+    '<div class="audio-library-content">' + (data.error ? '<p class="audio-service-error" role="alert">' + escapeHtml(data.error) + '</p>' : "") +
+    featureMarkup +
+    '<section class="audio-library-section" aria-labelledby="audio-library-heading"><div class="audio-library-section-heading"><div><p class="audio-library-overline">CHURCH AUDIO</p><h2 id="audio-library-heading">Upcoming &amp; Recent Programmes</h2></div><span class="audio-library-program-count">' + formalPrograms.length + '</span></div>' +
+    '<div class="audio-library-search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/></svg><label class="sr-only" for="live-audio-search">Search programmes</label><input class="audio-library-search" id="live-audio-search" type="search" value="' + escapeHtml(query) + '" placeholder="Search programmes…" data-live-audio-search></div>' +
+    '<div class="audio-library-filters" role="group" aria-label="Filter programmes">' + filterMarkup + '</div>' + listContent +
+    '</section></div>' +
+    '<nav class="audio-library-bottom-nav" aria-label="Church audio navigation">' +
+    '<button class="audio-library-nav-button" type="button" data-action="navigate" data-view="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg><span>Home</span></button>' +
+    '<button class="audio-library-nav-button" type="button" data-action="navigate" data-view="hymns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5v14A2.5 2.5 0 0 1 6.5 17H20"/></svg><span>Library</span></button>' +
+    '<button class="audio-library-nav-button audio-library-nav-listen is-active" type="button" data-action="navigate" data-view="listen" aria-current="page"><span class="audio-library-nav-play"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8 5 12 7-12 7z"/></svg></span><span>Listen</span></button>' +
+    '<button class="audio-library-nav-button" type="button" data-action="navigate" data-view="programs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span>Programmes</span></button>' +
+    '<button class="audio-library-nav-button" type="button" data-action="navigate" data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Profile</span></button>' +
+    '</nav></section>';
 }
 
 export function renderLiveAudioListener(data, programId, options) {
