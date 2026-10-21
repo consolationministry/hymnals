@@ -21,6 +21,15 @@ import {
 } from "./live-audio-public-data.js";
 import { createLiveAudioId } from "./live-audio-realtime.js";
 import { startLiveAudioListener } from "./live-audio-webrtc.js";
+import {
+  mountAudioPlayer,
+  prepareAudioPlayer,
+  seekAudioPlayer,
+  setAudioPlayerVolume,
+  stopAudioPlayer,
+  toggleAudioMute,
+  toggleAudioPlayback
+} from "./live-audio-player.js";
 import { renderHomeAudioCard, renderLiveAudioListener, renderLiveAudioPage } from "./live-audio-views.js";
 
 const splashStartedAt = Date.now();
@@ -541,6 +550,9 @@ function render() {
     const nextAudioPlayer = main.querySelector("[data-live-audio-player]");
     if (nextAudioPlayer) nextAudioPlayer.replaceWith(preservedAudioPlayer);
   }
+  main.querySelectorAll("[data-audio-player]").forEach(function (audio) {
+    mountAudioPlayer(audio, audio.closest(".audio-listener-player"));
+  });
   renderNav();
   document.title = state.view === "reader" ? "Hymn " + String(state.selectedNumber).padStart(2, "0") + " · Consolation Hymnal" : state.view === "listen" ? "Listen · Consolation Hymnal" : "Consolation Hymnal";
 }
@@ -576,6 +588,7 @@ function openHymn(number) {
 function navigate(view) {
   if (!["home", "listen", "hymns", "programs", "services", "favorites", "recent", "settings"].includes(view)) return;
   if (state.view === "listen" && (view !== "listen" || state.selectedLiveAudioProgramId)) {
+    main.querySelectorAll("[data-audio-player]").forEach(stopAudioPlayer);
     stopLiveAudioConnection();
     if (view !== "listen") stopLiveAudioRefresh();
   }
@@ -637,6 +650,7 @@ async function refreshLiveAudioData() {
         state.liveAudioStatusCode = "ended";
         state.liveAudioConnectionStatus = "This broadcast has ended.";
         stopLiveAudioTimer();
+        stopAudioPlayer(main.querySelector("[data-live-audio-player]"));
         if (listener) listener.stop().catch(() => {});
       }
     }
@@ -720,6 +734,7 @@ function updateLiveAudioConnectionStatus(connectToken, status) {
     state.liveAudioListener = null;
     state.liveAudioConnecting = false;
     stopLiveAudioTimer();
+    stopAudioPlayer(main.querySelector("[data-live-audio-player]"));
     if (listener) listener.stop().catch(() => {});
     render();
     if (status === "ended") void refreshLiveAudioData();
@@ -749,6 +764,7 @@ async function connectLiveAudioProgram(programId) {
     render();
     return;
   }
+  void prepareAudioPlayer(audioElement);
 
   try {
     const listener = await startLiveAudioListener({
@@ -938,6 +954,7 @@ document.addEventListener("click", function (event) {
   } else if (action === "open-live-audio") {
     const programId = target.dataset.programId;
     const program = state.liveAudioData.programs.find(item => item.id === programId);
+    main.querySelectorAll("[data-audio-player]").forEach(stopAudioPlayer);
     state.selectedLiveAudioProgramId = programId;
     state.view = "listen";
     state.menuOpen = false;
@@ -955,6 +972,7 @@ document.addEventListener("click", function (event) {
     state.liveAudioConnectionStatus = "Listening stopped.";
     render();
   } else if (action === "back-to-live-audio") {
+    main.querySelectorAll("[data-audio-player]").forEach(stopAudioPlayer);
     stopLiveAudioConnection();
     stopLiveAudioTimer();
     state.selectedLiveAudioProgramId = null;
@@ -962,6 +980,13 @@ document.addEventListener("click", function (event) {
     void refreshLiveAudioData();
   } else if (action === "share-live-audio") {
     void shareLiveAudioProgram(target.dataset.programId);
+  } else if (action === "toggle-audio-playback") {
+    const audio = main.querySelector('[data-audio-player="' + target.dataset.playerType + '"]');
+    void toggleAudioPlayback(audio).catch(function () {
+      showToast("Audio could not start. Check your connection and try again.");
+    });
+  } else if (action === "toggle-audio-mute") {
+    toggleAudioMute(main.querySelector('[data-audio-player="' + target.dataset.playerType + '"]'));
   } else if (action === "audio-reaction") {
     void handleLiveAudioReaction(target.dataset.programId, target.dataset.reaction);
   }
@@ -1013,7 +1038,11 @@ document.addEventListener("keydown", function (event) {
 });
 
 document.addEventListener("input", function (event) {
-  if (event.target.matches("[data-live-audio-search]")) {
+  if (event.target.matches("[data-audio-seek]")) {
+    seekAudioPlayer(main.querySelector('[data-audio-player="' + event.target.dataset.audioSeek + '"]'), event.target.value);
+  } else if (event.target.matches("[data-audio-volume]")) {
+    setAudioPlayerVolume(main.querySelector('[data-audio-player="' + event.target.dataset.audioVolume + '"]'), event.target.value);
+  } else if (event.target.matches("[data-live-audio-search]")) {
     state.liveAudioQuery = event.target.value;
     render();
     const input = document.getElementById("live-audio-search");
