@@ -1,4 +1,4 @@
-import { connectLiveAudioChannel, createLiveAudioId, makeAudioPeerConnection, waitForIceGatheringComplete } from "./live-audio-realtime.js";
+import { connectLiveAudioChannel, createLiveAudioId, makeAudioPeerConnection } from "./live-audio-realtime.js";
 
 export const DEFAULT_AUDIO_SETTINGS = Object.freeze({
   bass: 0,
@@ -7,6 +7,40 @@ export const DEFAULT_AUDIO_SETTINGS = Object.freeze({
   pitch: 0,
   gain: 0
 });
+
+export function createLiveAudioIceCandidateQueue(peer) {
+  let remoteDescriptionReady = Boolean(peer && peer.remoteDescription);
+  const pendingCandidates = [];
+
+  return {
+    async setRemoteDescription(description) {
+      await peer.setRemoteDescription(description);
+      remoteDescriptionReady = true;
+      const candidates = pendingCandidates.splice(0);
+      for (const candidate of candidates) {
+        try {
+          await peer.addIceCandidate(candidate);
+        } catch (error) {
+          // An obsolete or incompatible candidate should not block the remaining route candidates.
+        }
+      }
+    },
+    async addRemoteCandidate(candidate) {
+      if (!candidate) return;
+      if (!remoteDescriptionReady) {
+        pendingCandidates.push(candidate);
+        return;
+      }
+      await peer.addIceCandidate(candidate);
+    }
+  };
+}
+
+function serializeIceCandidate(candidate) {
+  return candidate && typeof candidate.toJSON === "function"
+    ? candidate.toJSON()
+    : candidate;
+}
 
 function clamp(value, min, max) {
   const number = Number(value);
@@ -168,6 +202,7 @@ export async function startLiveAudioPublisher(options) {
   if (!opts.programId || !opts.sessionId || !opts.stream) throw new Error("The broadcast is missing its programme or microphone.");
   const localClientId = "host-" + opts.sessionId;
   const peers = new Map();
+  const peerIceQueues = new Map();
   let channel = null;
   let closed = false;
   let handleSignal = null;
@@ -180,6 +215,7 @@ export async function startLiveAudioPublisher(options) {
     const peer = peers.get(clientId);
     if (!peer) return;
     peers.delete(clientId);
+    peerIceQueues.delete(clientId);
     peer.onconnectionstatechange = null;
     peer.close();
     if (opts.onListenerCount) opts.onListenerCount(peers.size);
@@ -191,6 +227,13 @@ export async function startLiveAudioPublisher(options) {
       closePeer(message.from);
       return;
     }
+    if (message.type === "candidate" && message.to === localClientId) {
+      const iceQueue = peerIceQueues.get(message.from);
+      if (iceQueue && message.candidate) {
+        void iceQueue.addRemoteCandidate(message.candidate).catch(() => {});
+      }
+      return;
+    }
     if (message.type !== "offer" || message.to !== localClientId || peers.has(message.from)) return;
     const limit = Math.max(1, Number(opts.maxListeners) || 16);
     if (peers.size >= limit) {
@@ -199,16 +242,27 @@ export async function startLiveAudioPublisher(options) {
     }
     try {
       const peer = makeAudioPeerConnection();
+      const iceQueue = createLiveAudioIceCandidateQueue(peer);
       peers.set(message.from, peer);
+      peerIceQueues.set(message.from, iceQueue);
       opts.stream.getAudioTracks().forEach(track => peer.addTrack(track, opts.stream));
+      peer.onicecandidate = event => {
+        if (!event.candidate) return;
+        channel.send({
+          type: "candidate",
+          sessionId: opts.sessionId,
+          from: localClientId,
+          to: message.from,
+          candidate: serializeIceCandidate(event.candidate)
+        });
+      };
       peer.onconnectionstatechange = () => {
         if (peer.connectionState === "failed" || peer.connectionState === "closed") closePeer(message.from);
         else if (opts.onListenerCount) opts.onListenerCount(peers.size);
       };
-      await peer.setRemoteDescription(message.description);
+      await iceQueue.setRemoteDescription(message.description);
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
-      await waitForIceGatheringComplete(peer);
       channel.send({
         type: "answer",
         sessionId: opts.sessionId,
@@ -242,6 +296,10 @@ export async function startLiveAudioListener(options) {
   const clientId = createLiveAudioId();
   let peer = null;
   let channel = null;
+  let iceQueue = null;
+  const earlyRemoteCandidates = [];
+  const earlyLocalCandidates = [];
+  let offerSent = false;
   let closed = false;
   let resolveConnected;
   let rejectConnected;
@@ -258,6 +316,16 @@ export async function startLiveAudioListener(options) {
         }
         return;
       }
+      if (message.type === "candidate") {
+        if (message.candidate) {
+          if (iceQueue) {
+            void iceQueue.addRemoteCandidate(message.candidate).catch(() => {});
+          } else {
+            earlyRemoteCandidates.push(message.candidate);
+          }
+        }
+        return;
+      }
       if (message.type === "full") {
         rejectConnected(new Error("The broadcast has reached its listener limit. Please try again later."));
         return;
@@ -268,7 +336,7 @@ export async function startLiveAudioListener(options) {
       }
       if (message.type === "answer" && peer && peer.signalingState === "have-local-offer") {
         try {
-          await peer.setRemoteDescription(message.description);
+          await iceQueue.setRemoteDescription(message.description);
           resolveConnected(true);
         } catch (error) {
           rejectConnected(new Error("The live audio connection could not complete."));
@@ -278,6 +346,22 @@ export async function startLiveAudioListener(options) {
   });
   try {
     peer = makeAudioPeerConnection();
+    iceQueue = createLiveAudioIceCandidateQueue(peer);
+    earlyRemoteCandidates.splice(0).forEach(candidate => {
+      void iceQueue.addRemoteCandidate(candidate).catch(() => {});
+    });
+    const sendCandidate = candidate => channel.send({
+      type: "candidate",
+      sessionId: opts.sessionId,
+      from: clientId,
+      to: "host-" + opts.sessionId,
+      candidate: serializeIceCandidate(candidate)
+    });
+    peer.onicecandidate = event => {
+      if (!event.candidate) return;
+      if (offerSent) sendCandidate(event.candidate);
+      else earlyLocalCandidates.push(event.candidate);
+    };
     peer.ontrack = event => {
       const stream = event.streams && event.streams[0]
         ? event.streams[0]
@@ -299,7 +383,6 @@ export async function startLiveAudioListener(options) {
     peer.addTransceiver("audio", { direction: "recvonly" });
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
-    await waitForIceGatheringComplete(peer);
     channel.send({
       type: "offer",
       sessionId: opts.sessionId,
@@ -307,6 +390,8 @@ export async function startLiveAudioListener(options) {
       to: "host-" + opts.sessionId,
       description: descriptionToJson(peer.localDescription)
     });
+    offerSent = true;
+    earlyLocalCandidates.splice(0).forEach(sendCandidate);
     await Promise.race([
       connected,
       new Promise((_, reject) => setTimeout(() => reject(new Error("No response from the broadcaster. Check whether the programme is still live.")), 20000))
