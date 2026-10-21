@@ -1,6 +1,21 @@
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const FALLBACK_AUDIO_ICE_SERVERS = Object.freeze([
+  Object.freeze({ urls: "stun:stun.cloudflare.com:3478" }),
+  Object.freeze({ urls: "stun:stun.l.google.com:19302" })
+]);
+
+function copyFallbackAudioIceServers() {
+  return FALLBACK_AUDIO_ICE_SERVERS.map(server => ({ ...server }));
+}
+
+function isSupabaseBackendConfigured(url, key) {
+  return typeof url === "string" &&
+    /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(url) &&
+    typeof key === "string" &&
+    /^sb_publishable_[A-Za-z0-9_-]+$/.test(key);
+}
 
 export function createLiveAudioId() {
   if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") return globalThis.crypto.randomUUID();
@@ -27,10 +42,67 @@ export function getLiveAudioVisitorId() {
 }
 
 export function isLiveAudioBackendConfigured() {
-  return typeof SUPABASE_URL === "string" &&
-    /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(SUPABASE_URL) &&
-    typeof SUPABASE_PUBLISHABLE_KEY === "string" &&
-    /^sb_publishable_[A-Za-z0-9_-]+$/.test(SUPABASE_PUBLISHABLE_KEY);
+  return isSupabaseBackendConfigured(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+}
+
+export function normalizeLiveAudioTurnServers(iceServers) {
+  if (!Array.isArray(iceServers)) return [];
+  return iceServers.flatMap(server => {
+    if (!server || typeof server !== "object" ||
+        typeof server.username !== "string" || !server.username ||
+        typeof server.credential !== "string" || !server.credential) return [];
+    const urls = (Array.isArray(server.urls) ? server.urls : [server.urls])
+      .filter(url => typeof url === "string" && /^turns?:/i.test(url));
+    return urls.length
+      ? [{ urls, username: server.username, credential: server.credential }]
+      : [];
+  });
+}
+
+export async function getLiveAudioIceServers(options) {
+  const opts = options || {};
+  const supabaseUrl = opts.supabaseUrl === undefined ? SUPABASE_URL : opts.supabaseUrl;
+  const publishableKey = opts.publishableKey === undefined ? SUPABASE_PUBLISHABLE_KEY : opts.publishableKey;
+  const fetcher = opts.fetcher || globalThis.fetch;
+  const fallback = copyFallbackAudioIceServers();
+  if (!isSupabaseBackendConfigured(supabaseUrl, publishableKey) ||
+      typeof fetcher !== "function" ||
+      !UUID_PATTERN.test(String(opts.programId || "")) ||
+      !UUID_PATTERN.test(String(opts.sessionId || ""))) {
+    return fallback;
+  }
+
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timeout = controller
+    ? globalThis.setTimeout(() => controller.abort(), 4500)
+    : null;
+  try {
+    const response = await fetcher(
+      new URL("/functions/v1/turn-credentials", supabaseUrl).toString(),
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          apikey: publishableKey,
+          authorization: "Bearer " + publishableKey,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          programId: opts.programId,
+          sessionId: opts.sessionId
+        }),
+        signal: controller ? controller.signal : undefined
+      }
+    );
+    if (!response.ok) return fallback;
+    const payload = await response.json();
+    const turnServers = normalizeLiveAudioTurnServers(payload && payload.iceServers);
+    return turnServers.length ? fallback.concat(turnServers) : fallback;
+  } catch (error) {
+    return fallback;
+  } finally {
+    if (timeout !== null) globalThis.clearTimeout(timeout);
+  }
 }
 
 export async function liveAudioRequest(path, options) {
@@ -222,11 +294,9 @@ export function waitForIceGatheringComplete(peer, timeoutMs) {
   });
 }
 
-export function makeAudioPeerConnection() {
+export async function makeAudioPeerConnection(options) {
+  const iceServers = await getLiveAudioIceServers(options);
   return new RTCPeerConnection({
-    iceServers: [
-      { urls: "stun:stun.cloudflare.com:3478" },
-      { urls: "stun:stun.l.google.com:19302" }
-    ]
+    iceServers
   });
 }
