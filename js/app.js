@@ -20,6 +20,7 @@ import {
   togglePublicLiveAudioReaction
 } from "./live-audio-public-data.js";
 import { createLiveAudioId } from "./live-audio-realtime.js";
+import { publicLiveAudioConnectionMessage } from "./live-audio-status.js";
 import {
   createSavedLiveAudioPlaybackUrl,
   getSavedLiveAudioPrograms,
@@ -767,15 +768,7 @@ async function recordCurrentLiveAudioListen(programId, connectToken) {
 function updateLiveAudioConnectionStatus(connectToken, status) {
   if (connectToken !== state.liveAudioConnectToken) return;
   state.liveAudioStatusCode = status;
-  const messages = {
-    connected: "Connected to the church room. Waiting for audio…",
-    live: "Live audio is connected.",
-    "tap-to-play": "Tap play on the audio player to hear the broadcast.",
-    ended: "This broadcast has ended.",
-    failed: "This network could not connect directly. A TURN relay may be needed.",
-    disconnected: "The live audio connection was interrupted."
-  };
-  state.liveAudioConnectionStatus = messages[status] || "Connecting to live audio…";
+  state.liveAudioConnectionStatus = publicLiveAudioConnectionMessage(status);
   const statusNode = main.querySelector("[data-live-audio-status]");
   if (statusNode) statusNode.textContent = state.liveAudioConnectionStatus;
 
