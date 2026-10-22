@@ -2,7 +2,7 @@
   "name": "Consolation Evangelical and Revival Church Hymnal",
   "short_name": "Consolation Hymnal",
   "description": "Read and search the church hymnal, even without an internet connection.",
-  "start_url": "./",
+  "start_url": "./hymnal.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f8f6fa",

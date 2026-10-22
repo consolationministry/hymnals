@@ -2,6 +2,7 @@ const CACHE_NAME = "consolation-hymnal-1.1.77-offline-audio";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
+  "./hymnal.html",
   "./manifest.webmanifest",
   "./css/theme.css",
   "./css/style.css",
@@ -74,7 +75,7 @@ self.addEventListener("fetch", function (event) {
         return response;
       }).catch(function () {
         return caches.match(request).then(function (cached) {
-          return cached || caches.match(new URL("./index.html", self.location.href).href);
+          return cached || caches.match(new URL("./hymnal.html", self.location.href).href) || caches.match(new URL("./index.html", self.location.href).href);
         });
       })
     );

@@ -1,6 +1,6 @@
 # Consolation Evangelical and Revival Church Hymnal
 
-The website and Android app share a mobile-first interface and a Supabase-backed hymn catalog. Their uploaded English and Yorùbá collections remain separate; Capacitor packages the same interface for Android.
+The GitHub Pages homepage is the app install/download landing page at `/`; the hymn reader is available at `/hymnal.html`. The reader and Android app share a mobile-first interface and a Supabase-backed hymn catalog. Their uploaded English and Yorùbá collections remain separate; Capacitor packages the reader for Android.
 
 ## What is included
 
@@ -35,7 +35,7 @@ npm ci
 npm run dev
 ```
 
-Serve the repository root with a static server (for example, `python3 -m http.server 8000`) or run `npm run dev`. Do not open `index.html` through `file://`. The website remains deployable from the repository root; `npm run build` also generates the optimized `dist/` bundle used by the Android build.
+Serve the repository root with a static server (for example, `python3 -m http.server 8000`) or run `npm run dev`. Do not open the HTML files through `file://`. The homepage at `/` is the install page; use `/hymnal.html` to open the reader. `npm run build` generates both pages in the optimized `dist/` bundle used by Android.
 
 ## Android debug APK
 
@@ -67,7 +67,7 @@ Updates require an internet connection. The web app updates its cached files thr
 
 ## GitHub Pages
 
-The static website and service worker are in the repository root and can be published from there. Capacitor packages the optimized `dist/` build. Keep the web app and Android app on the same branch so both ship the same interface and hymn data.
+GitHub Pages serves the repository root: `index.html` is the public install/download homepage, and `hymnal.html` is the member reader. The homepage's **Proceed to the hymnal** button opens the reader. The `download.html` URL redirects to the homepage. The PWA manifest and Capacitor's `server.appStartPath` both open `hymnal.html`, so installing the web app or launching the Android APK starts in the reader rather than the download page. Vite builds both pages into `dist/`, which Capacitor packages for Android. Keep the web app and Android app on the same branch so both ship the same interface and hymn data.
 
 ## Hymn text and rights
 
