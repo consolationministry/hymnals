@@ -20,6 +20,12 @@ import {
   togglePublicLiveAudioReaction
 } from "./live-audio-public-data.js";
 import { createLiveAudioId } from "./live-audio-realtime.js";
+import {
+  createSavedLiveAudioPlaybackUrl,
+  getSavedLiveAudioPrograms,
+  removeSavedLiveAudioProgram,
+  saveLiveAudioRecordingOffline
+} from "./live-audio-offline.js";
 import { startLiveAudioListener } from "./live-audio-webrtc.js";
 import {
   mountAudioPlayer,
@@ -48,7 +54,7 @@ const updateMessage = document.getElementById("update-message");
 const updateVersion = document.getElementById("update-version");
 const updateStatus = document.getElementById("update-status");
 const updateInstallButton = document.getElementById("update-install");
-const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, liveAudioData: emptyLiveAudioData(), liveAudioLoading: false, liveAudioError: "", liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
+const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
@@ -515,6 +521,43 @@ function showToast(message) {
   state.toastTimer = window.setTimeout(function () { toast.hidden = true; }, 2800);
 }
 
+function getLiveAudioViewData() {
+  const programs = state.liveAudioData.programs.slice();
+  if (state.selectedLiveAudioProgramId) {
+    let index = programs.findIndex(function (program) {
+      return program.id === state.selectedLiveAudioProgramId;
+    });
+    if (index === -1) {
+      const savedProgram = state.savedLiveAudioPrograms.find(function (program) {
+        return program.id === state.selectedLiveAudioProgramId;
+      });
+      if (savedProgram) {
+        programs.push(savedProgram);
+        index = programs.length - 1;
+      }
+    }
+    if (index !== -1 && state.liveAudioPlaybackUrl) {
+      programs[index] = Object.assign({}, programs[index], {
+        recordingUrl: state.liveAudioPlaybackUrl,
+        savedOffline: true
+      });
+    }
+  }
+  return Object.assign({}, state.liveAudioData, {
+    programs,
+    savedPrograms: state.savedLiveAudioPrograms,
+    savingProgramIds: state.savingLiveAudioIds
+  });
+}
+
+function clearSavedAudioPlayback() {
+  if (state.liveAudioPlaybackUrl && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+    URL.revokeObjectURL(state.liveAudioPlaybackUrl);
+  }
+  state.liveAudioPlaybackUrl = "";
+  state.liveAudioOfflinePlayback = false;
+}
+
 function render() {
   document.body.classList.toggle("audio-library-mode", state.view === "listen" && !state.selectedLiveAudioProgramId);
   document.body.classList.toggle("audio-listener-mode", state.view === "listen" && Boolean(state.selectedLiveAudioProgramId));
@@ -524,19 +567,21 @@ function render() {
     (state.liveAudioConnecting || state.liveAudioListener)
     ? main.querySelector("[data-live-audio-player]")
     : null;
+  const liveAudioViewData = getLiveAudioViewData();
   if (state.view === "home") main.innerHTML = renderHome();
   else if (state.view === "listen") main.innerHTML = state.selectedLiveAudioProgramId
     ? renderLiveAudioListener(
-      Object.assign({}, state.liveAudioData, { error: state.liveAudioError }),
+      Object.assign({}, liveAudioViewData, { error: state.liveAudioError }),
       state.selectedLiveAudioProgramId,
       {
         status: state.liveAudioConnectionStatus,
         connecting: state.liveAudioConnecting,
-        connected: Boolean(state.liveAudioListener)
+        connected: Boolean(state.liveAudioListener),
+        offlinePlayback: state.liveAudioOfflinePlayback
       }
     )
     : renderLiveAudioPage(
-      Object.assign({}, state.liveAudioData, { loading: state.liveAudioLoading, error: state.liveAudioError }),
+      Object.assign({}, liveAudioViewData, { loading: state.liveAudioLoading, error: state.liveAudioError }),
       state.liveAudioQuery,
       state.liveAudioCategory
     );
@@ -589,8 +634,10 @@ function openHymn(number) {
 function navigate(view) {
   if (!["home", "listen", "hymns", "programs", "services", "favorites", "recent", "settings"].includes(view)) return;
   if (state.view === "listen" && (view !== "listen" || state.selectedLiveAudioProgramId)) {
+    state.liveAudioOpenToken += 1;
     main.querySelectorAll("[data-audio-player]").forEach(stopAudioPlayer);
     stopLiveAudioConnection();
+    clearSavedAudioPlayback();
     if (view !== "listen") stopLiveAudioRefresh();
   }
   state.view = view;
@@ -598,7 +645,7 @@ function navigate(view) {
   state.menuOpen = false;
   if (view === "listen") {
     state.selectedLiveAudioProgramId = null;
-    state.liveAudioLoading = true;
+    state.liveAudioLoading = navigator.onLine !== false;
     state.liveAudioError = "";
   }
   if (view !== "hymns") state.category = "";
@@ -606,8 +653,14 @@ function navigate(view) {
   window.scrollTo(0, 0);
   main.focus({ preventScroll: true });
   if (view === "listen") {
-    void refreshLiveAudioData();
-    startLiveAudioRefresh();
+    if (navigator.onLine !== false) {
+      void refreshLiveAudioData();
+      startLiveAudioRefresh();
+    } else {
+      stopLiveAudioRefresh();
+      state.liveAudioLoading = false;
+      render();
+    }
   }
 }
 
@@ -671,7 +724,7 @@ async function refreshLiveAudioData() {
 function startLiveAudioRefresh() {
   stopLiveAudioRefresh();
   state.liveAudioPollTimer = window.setInterval(function () {
-    if (state.view === "listen") void refreshLiveAudioData();
+    if (state.view === "listen" && navigator.onLine !== false) void refreshLiveAudioData();
   }, 25000);
 }
 
@@ -820,6 +873,85 @@ async function handleLiveAudioComment(form) {
   }
 }
 
+async function saveLiveAudioForOffline(programId) {
+  const program = state.liveAudioData.programs.find(function (item) {
+    return item.id === programId && item.status === "published";
+  });
+  if (!program) {
+    showToast("Refresh the programme list before saving this recording.");
+    return;
+  }
+  state.savingLiveAudioIds.add(programId);
+  render();
+  try {
+    await saveLiveAudioRecordingOffline(program);
+    state.savedLiveAudioPrograms = getSavedLiveAudioPrograms();
+    showToast("Recording saved on this device for offline listening.");
+  } catch (error) {
+    showToast(error && error.message ? error.message : "The recording could not be saved.");
+  } finally {
+    state.savingLiveAudioIds.delete(programId);
+    render();
+  }
+}
+
+async function removeLiveAudioFromOffline(programId) {
+  try {
+    state.savedLiveAudioPrograms = await removeSavedLiveAudioProgram(programId);
+    render();
+    showToast("Recording removed from this device.");
+  } catch (error) {
+    showToast(error && error.message ? error.message : "The saved recording could not be removed.");
+  }
+}
+
+async function openLiveAudioProgram(programId) {
+  const program = state.liveAudioData.programs.find(function (item) {
+    return item.id === programId;
+  }) || state.savedLiveAudioPrograms.find(function (item) {
+    return item.id === programId;
+  });
+  if (!program) return;
+
+  const openToken = ++state.liveAudioOpenToken;
+  main.querySelectorAll("[data-audio-player]").forEach(stopAudioPlayer);
+  stopLiveAudioConnection();
+  clearSavedAudioPlayback();
+  state.selectedLiveAudioProgramId = programId;
+  state.view = "listen";
+  state.menuOpen = false;
+  stopLiveAudioTimer();
+  render();
+  window.scrollTo(0, 0);
+  main.focus({ preventScroll: true });
+
+  const isSaved = state.savedLiveAudioPrograms.some(function (item) {
+    return item.id === programId;
+  });
+  if (!program.onAir && isSaved) {
+    try {
+      const playbackUrl = await createSavedLiveAudioPlaybackUrl(programId);
+      if (openToken !== state.liveAudioOpenToken || state.view !== "listen" ||
+          state.selectedLiveAudioProgramId !== programId) {
+        if (playbackUrl) URL.revokeObjectURL(playbackUrl);
+        return;
+      }
+      if (playbackUrl) {
+        state.liveAudioPlaybackUrl = playbackUrl;
+        state.liveAudioOfflinePlayback = true;
+        render();
+      } else if (!program.recordingUrl) {
+        showToast("This saved audio is missing from device storage. Reconnect and save it again.");
+      }
+    } catch (error) {
+      showToast("The saved recording could not be opened from device storage.");
+    }
+  }
+  if (program.onAir && program.liveSessionId) {
+    void connectLiveAudioProgram(programId);
+  }
+}
+
 function updateSearch(value, selectionStart, selectionEnd) {
   state.query = value;
   if (state.view === "home") {
@@ -953,19 +1085,11 @@ document.addEventListener("click", function (event) {
     const selectedFilter = Array.from(main.querySelectorAll('[data-action="filter-live-audio"]')).find(function (button) { return button.dataset.category === state.liveAudioCategory; });
     if (selectedFilter) selectedFilter.focus({ preventScroll: true });
   } else if (action === "open-live-audio") {
-    const programId = target.dataset.programId;
-    const program = state.liveAudioData.programs.find(item => item.id === programId);
-    main.querySelectorAll("[data-audio-player]").forEach(stopAudioPlayer);
-    state.selectedLiveAudioProgramId = programId;
-    state.view = "listen";
-    state.menuOpen = false;
-    stopLiveAudioTimer();
-    render();
-    window.scrollTo(0, 0);
-    main.focus({ preventScroll: true });
-    if (program && program.onAir && program.liveSessionId) {
-      void connectLiveAudioProgram(programId);
-    }
+    void openLiveAudioProgram(target.dataset.programId);
+  } else if (action === "save-live-audio") {
+    void saveLiveAudioForOffline(target.dataset.programId);
+  } else if (action === "remove-saved-live-audio") {
+    void removeLiveAudioFromOffline(target.dataset.programId);
   } else if (action === "connect-live-audio") {
     void connectLiveAudioProgram(target.dataset.programId);
   } else if (action === "disconnect-live-audio") {
@@ -973,12 +1097,14 @@ document.addEventListener("click", function (event) {
     state.liveAudioConnectionStatus = "Listening stopped.";
     render();
   } else if (action === "back-to-live-audio") {
+    state.liveAudioOpenToken += 1;
     main.querySelectorAll("[data-audio-player]").forEach(stopAudioPlayer);
     stopLiveAudioConnection();
     stopLiveAudioTimer();
+    clearSavedAudioPlayback();
     state.selectedLiveAudioProgramId = null;
     render();
-    void refreshLiveAudioData();
+    if (navigator.onLine !== false) void refreshLiveAudioData();
   } else if (action === "share-live-audio") {
     void shareLiveAudioProgram(target.dataset.programId);
   } else if (action === "toggle-audio-playback") {
@@ -1091,6 +1217,13 @@ if (window.matchMedia) {
   const media = window.matchMedia("(prefers-color-scheme: dark)");
   media.addEventListener("change", function () { if (state.settings.theme === "system") applyPreferences(); });
 }
+
+window.addEventListener("online", function () {
+  if (state.view !== "listen") return;
+  state.liveAudioError = "";
+  void refreshLiveAudioData();
+  startLiveAudioRefresh();
+});
 
 async function boot() {
   try {
