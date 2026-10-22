@@ -12,6 +12,7 @@ import {
   loadAdminLiveAudioInteractions,
   uploadAdminLiveAudioRecording
 } from "../admin/js/live-audio-admin-data.js";
+import { buildWaveformPeaks } from "../admin/js/live-audio-waveform.js";
 
 const originalWindow = globalThis.window;
 const originalDocument = globalThis.document;
@@ -121,6 +122,24 @@ async function selectTab(tab) {
   await handleLiveAudioAdminAction({ dataset: { action: "audio-admin-tab", tab } });
 }
 
+test("admin waveform keeps each display column centered and preserves its peaks", () => {
+  assert.deepEqual(
+    buildWaveformPeaks(Uint8Array.from([0, 128, 255, 128]), 2),
+    [
+      { min: -1, max: 0 },
+      { min: 0, max: 127 / 128 }
+    ]
+  );
+  assert.deepEqual(
+    buildWaveformPeaks(Uint8Array.from([128, 128, 128, 128]), 2),
+    [{ min: 0, max: 0 }, { min: 0, max: 0 }]
+  );
+  assert.deepEqual(buildWaveformPeaks(Uint8Array.from([0, 255]), 8), [
+    { min: -1, max: -1 },
+    { min: 127 / 128, max: 127 / 128 }
+  ]);
+});
+
 test("Live Audio overview has real broadcast stats, a Go live action, and no audio stream URL field", async () => {
   await prepare();
   await selectTab("programs");
@@ -172,6 +191,7 @@ test("broadcast setup continues into the dark microphone test and send flow", as
   assert.match(settings, /Stream Details/);
   assert.match(settings, /Network &amp; Audio Status/);
   assert.match(settings, /data-audio-waveform/);
+  assert.match(settings, /Centered live microphone amplitude waveform/);
   assert.match(settings, /data-audio-control="bass"/);
   assert.match(settings, /data-audio-control="treble"/);
   assert.match(settings, /data-audio-control="pitch"/);
@@ -205,6 +225,7 @@ test("live studio renders an audio-first control room and escapes programme cont
   assert.match(html, /Live Audio Studio/);
   assert.match(html, /Audio-only broadcast/);
   assert.match(html, /data-audio-waveform/);
+  assert.match(html, /Centered live microphone amplitude waveform/);
   assert.match(html, /data-action="audio-admin-toggle-mic"/);
   assert.match(html, /data-audio-control="bass"/);
   assert.match(html, /Sunday &lt;Worship&gt;/);
