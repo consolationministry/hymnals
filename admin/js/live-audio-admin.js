@@ -12,6 +12,7 @@ import {
 import { createLiveAudioId } from "../../js/live-audio-realtime.js";
 import { startLiveAudioRecording } from "../../js/live-audio-recording.js?v=1";
 import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=2";
+import { buildWaveformPeaks } from "./live-audio-waveform.js";
 
 let activeTab = "programs";
 let editingId = null;
@@ -373,7 +374,7 @@ function renderBroadcastSettings(data) {
         (activeMicEngine ? "Test Again" : "Test microphone") + '</button><button class="button button-secondary" type="button" data-action="audio-admin-mic-stop" ' +
         (activeMicEngine && !activeBroadcaster ? "" : "hidden") + '>Stop test</button>') + '</div></div>' +
     '<div class="audio-mic-visual"><div class="audio-mic-visual-heading"><strong>Audio Preview</strong><span>Input level only · no local playback</span></div>' +
-    '<canvas class="audio-waveform audio-mic-waveform" data-audio-waveform width="760" height="150" aria-label="Live microphone waveform" role="img"></canvas>' +
+    '<canvas class="audio-waveform audio-mic-waveform" data-audio-waveform width="760" height="150" aria-label="Centered live microphone amplitude waveform" role="img"></canvas>' +
     '<div class="audio-mic-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-audio-mic-level></span></div>' +
     '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">' + escapeHtml(liveStatus) + '</p>' +
     (isLive ? '<p class="audio-listener-count" data-audio-listener-count>0 listeners connected</p>' : "") + '</div></section>' +
@@ -444,7 +445,7 @@ export function renderLiveAudioStudio(program) {
     '<div class="audio-studio-stage-content"><span class="audio-studio-live-pill"><i></i> LIVE</span>' +
     '<p class="audio-studio-church">CONSOLATION EVANGELICAL AND REVIVAL CHURCH</p><h2>' + escapeHtml(program.title) + '</h2>' +
     '<p class="audio-studio-program-meta">' + escapeHtml(program.speaker || "Minister not set") + " · " + escapeHtml(program.category) + '</p>' +
-    '<div class="audio-studio-wave-wrap"><canvas class="audio-waveform audio-studio-waveform" data-audio-waveform width="920" height="124" aria-label="Live microphone waveform" role="img"></canvas></div>' +
+     '<div class="audio-studio-wave-wrap"><canvas class="audio-waveform audio-studio-waveform" data-audio-waveform width="920" height="124" aria-label="Centered live microphone amplitude waveform" role="img"></canvas></div>' +
     '<div class="audio-studio-stage-footer"><span>Audio-only broadcast · Listen on the public web player</span><span class="audio-studio-connection" role="status"><i></i><span data-studio-connection>' + escapeHtml(studioConnectionLabel()) + '</span></span></div></div></div></section>' +
     '<section class="audio-studio-metrics" aria-label="Live broadcast metrics">' +
     '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">◷</span><div><small>STREAM DURATION</small><strong data-studio-duration data-started-at="' + escapeHtml(program.liveStartedAt) + '">' + duration + '</strong></div></article>' +
@@ -591,21 +592,73 @@ function updateMeter() {
       return;
     }
     const samples = activeMicEngine.waveform();
-    const width = canvas.width;
-    const height = canvas.height;
-    context.clearRect(0, 0, width, height);
-    const themeRoot = document.querySelector(".admin-shell") || document.documentElement;
-    context.fillStyle = getComputedStyle(themeRoot).getPropertyValue("--surface-soft").trim() || "#10233d";
-    context.fillRect(0, 0, width, height);
-    context.strokeStyle = getComputedStyle(themeRoot).getPropertyValue("--purple").trim() || "#4b9bff";
-    context.lineWidth = 3;
-    context.beginPath();
-    for (let i = 0; i < samples.length; i += 1) {
-      const x = (i / (samples.length - 1)) * width;
-      const y = (samples[i] / 255) * height;
-      if (i === 0) context.moveTo(x, y);
-      else context.lineTo(x, y);
+    const bounds = typeof canvas.getBoundingClientRect === "function"
+      ? canvas.getBoundingClientRect()
+      : null;
+    const pixelRatio = typeof window !== "undefined"
+      ? Math.min(2, Math.max(1, Number(window.devicePixelRatio) || 1))
+      : 1;
+    const width = Math.max(1, bounds && bounds.width || canvas.clientWidth || canvas.width / pixelRatio);
+    const height = Math.max(1, bounds && bounds.height || canvas.clientHeight || canvas.height / pixelRatio);
+    const backingWidth = Math.round(width * pixelRatio);
+    const backingHeight = Math.round(height * pixelRatio);
+    if (canvas.width !== backingWidth || canvas.height !== backingHeight) {
+      canvas.width = backingWidth;
+      canvas.height = backingHeight;
     }
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = getComputedStyle(canvas).backgroundColor || "#07172b";
+    context.fillRect(0, 0, width, height);
+
+    const inset = Math.min(5, width / 12);
+    const plotWidth = Math.max(1, width - inset * 2);
+    const center = height / 2;
+    const amplitudeHeight = Math.max(1, (height - 12) / 2);
+    context.lineWidth = 1;
+    context.strokeStyle = "rgba(152, 184, 221, 0.12)";
+    context.beginPath();
+    [0.25, 0.75].forEach(position => {
+      const y = Math.round(height * position) + 0.5;
+      context.moveTo(inset, y);
+      context.lineTo(width - inset, y);
+    });
+    [0.25, 0.5, 0.75].forEach(position => {
+      const x = Math.round(inset + plotWidth * position) + 0.5;
+      context.moveTo(x, 3);
+      context.lineTo(x, height - 3);
+    });
+    context.stroke();
+
+    const peaks = buildWaveformPeaks(samples, Math.floor(plotWidth));
+    const pointX = index => inset + (peaks.length > 1 ? index / (peaks.length - 1) : 0.5) * plotWidth;
+    context.beginPath();
+    peaks.forEach((peak, index) => {
+      const x = pointX(index);
+      const y = center - peak.max * amplitudeHeight;
+      if (index === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    });
+    for (let index = peaks.length - 1; index >= 0; index -= 1) {
+      const peak = peaks[index];
+      context.lineTo(pointX(index), center - peak.min * amplitudeHeight);
+    }
+    context.closePath();
+    const waveformGradient = context.createLinearGradient(inset, 0, width - inset, 0);
+    waveformGradient.addColorStop(0, "#72a6ff");
+    waveformGradient.addColorStop(0.52, "#78d8ee");
+    waveformGradient.addColorStop(1, "#9b8aff");
+    context.fillStyle = waveformGradient;
+    context.fill();
+    context.strokeStyle = "rgba(185, 225, 255, 0.68)";
+    context.lineWidth = 0.75;
+    context.stroke();
+
+    context.beginPath();
+    context.moveTo(inset, Math.round(center) + 0.5);
+    context.lineTo(width - inset, Math.round(center) + 0.5);
+    context.strokeStyle = "rgba(220, 235, 255, 0.38)";
+    context.lineWidth = 1;
     context.stroke();
   }
   activeMicFrame = requestAnimationFrame(updateMeter);
