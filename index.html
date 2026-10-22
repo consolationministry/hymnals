@@ -3,49 +3,123 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f8f6fa">
-  <meta name="description" content="A simple bilingual digital hymnal for Consolation Evangelical and Revival Church.">
-  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#efe7f2">
+  <meta name="description" content="Install the Consolation Evangelical and Revival Church Hymnal on Android, or add the web app to your iPhone Home Screen.">
   <link rel="manifest" href="./manifest.webmanifest">
-  <title>Consolation Hymnal</title>
-  <link rel="icon" type="image/png" sizes="512x512" href="./assets/consolation-launcher.png">
-  <link rel="apple-touch-icon" sizes="192x192" href="./assets/consolation-launcher-192.png">
-  <link rel="stylesheet" href="./css/theme.css">
-  <link rel="stylesheet" href="./css/style.css">
-  <link rel="stylesheet" href="./css/live-audio.css">
+  <link rel="icon" type="image/png" sizes="192x192" href="./assets/consolation-launcher-192.png">
+  <link rel="apple-touch-icon" href="./assets/consolation-launcher-192.png">
+  <title>Get the Consolation Hymnal</title>
+  <style>
+    :root{color-scheme:light;--ink:#2b1b33;--muted:#74647c;--canvas:#efe7f2;--surface:#f8f0f5;--surface-soft:#e9deed;--line:#dfd0e4;--accent:#9d244d;--purple:#60366f;--shadow:0 22px 60px rgba(66,35,73,.15);--ui:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--reading:Georgia,"Times New Roman",serif}
+    *{box-sizing:border-box}html{min-width:320px;scroll-behavior:smooth}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -12%,#fff 0,transparent 53%),var(--canvas);color:var(--ink);font-family:var(--ui);line-height:1.5}a{color:inherit}button{font:inherit}.page{width:min(100% - 36px,1080px);margin:0 auto}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 0}.brand{display:flex;align-items:center;gap:12px;text-decoration:none}.brand img{width:52px;height:52px;object-fit:contain}.brand strong,.brand small{display:block}.brand strong{font-family:var(--reading);font-size:1.07rem;line-height:1.15}.brand small{margin-top:4px;color:var(--muted);font-size:.75rem}.toplink{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--line);border-radius:999px;background:rgba(248,240,245,.75);font-size:.86rem;font-weight:700;text-decoration:none}.toplink:hover{border-color:var(--accent);color:var(--accent)}
+    .hero{position:relative;isolation:isolate;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(270px,.85fr);align-items:center;gap:34px;min-height:490px;padding:clamp(30px,6vw,68px);border:1px solid rgba(255,255,255,.45);border-radius:34px;color:#fff;background:linear-gradient(122deg,#9a1f45 0%,#79305f 52%,#4c2e72 100%);box-shadow:var(--shadow)}.hero:before,.hero:after{position:absolute;z-index:-1;content:"";border:1px solid rgba(255,255,255,.17);border-radius:50%;pointer-events:none}.hero:before{width:500px;height:500px;right:-180px;top:-230px;box-shadow:0 0 0 34px rgba(255,255,255,.035),0 0 0 76px rgba(255,255,255,.025)}.hero:after{width:230px;height:230px;right:12%;bottom:-165px;box-shadow:0 0 0 24px rgba(255,255,255,.035)}.hero-copy{max-width:560px}.eyebrow{display:flex;align-items:center;gap:9px;margin:0 0 17px;color:rgba(255,255,255,.82);font-size:.73rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.eyebrow-dot{width:8px;height:8px;border-radius:50%;background:#f7c9d7;box-shadow:0 0 0 5px rgba(255,255,255,.1)}h1{max-width:580px;margin:0;font-family:var(--reading);font-size:clamp(2.7rem,6vw,4.6rem);font-weight:500;letter-spacing:-.045em;line-height:.99;text-wrap:balance}.intro{max-width:480px;margin:20px 0 25px;color:rgba(255,255,255,.83);font-size:1.02rem}.actions{display:flex;flex-wrap:wrap;align-items:center;gap:11px}.button{display:inline-flex;min-height:54px;align-items:center;justify-content:center;gap:12px;padding:11px 17px;border:1px solid transparent;border-radius:15px;font-weight:750;text-decoration:none;cursor:pointer;transition:transform .16s ease,filter .16s ease,background .16s ease}.button:hover{transform:translateY(-2px);filter:brightness(1.03)}.button:focus-visible,.toplink:focus-visible,a:focus-visible{outline:3px solid #ffd6e0;outline-offset:3px}.button-primary{color:#642747;background:#fff;box-shadow:0 7px 18px rgba(33,10,32,.16)}.button-secondary{color:#fff;border-color:rgba(255,255,255,.38);background:rgba(255,255,255,.1)}.button svg{width:20px;height:20px;flex:0 0 auto}.button-label{text-align:left}.button-label strong,.button-label small{display:block}.button-label strong{font-size:.91rem}.button-label small{margin-top:2px;color:#805a75;font-size:.73rem;font-weight:600}.hero-note{display:flex;align-items:flex-start;gap:8px;max-width:480px;margin:16px 0 0;color:rgba(255,255,255,.76);font-size:.78rem}.hero-note svg{width:17px;height:17px;flex:0 0 auto;margin-top:2px}.platform-line{margin:18px 0 0;color:rgba(255,255,255,.68);font-size:.78rem;letter-spacing:.02em}.phone-wrap{position:relative;display:grid;place-items:center;min-height:340px}.phone{position:relative;width:218px;padding:9px;border:1px solid rgba(255,255,255,.45);border-radius:34px;background:#211726;box-shadow:0 26px 50px rgba(28,8,35,.32);transform:rotate(3deg)}.phone-screen{overflow:hidden;min-height:368px;padding:22px 15px 20px;border-radius:26px;background:linear-gradient(160deg,#fffafd,#f4eaf5 70%,#e8d9ed);color:var(--ink);text-align:center}.speaker{position:absolute;top:15px;left:50%;z-index:1;width:54px;height:5px;border-radius:9px;background:#201b24;transform:translateX(-50%)}.statusbar{display:flex;justify-content:space-between;margin:3px 2px 26px;color:#786a7c;font-size:.58rem;font-weight:700}.appicon{display:block;width:86px;height:86px;margin:0 auto 12px;border-radius:22px;box-shadow:0 9px 22px rgba(66,35,73,.17)}.phone-screen h2{margin:0;font-family:var(--reading);font-size:1.18rem;line-height:1.15}.phone-screen>p{margin:8px 0 18px;color:var(--muted);font-size:.68rem}.screen-label{margin:0 0 7px;color:var(--accent);font-size:.58rem;font-weight:800;letter-spacing:.1em;text-align:left;text-transform:uppercase}.hymn-row{display:flex;align-items:center;gap:9px;margin-top:8px;padding:9px;border:1px solid #e6dae9;border-radius:12px;background:rgba(255,255,255,.8);text-align:left}.row-number{display:grid;width:29px;height:29px;place-items:center;border-radius:9px;color:var(--accent);background:#f4e4eb;font-size:.62rem;font-weight:800}.row-lines{flex:1}.row-lines i{display:block;height:5px;margin:4px 0;border-radius:6px;background:#d9cbdc}.row-lines i:first-child{width:80%;background:#a68da9}.row-lines i:last-child{width:56%;height:4px;background:#e0d5e4}.phone-nav{display:flex;justify-content:space-around;margin-top:16px;padding-top:12px;border-top:1px solid #e6dae9;color:#816d87;font-size:.56rem}.phone-nav span:first-child{color:var(--accent);font-weight:800}.float-tag{position:absolute;right:-7px;bottom:38px;padding:11px 14px;border:1px solid rgba(255,255,255,.35);border-radius:15px;color:#5b294f;background:rgba(255,255,255,.94);box-shadow:0 13px 30px rgba(30,11,38,.2);font-size:.76rem;font-weight:800;transform:rotate(-5deg)}
+    .features{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:22px 0 0}.feature{display:flex;align-items:flex-start;gap:12px;padding:19px;border:1px solid var(--line);border-radius:20px;background:rgba(248,240,245,.83)}.feature-icon{display:grid;width:39px;height:39px;flex:0 0 auto;place-items:center;border-radius:13px;color:var(--accent);background:#f1e2eb}.feature-icon svg{width:19px;height:19px}.feature strong{display:block;font-size:.91rem}.feature p{margin:4px 0 0;color:var(--muted);font-size:.79rem}.install{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:42px 0 20px;scroll-margin-top:24px}.install-card{padding:24px;border:1px solid var(--line);border-radius:22px;background:var(--surface)}.install-head{display:flex;align-items:center;gap:12px;margin:0 0 17px}.install-head .feature-icon{width:42px;height:42px}.install-head h2{margin:0;font-family:var(--reading);font-size:1.32rem}.install-head p{margin:2px 0 0;color:var(--muted);font-size:.78rem}.steps{display:grid;gap:12px;margin:0;padding:0;list-style:none}.steps li{display:flex;align-items:flex-start;gap:11px;color:var(--muted);font-size:.86rem}.step-no{display:grid;width:23px;height:23px;flex:0 0 auto;place-items:center;border:1px solid var(--line);border-radius:50%;color:var(--accent);background:#fff;font-size:.71rem;font-weight:800}.steps strong{color:var(--ink)}.safety{margin:17px 0 0;padding:12px 13px;border-radius:13px;color:#674e6c;background:#f0e6f1;font-size:.76rem}.safety strong{color:var(--ink)}.update-note{display:flex;align-items:flex-start;gap:13px;margin:16px 0 40px;padding:18px 20px;border:1px solid var(--line);border-radius:18px;background:rgba(248,240,245,.75)}.update-note svg{width:20px;height:20px;flex:0 0 auto;color:var(--accent)}.update-note p{margin:0;color:var(--muted);font-size:.82rem}.update-note strong{color:var(--ink)}footer{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:19px 0 28px;border-top:1px solid var(--line);color:var(--muted);font-size:.77rem}footer a{color:var(--accent);font-weight:700;text-decoration:none}.toast{position:fixed;right:20px;bottom:20px;z-index:4;max-width:min(390px,calc(100vw - 40px));padding:13px 16px;border-radius:13px;color:#fff;background:#2b1b33;box-shadow:var(--shadow);font-size:.85rem}.toast[hidden]{display:none}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    @media(max-width:820px){.hero{grid-template-columns:1fr .75fr;gap:16px;padding:38px}.phone{width:192px}.phone-screen{min-height:345px}.appicon{width:76px;height:76px}.float-tag{right:-16px}.features{grid-template-columns:1fr}.feature{padding:15px}}
+    @media(max-width:650px){.page{width:min(100% - 24px,540px)}.topbar{padding:14px 2px}.brand img{width:45px;height:45px}.brand small{max-width:210px;font-size:.67rem}.toplink{padding:9px 11px;font-size:.76rem}.hero{grid-template-columns:1fr;gap:0;min-height:0;padding:31px 24px 18px;border-radius:27px}.hero-copy{position:relative;z-index:2}.hero h1{font-size:clamp(2.65rem,12vw,4rem)}.intro{font-size:.94rem}.phone-wrap{min-height:320px;margin:8px auto 0;width:min(100%,360px)}.phone{width:190px;transform:rotate(2deg)}.phone-screen{min-height:336px;padding-top:21px}.float-tag{right:1px;bottom:34px}.install{grid-template-columns:1fr;margin-top:30px}.install-card{padding:21px}.update-note{margin-bottom:30px}footer{align-items:flex-start;flex-direction:column}}
+    @media(max-width:390px){.page{width:calc(100% - 18px)}.hero{padding:26px 18px 16px}.actions{align-items:stretch;flex-direction:column}.actions .button{width:100%}.toplink{font-size:0}.toplink svg{width:20px;height:20px}.brand small{max-width:150px}.phone-wrap{transform:scale(.94);transform-origin:top center;margin-bottom:-15px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button{transition:none}}
+  </style>
 </head>
 <body>
-  <section class="splash" id="splash" aria-label="Opening Consolation Hymnal" aria-live="polite">
-    <div class="splash-emblem" aria-hidden="true">
-      <span class="splash-ring"></span>
-      <img class="splash-logo" src="./assets/consolation-launcher.png" width="138" height="138" alt="">
-    </div>
-    <p class="splash-kicker">WELCOME TO</p>
-    <h1>Consolation Evangelical<br>and Revival Church</h1>
-    <p class="splash-motto">Occupy Till I Come</p>
-    <span class="splash-loader" aria-label="Loading"></span>
-  </section>
-
-  <div class="app-shell" id="app-shell" hidden>
-    <header class="brand-header" id="brand-header"></header>
-    <main class="main-content" id="main-content" tabindex="-1"></main>
-    <nav class="bottom-nav" id="bottom-nav" aria-label="Main navigation"></nav>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Consolation Hymnal home">
+        <img src="./assets/consolation-launcher-192.png" width="52" height="52" alt="">
+        <span><strong>Consolation Hymnal</strong><small>Consolation Evangelical and Revival Church</small></span>
+      </a>
+      <a class="toplink" href="./hymnal.html">Proceed to the hymnal <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+    </header>
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> The church hymnal, on your phone</p>
+          <h1 id="hero-title">Worship, wherever you go.</h1>
+          <p class="intro">Find the right hymn, keep your favourites close, and read even when you’re offline. English and Yorùbá collections, together in one simple app.</p>
+          <div class="actions">
+            <a id="android-download" class="button button-primary" href="https://github.com/consolationministry/hymnals/releases/latest/download/consolation-hymnal-android.apk">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 16v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="button-label"><strong>Get the Android app</strong><small>Latest signed APK · <span id="release-version">latest release</span></small></span>
+            </a>
+            <a id="hymnal-open" class="button button-secondary" href="./hymnal.html">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="button-label"><strong>Proceed to the hymnal</strong><small>Open it in your browser</small></span>
+            </a>
+            <button id="pwa-install" class="button button-secondary" type="button" hidden>
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm3 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              Install web app
+            </button>
+          </div>
+          <p class="hero-note"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Android will ask you to confirm the APK installation. App permissions are requested by Android only when a feature needs them.</span></p>
+          <p class="platform-line">English &amp; Yorùbá <span aria-hidden="true">·</span> Offline-ready <span aria-hidden="true">·</span> Free to use</p>
+        </div>
+        <div class="phone-wrap" aria-label="Preview of the Consolation Hymnal app">
+          <div class="phone">
+            <div class="speaker" aria-hidden="true"></div>
+            <div class="phone-screen">
+              <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+              <img class="appicon" src="./assets/consolation-launcher-192.png" width="86" height="86" alt="">
+              <h2>Consolation Hymnal</h2>
+              <p>Read, search, and keep hymns close</p>
+              <p class="screen-label">Your collections</p>
+              <div class="hymn-row"><span class="row-number">EN</span><span class="row-lines" aria-hidden="true"><i></i><i></i></span></div>
+              <div class="hymn-row"><span class="row-number">YO</span><span class="row-lines" aria-hidden="true"><i></i><i></i></span></div>
+              <div class="phone-nav"><span>Home</span><span>Hymns</span><span>Saved</span><span>Settings</span></div>
+            </div>
+          </div>
+          <div class="float-tag">English <span aria-hidden="true">+</span> Yorùbá</div>
+        </div>
+      </section>
+      <section class="features" aria-label="App features">
+        <article class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v18m6-15H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><strong>Two hymn collections</strong><p>Browse the English and Yorùbá hymns in one place.</p></div></article>
+        <article class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><strong>Read offline</strong><p>After your first online visit, cached hymns are ready without internet.</p></div></article>
+        <article class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 20-1.4-1.3C5.6 14.1 2.5 11.3 2.5 7.8A4.8 4.8 0 0 1 7.3 3c1.8 0 3.5.8 4.7 2.1A6.4 6.4 0 0 1 16.7 3a4.8 4.8 0 0 1 4.8 4.8c0 3.5-3.1 6.3-8.1 10.9L12 20Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><div><strong>Keep your favourites</strong><p>Save hymns and adjust your reading settings on your device.</p></div></article>
+      </section>
+      <section id="install-help" class="install" aria-label="Installation instructions">
+        <article class="install-card" id="android-steps">
+          <div class="install-head"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M10 18.2h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><h2>Install on Android</h2><p>Download the signed app from GitHub Releases.</p></div></div>
+          <ol class="steps"><li><span class="step-no">1</span><span>Tap <strong>Get the Android app</strong> above.</span></li><li><span class="step-no">2</span><span>Open the downloaded APK. If Android asks, allow this browser to install apps.</span></li><li><span class="step-no">3</span><span>Review Android’s installer prompt and tap <strong>Install</strong>.</span></li></ol>
+          <p class="safety"><strong>Android keeps the final say.</strong> The browser cannot silently install an APK; Android shows its own confirmation before installation.</p>
+        </article>
+        <article class="install-card" id="iphone-steps">
+          <div class="install-head"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M10 18.2h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><h2>Use on iPhone or iPad</h2><p>Add the web app from Safari.</p></div></div>
+          <ol class="steps"><li><span class="step-no">1</span><span>Open this page in <strong>Safari</strong>, then tap the Share button.</span></li><li><span class="step-no">2</span><span>Choose <strong>Add to Home Screen</strong>.</span></li><li><span class="step-no">3</span><span>Tap <strong>Add</strong>. The hymnal opens from its new Home Screen icon.</span></li></ol>
+          <p class="safety"><strong>No iPhone APK needed.</strong> The web app is the installable option on iPhone; an Android APK cannot be installed on iOS.</p>
+        </article>
+      </section>
+      <aside class="update-note">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4m-4 5a8 8 0 0 0 14.9 3M20 20v-4h-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <p><strong>Updates stay in sync.</strong> New signed Android releases are published from the repository’s build workflow. This page always links to the latest published APK, and the installed Android app checks GitHub for updates when it is online. Android may still ask you to confirm an APK update.</p>
+      </aside>
+    </main>
+    <footer><span>Consolation Evangelical and Revival Church</span><span><a href="./hymnal.html">Open the hymnal</a> &nbsp;·&nbsp; <a href="https://github.com/consolationministry/hymnals/releases" target="_blank" rel="noopener noreferrer">Release history</a></span></footer>
   </div>
-  <dialog class="update-dialog" id="update-dialog" aria-labelledby="update-title" aria-describedby="update-message">
-    <div class="update-dialog-content">
-      <span class="update-dialog-icon" aria-hidden="true">↻</span>
-      <p class="update-kicker">APP UPDATE</p>
-      <h2 id="update-title">A new update is available</h2>
-      <p id="update-message">Download the latest version to keep your hymnal up to date.</p>
-      <p class="update-version" id="update-version"></p>
-      <p class="update-status" id="update-status" role="status" aria-live="polite" hidden></p>
-      <div class="update-dialog-actions">
-        <button class="button-secondary" type="button" data-action="dismiss-update">Later</button>
-        <button class="button-primary" type="button" data-action="install-update" id="update-install">Download</button>
-      </div>
-    </div>
-  </dialog>
-  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
-  <script type="module" src="./js/app.js"></script>
+  <p id="status" class="toast" role="status" aria-live="polite" hidden></p>
+  <script>
+    (function(){
+      var deferredPrompt = null;
+      var installButton = document.getElementById("pwa-install");
+      var status = document.getElementById("status");
+      function announce(message){status.textContent=message;status.hidden=false;window.setTimeout(function(){status.hidden=true;},4200);}
+      window.addEventListener("beforeinstallprompt",function(event){event.preventDefault();deferredPrompt=event;installButton.hidden=false;});
+      installButton.addEventListener("click",async function(){
+        if(deferredPrompt){deferredPrompt.prompt();var choice=await deferredPrompt.userChoice;deferredPrompt=null;if(choice&&choice.outcome==="accepted"){announce("The install request was accepted by your browser.");}else{announce("You can install later from your browser menu.");}return;}
+        document.getElementById("install-help").scrollIntoView({behavior:"smooth",block:"start"});
+        announce(/iPhone|iPad|iPod/i.test(navigator.userAgent)?"In Safari, tap Share, then Add to Home Screen.":"Open the browser menu and choose Install app or Add to Home screen.");
+      });
+      var isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+      if(isIOS){var androidDownload=document.getElementById("android-download");var hymnalOpen=document.getElementById("hymnal-open");androidDownload.hidden=true;hymnalOpen.classList.remove("button-secondary");hymnalOpen.classList.add("button-primary");hymnalOpen.querySelector("strong").textContent="Open the hymnal";hymnalOpen.querySelector("small").textContent="Continue in your browser";installButton.hidden=false;installButton.textContent="How to add to Home Screen";}
+      if("serviceWorker" in navigator){navigator.serviceWorker.register("./service-worker.js",{scope:"./"}).catch(function(){});}
+      fetch("https://api.github.com/repos/consolationministry/hymnals/releases/latest",{headers:{Accept:"application/vnd.github+json"},cache:"force-cache"}).then(function(response){if(!response.ok)throw new Error("Release information unavailable");return response.json();}).then(function(release){
+        if(!release||release.draft||release.prerelease)return;
+        var apk=(release.assets||[]).find(function(asset){
+          if(asset.name!=="consolation-hymnal-android.apk")return false;
+          try{var url=new URL(asset.browser_download_url);return url.protocol==="https:"&&url.hostname==="github.com"&&url.pathname.startsWith("/consolationministry/hymnals/releases/download/");}catch(error){return false;}
+        });
+        if(!apk)return;
+        var version=String(release.tag_name||"").replace(/^v/,"");
+        if(version)document.getElementById("release-version").textContent="v"+version;
+      }).catch(function(){});
+    })();
+  </script>
 </body>
 </html>
