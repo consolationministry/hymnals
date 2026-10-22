@@ -111,7 +111,10 @@
       if("serviceWorker" in navigator){navigator.serviceWorker.register("./service-worker.js",{scope:"./"}).catch(function(){});}
       fetch("https://api.github.com/repos/consolationministry/hymnals/releases/latest",{headers:{Accept:"application/vnd.github+json"},cache:"force-cache"}).then(function(response){if(!response.ok)throw new Error("Release information unavailable");return response.json();}).then(function(release){
         if(!release||release.draft||release.prerelease)return;
-        var apk=(release.assets||[]).find(function(asset){return asset.name==="consolation-hymnal-android.apk"&&/^https://github\.com/consolationministry/hymnals/releases/download//.test(asset.browser_download_url||"");});
+        var apk=(release.assets||[]).find(function(asset){
+          if(asset.name!=="consolation-hymnal-android.apk")return false;
+          try{var url=new URL(asset.browser_download_url);return url.protocol==="https:"&&url.hostname==="github.com"&&url.pathname.startsWith("/consolationministry/hymnals/releases/download/");}catch(error){return false;}
+        });
         if(!apk)return;
         var version=String(release.tag_name||"").replace(/^v/,"");
         if(version)document.getElementById("release-version").textContent="v"+version;
