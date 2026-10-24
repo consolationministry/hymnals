@@ -280,11 +280,11 @@
 .audio-mic-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .audio-mic-actions .button { min-height: 34px; padding: 7px 10px; font-size: .66rem; }
 .audio-mic-live-indicator { display: inline-flex; align-items: center; gap: 7px; color: #8ce3c7; font-size: .66rem; font-weight: 700; }
-.audio-mic-visual { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 11px; border: 1px solid #1b3554; border-radius: 8px; background: #07172b; }
+.audio-mic-visual { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 11px; border: 1px solid #1b3554; border-radius: 8px; background: radial-gradient(ellipse at center, #102553 0%, #091a38 48%, #071326 100%); }
 .audio-mic-visual-heading { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .audio-mic-visual-heading strong { color: #eaf2ff; font-size: .7rem; }
 .audio-mic-visual-heading span { color: #8299b6; font-size: .58rem; text-align: right; }
-.audio-mic-waveform { display: block; width: 100%; height: 88px; border: 1px solid rgba(112, 158, 212, .2); border-radius: 5px; background: #07172b; }
+.audio-mic-waveform { display: block; width: 100%; height: 88px; border: 1px solid rgba(57, 145, 255, .22); border-radius: 6px; background: #07172b; box-shadow: inset 0 0 22px rgba(30, 105, 235, .16); }
 .audio-mic-meter { height: 8px; margin-top: 9px; overflow: hidden; border-radius: 8px; background: #1a2d47; }
 .audio-mic-meter span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #10b981, #27a6ff 70%, #975eff); transition: width .12s linear; }
 .audio-mic-status { min-height: 28px; margin: 8px 0 0; color: #9aacc5; font-size: .62rem; line-height: 1.45; }
@@ -436,7 +436,7 @@
 .audio-studio-church { margin: 13px 0 4px; color: #c8d9f0; font-size: .58rem; font-weight: 800; letter-spacing: .16em; }
 .audio-studio-stage h2 { margin: 0; color: #fff; font-size: clamp(1.45rem, 3vw, 2.35rem); letter-spacing: -.04em; text-shadow: 0 2px 14px rgba(0, 0, 0, .35); }
 .audio-studio-program-meta { margin: 5px 0 12px; color: #cad8ed; font-size: .76rem; }
-.audio-studio-wave-wrap { padding: 5px 10px; overflow: hidden; border: 1px solid rgba(130, 174, 226, .18); border-radius: 8px; background: rgba(6, 20, 39, .76); }
+.audio-studio-wave-wrap { padding: 5px 10px; overflow: hidden; border: 1px solid rgba(57, 145, 255, .2); border-radius: 8px; background: linear-gradient(180deg, rgba(7, 23, 48, .94), rgba(4, 13, 28, .98)); box-shadow: inset 0 0 24px rgba(27, 91, 205, .12); }
 .audio-studio-waveform { display: block; width: 100%; height: 64px; min-height: 64px; margin: 0; border: 0; background: #07172b; }
 .audio-studio-stage-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; color: #a8bbd5; font-size: .65rem; }
 .audio-studio-connection { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }

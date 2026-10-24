@@ -12,7 +12,7 @@ import {
 import { createLiveAudioId } from "../../js/live-audio-realtime.js";
 import { startLiveAudioRecording } from "../../js/live-audio-recording.js?v=1";
 import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=2";
-import { buildWaveformPeaks } from "./live-audio-waveform.js";
+import { buildWaveformBars } from "./live-audio-waveform.js";
 
 let activeTab = "programs";
 let editingId = null;
@@ -374,7 +374,7 @@ function renderBroadcastSettings(data) {
         (activeMicEngine ? "Test Again" : "Test microphone") + '</button><button class="button button-secondary" type="button" data-action="audio-admin-mic-stop" ' +
         (activeMicEngine && !activeBroadcaster ? "" : "hidden") + '>Stop test</button>') + '</div></div>' +
     '<div class="audio-mic-visual"><div class="audio-mic-visual-heading"><strong>Audio Preview</strong><span>Input level only · no local playback</span></div>' +
-    '<canvas class="audio-waveform audio-mic-waveform" data-audio-waveform width="760" height="150" aria-label="Centered live microphone amplitude waveform" role="img"></canvas>' +
+    '<canvas class="audio-waveform audio-mic-waveform" data-audio-waveform width="760" height="150" aria-label="Live music-style audio waveform" role="img"></canvas>' +
     '<div class="audio-mic-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-audio-mic-level></span></div>' +
     '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">' + escapeHtml(liveStatus) + '</p>' +
     (isLive ? '<p class="audio-listener-count" data-audio-listener-count>0 listeners connected</p>' : "") + '</div></section>' +
@@ -445,7 +445,7 @@ export function renderLiveAudioStudio(program) {
     '<div class="audio-studio-stage-content"><span class="audio-studio-live-pill"><i></i> LIVE</span>' +
     '<p class="audio-studio-church">CONSOLATION EVANGELICAL AND REVIVAL CHURCH</p><h2>' + escapeHtml(program.title) + '</h2>' +
     '<p class="audio-studio-program-meta">' + escapeHtml(program.speaker || "Minister not set") + " · " + escapeHtml(program.category) + '</p>' +
-     '<div class="audio-studio-wave-wrap"><canvas class="audio-waveform audio-studio-waveform" data-audio-waveform width="920" height="124" aria-label="Centered live microphone amplitude waveform" role="img"></canvas></div>' +
+     '<div class="audio-studio-wave-wrap"><canvas class="audio-waveform audio-studio-waveform" data-audio-waveform width="920" height="124" aria-label="Live music-style audio waveform" role="img"></canvas></div>' +
     '<div class="audio-studio-stage-footer"><span>Audio-only broadcast · Listen on the public web player</span><span class="audio-studio-connection" role="status"><i></i><span data-studio-connection>' + escapeHtml(studioConnectionLabel()) + '</span></span></div></div></div></section>' +
     '<section class="audio-studio-metrics" aria-label="Live broadcast metrics">' +
     '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">◷</span><div><small>STREAM DURATION</small><strong data-studio-duration data-started-at="' + escapeHtml(program.liveStartedAt) + '">' + duration + '</strong></div></article>' +
@@ -611,55 +611,29 @@ function updateMeter() {
     context.fillStyle = getComputedStyle(canvas).backgroundColor || "#07172b";
     context.fillRect(0, 0, width, height);
 
-    const inset = Math.min(5, width / 12);
+    const inset = Math.min(6, width / 12);
     const plotWidth = Math.max(1, width - inset * 2);
     const center = height / 2;
-    const amplitudeHeight = Math.max(1, (height - 12) / 2);
-    context.lineWidth = 1;
-    context.strokeStyle = "rgba(152, 184, 221, 0.12)";
-    context.beginPath();
-    [0.25, 0.75].forEach(position => {
-      const y = Math.round(height * position) + 0.5;
-      context.moveTo(inset, y);
-      context.lineTo(width - inset, y);
-    });
-    [0.25, 0.5, 0.75].forEach(position => {
-      const x = Math.round(inset + plotWidth * position) + 0.5;
-      context.moveTo(x, 3);
-      context.lineTo(x, height - 3);
-    });
-    context.stroke();
-
-    const peaks = buildWaveformPeaks(samples, Math.floor(plotWidth));
-    const pointX = index => inset + (peaks.length > 1 ? index / (peaks.length - 1) : 0.5) * plotWidth;
-    context.beginPath();
-    peaks.forEach((peak, index) => {
-      const x = pointX(index);
-      const y = center - peak.max * amplitudeHeight;
-      if (index === 0) context.moveTo(x, y);
-      else context.lineTo(x, y);
-    });
-    for (let index = peaks.length - 1; index >= 0; index -= 1) {
-      const peak = peaks[index];
-      context.lineTo(pointX(index), center - peak.min * amplitudeHeight);
-    }
-    context.closePath();
+    const maxBarHeight = Math.max(2, height - 12);
+    const gap = Math.max(1, Math.min(3, width / 260));
+    const barCount = Math.max(1, Math.floor(plotWidth / (gap + 2)));
+    const bars = buildWaveformBars(samples, barCount);
+    const slotWidth = plotWidth / Math.max(1, bars.length);
+    const barWidth = Math.max(1, Math.min(slotWidth - gap, slotWidth * 0.68));
     const waveformGradient = context.createLinearGradient(inset, 0, width - inset, 0);
-    waveformGradient.addColorStop(0, "#72a6ff");
-    waveformGradient.addColorStop(0.52, "#78d8ee");
-    waveformGradient.addColorStop(1, "#9b8aff");
+    waveformGradient.addColorStop(0, "#35d3ff");
+    waveformGradient.addColorStop(0.48, "#238bff");
+    waveformGradient.addColorStop(1, "#9a78ff");
     context.fillStyle = waveformGradient;
-    context.fill();
-    context.strokeStyle = "rgba(185, 225, 255, 0.68)";
-    context.lineWidth = 0.75;
-    context.stroke();
-
-    context.beginPath();
-    context.moveTo(inset, Math.round(center) + 0.5);
-    context.lineTo(width - inset, Math.round(center) + 0.5);
-    context.strokeStyle = "rgba(220, 235, 255, 0.38)";
-    context.lineWidth = 1;
-    context.stroke();
+    context.shadowColor = "rgba(40, 145, 255, 0.42)";
+    context.shadowBlur = Math.min(7, barWidth * 1.5);
+    bars.forEach((peak, index) => {
+      const normalizedPeak = Math.pow(Math.max(0, Math.min(1, peak)), 0.8);
+      const barHeight = Math.max(2, normalizedPeak * maxBarHeight);
+      const x = inset + index * slotWidth + (slotWidth - barWidth) / 2;
+      context.fillRect(x, center - barHeight / 2, barWidth, barHeight);
+    });
+    context.shadowBlur = 0;
   }
   activeMicFrame = requestAnimationFrame(updateMeter);
 }

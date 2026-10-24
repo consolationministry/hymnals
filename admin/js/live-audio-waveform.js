@@ -29,3 +29,9 @@ export function buildWaveformPeaks(samples, columnCount) {
     return { min: minimum, max: maximum };
   });
 }
+
+export function buildWaveformBars(samples, columnCount) {
+  return buildWaveformPeaks(samples, columnCount).map(peak =>
+    Math.max(Math.abs(peak.min), Math.abs(peak.max))
+  );
+}
