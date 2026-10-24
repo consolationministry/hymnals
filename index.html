@@ -38,7 +38,7 @@
           <div class="actions">
             <a id="android-download" class="button button-primary" href="./consolation-hymnal-android.apk" download="consolation-hymnal-android.apk">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 16v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span class="button-label"><strong>Install the Android app</strong><small>Latest signed APK · <span id="release-version">latest release</span></small></span>
+              <span class="button-label"><strong>Download Android app</strong><small>Signed APK from this website · <span id="release-version">latest release</span></small></span>
             </a>
             <a id="hymnal-open" class="button button-secondary" href="./hymnal.html">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -46,7 +46,7 @@
             </a>
             <button id="pwa-install" class="button button-secondary" type="button" hidden>
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm3 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-              Install web app
+              How to add to Home Screen
             </button>
           </div>
           <p class="hero-note"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Android will ask you to confirm the APK installation. App permissions are requested by Android only when a feature needs them.</span></p>
@@ -77,7 +77,7 @@
       <section id="install-help" class="install" aria-label="Installation instructions">
         <article class="install-card" id="android-steps">
           <div class="install-head"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M10 18.2h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><h2>Install on Android</h2><p>Download the signed Android app from this website.</p></div></div>
-          <ol class="steps"><li><span class="step-no">1</span><span>Tap <strong>Install the Android app</strong> above.</span></li><li><span class="step-no">2</span><span>Open the downloaded APK. If Android asks, allow this browser to install apps.</span></li><li><span class="step-no">3</span><span>Review Android’s installer prompt and tap <strong>Install</strong>.</span></li></ol>
+          <ol class="steps"><li><span class="step-no">1</span><span>Tap <strong>Download Android app</strong> above to download the signed APK from this website.</span></li><li><span class="step-no">2</span><span>Open the downloaded APK. If Android asks, allow this browser to install apps.</span></li><li><span class="step-no">3</span><span>Review Android’s installer prompt and tap <strong>Install</strong>.</span></li></ol>
           <p class="safety"><strong>Android keeps the final say.</strong> The browser cannot silently install an APK; Android shows its own confirmation before installation.</p>
         </article>
         <article class="install-card" id="iphone-steps">
@@ -96,15 +96,12 @@
   <p id="status" class="toast" role="status" aria-live="polite" hidden></p>
   <script>
     (function(){
-      var deferredPrompt = null;
       var installButton = document.getElementById("pwa-install");
       var status = document.getElementById("status");
       function announce(message){status.textContent=message;status.hidden=false;window.setTimeout(function(){status.hidden=true;},4200);}
-      window.addEventListener("beforeinstallprompt",function(event){event.preventDefault();deferredPrompt=event;installButton.hidden=false;});
-      installButton.addEventListener("click",async function(){
-        if(deferredPrompt){deferredPrompt.prompt();var choice=await deferredPrompt.userChoice;deferredPrompt=null;if(choice&&choice.outcome==="accepted"){announce("The install request was accepted by your browser.");}else{announce("You can install later from your browser menu.");}return;}
+      installButton.addEventListener("click",function(){
         document.getElementById("install-help").scrollIntoView({behavior:"smooth",block:"start"});
-        announce(/iPhone|iPad|iPod/i.test(navigator.userAgent)?"In Safari, tap Share, then Add to Home Screen.":"Open the browser menu and choose Install app or Add to Home screen.");
+        announce("In Safari, tap Share, then Add to Home Screen.");
       });
       var isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
       if(isIOS){var androidDownload=document.getElementById("android-download");var hymnalOpen=document.getElementById("hymnal-open");androidDownload.hidden=true;hymnalOpen.classList.remove("button-secondary");hymnalOpen.classList.add("button-primary");hymnalOpen.querySelector("strong").textContent="Open the hymnal";hymnalOpen.querySelector("small").textContent="Continue in your browser";installButton.hidden=false;installButton.textContent="How to add to Home Screen";}
