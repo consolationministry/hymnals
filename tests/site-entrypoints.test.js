@@ -6,11 +6,16 @@ const read = (name) => readFile(new URL("../" + name, import.meta.url), "utf8");
 
 test("public homepage offers app installation and a separate hymn-reader route", async () => {
   const home = await read("index.html");
-  assert.ok(home.includes("Install the Android app"));
+  assert.ok(home.includes("Download Android app"));
   assert.ok(home.includes("Proceed to the hymnal"));
   assert.ok(home.includes('href="./hymnal.html"'));
-  assert.ok(home.includes('href="./consolation-hymnal-android.apk" download="consolation-hymnal-android.apk"'));
-  assert.ok(home.includes("Install web app"));
+  const androidLink = home.match(/<a id="android-download"[^>]*>/)?.[0] || "";
+  assert.ok(androidLink.includes('href="./consolation-hymnal-android.apk" download="consolation-hymnal-android.apk"'));
+  assert.ok(!androidLink.includes("github.com"));
+  assert.ok(home.includes('id="pwa-install"'));
+  assert.ok(home.includes('installButton.textContent="How to add to Home Screen"'));
+  assert.ok(!home.includes("beforeinstallprompt"));
+  assert.ok(!home.includes("deferredPrompt"));
 });
 
 test("the hymn reader remains the web, PWA, and native Android launch page", async () => {
