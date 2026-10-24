@@ -67,7 +67,7 @@ Updates require an internet connection. The web app updates its cached files thr
 
 ## GitHub Pages
 
-GitHub Pages serves the repository root: `index.html` is the public install/download homepage, and `hymnal.html` is the member reader. The homepage's **Proceed to the hymnal** button opens the reader. The `download.html` URL redirects to the homepage. The PWA manifest and Capacitor's `server.appStartPath` both open `hymnal.html`, so installing the web app or launching the Android APK starts in the reader rather than the download page. Vite builds both pages into `dist/`, which Capacitor packages for Android. Keep the web app and Android app on the same branch so both ship the same interface and hymn data.
+GitHub Pages serves the public install page at `/` and the member reader at `/hymnal.html`. On Android, the homepage's **Download Android app** button downloads the signed APK from the same website origin; the Android page does not offer the separate web-app install prompt. On iPhone or iPad, the page explains how to add the web app from Safari. After a signed Android release succeeds, `.github/workflows/deploy-pages.yml` builds the site, adds the APK to the Pages bundle, and publishes both through GitHub Actions. The Pages publishing source must be **GitHub Actions**. The `download.html` URL redirects to the homepage. The PWA manifest and Capacitor's `server.appStartPath` both open `hymnal.html`, so adding the web app on iPhone or launching the Android APK starts in the reader. Android still requires the user to confirm an APK installation; a website cannot silently install a native app.
 
 ## Hymn text and rights
 
