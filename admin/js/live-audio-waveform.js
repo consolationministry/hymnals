@@ -35,3 +35,33 @@ export function buildWaveformBars(samples, columnCount) {
     Math.max(Math.abs(peak.min), Math.abs(peak.max))
   );
 }
+
+
+const WAVEFORM_NOISE_FLOOR = 2 / 128;
+const WAVEFORM_TARGET_PEAK = 0.72;
+const WAVEFORM_MAX_DISPLAY_GAIN = 8;
+
+export function getWaveformDisplayGain(bars) {
+  const peak = Array.from(bars || []).reduce((maximum, value) => {
+    const amplitude = Number(value);
+    return Number.isFinite(amplitude)
+      ? Math.max(maximum, Math.max(0, Math.min(1, amplitude)))
+      : maximum;
+  }, 0);
+  if (peak <= WAVEFORM_NOISE_FLOOR) return 1;
+  return Math.min(WAVEFORM_MAX_DISPLAY_GAIN, Math.max(1, WAVEFORM_TARGET_PEAK / peak));
+}
+
+export function scaleWaveformBars(bars, gain) {
+  const value = Number(gain);
+  const safeGain = Number.isFinite(value)
+    ? Math.max(1, Math.min(WAVEFORM_MAX_DISPLAY_GAIN, value))
+    : 1;
+  return Array.from(bars || [], bar => {
+    const amplitude = Number(bar);
+    if (!Number.isFinite(amplitude)) return 0;
+    const bounded = Math.max(0, Math.min(1, amplitude));
+    if (bounded <= WAVEFORM_NOISE_FLOOR) return 0;
+    return Math.min(1, bounded * safeGain);
+  });
+}

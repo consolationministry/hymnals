@@ -12,7 +12,7 @@ import {
 import { createLiveAudioId } from "../../js/live-audio-realtime.js";
 import { startLiveAudioRecording } from "../../js/live-audio-recording.js?v=1";
 import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=2";
-import { buildWaveformBars } from "./live-audio-waveform.js";
+import { buildWaveformBars, getWaveformDisplayGain, scaleWaveformBars } from "./live-audio-waveform.js";
 
 let activeTab = "programs";
 let editingId = null;
@@ -22,6 +22,7 @@ let loadingPromise = null;
 let loadError = "";
 let activeMicEngine = null;
 let activeMicFrame = null;
+let waveformDisplayGain = 1;
 let activeBroadcaster = null;
 let activeBroadcastId = null;
 let activeRecording = null;
@@ -617,7 +618,12 @@ function updateMeter() {
     const maxBarHeight = Math.max(2, height - 12);
     const gap = Math.max(1, Math.min(3, width / 260));
     const barCount = Math.max(1, Math.floor(plotWidth / (gap + 2)));
-    const bars = buildWaveformBars(samples, barCount);
+    const rawBars = buildWaveformBars(samples, barCount);
+    const targetGain = getWaveformDisplayGain(rawBars);
+    const gainSpeed = targetGain < waveformDisplayGain ? 0.32 : 0.16;
+    waveformDisplayGain += (targetGain - waveformDisplayGain) * gainSpeed;
+    // This adaptive gain only changes the display, never the audio sent to listeners.
+    const bars = scaleWaveformBars(rawBars, waveformDisplayGain);
     const slotWidth = plotWidth / Math.max(1, bars.length);
     const barWidth = Math.max(1, Math.min(slotWidth - gap, slotWidth * 0.68));
     const waveformGradient = context.createLinearGradient(inset, 0, width - inset, 0);
@@ -629,7 +635,8 @@ function updateMeter() {
     context.shadowBlur = Math.min(7, barWidth * 1.5);
     bars.forEach((peak, index) => {
       const normalizedPeak = Math.pow(Math.max(0, Math.min(1, peak)), 0.8);
-      const barHeight = Math.max(2, normalizedPeak * maxBarHeight);
+      const barHeight = normalizedPeak > 0 ? Math.max(2, normalizedPeak * maxBarHeight) : 0;
+      if (barHeight <= 0) return;
       const x = inset + index * slotWidth + (slotWidth - barWidth) / 2;
       context.fillRect(x, center - barHeight / 2, barWidth, barHeight);
     });
@@ -673,6 +680,7 @@ export async function stopAdminAudioMicTest() {
   if (activeBroadcaster) return;
   if (activeMicFrame) cancelAnimationFrame(activeMicFrame);
   activeMicFrame = null;
+  waveformDisplayGain = 1;
   if (activeMicEngine) await activeMicEngine.stop();
   activeMicEngine = null;
   const status = document.querySelector("[data-audio-mic-status]");
