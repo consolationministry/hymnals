@@ -12,7 +12,7 @@ import {
   loadAdminLiveAudioInteractions,
   uploadAdminLiveAudioRecording
 } from "../admin/js/live-audio-admin-data.js";
-import { buildWaveformBars, buildWaveformPeaks } from "../admin/js/live-audio-waveform.js";
+import { buildWaveformBars, buildWaveformPeaks, getWaveformDisplayGain, scaleWaveformBars } from "../admin/js/live-audio-waveform.js";
 
 const originalWindow = globalThis.window;
 const originalDocument = globalThis.document;
@@ -143,6 +143,15 @@ test("admin music waveform retains per-bar peaks and mirrors around its center",
     [0, 127 / 128, 0, 1]
   );
   assert.deepEqual(buildWaveformBars(Uint8Array.from([128, 128, 128, 128]), 2), [0, 0]);
+});
+
+test("admin waveform boosts quiet mic input, gates silence, and caps loud peaks", () => {
+  const quietBars = buildWaveformBars(Uint8Array.from([128, 132, 128, 130]), 4);
+  const gain = getWaveformDisplayGain(quietBars);
+  assert.equal(gain, 8);
+  assert.deepEqual(scaleWaveformBars(quietBars, gain), [0, 0.25, 0, 0]);
+  assert.equal(getWaveformDisplayGain([0, 0.007]), 1);
+  assert.deepEqual(scaleWaveformBars([0, 1], 8), [0, 1]);
 });
 
 test("Live Audio overview has real broadcast stats, a Go live action, and no audio stream URL field", async () => {
