@@ -6,10 +6,11 @@ const read = (name) => readFile(new URL("../" + name, import.meta.url), "utf8");
 
 test("public homepage offers app installation and a separate hymn-reader route", async () => {
   const home = await read("index.html");
-  assert.ok(home.includes("Get the Android app"));
+  assert.ok(home.includes("Install the Android app"));
   assert.ok(home.includes("Proceed to the hymnal"));
   assert.ok(home.includes('href="./hymnal.html"'));
-  assert.ok(home.includes("/releases/latest/download/consolation-hymnal-android.apk"));
+  assert.ok(home.includes('href="./consolation-hymnal-android.apk" download="consolation-hymnal-android.apk"'));
+  assert.ok(home.includes("Install web app"));
 });
 
 test("the hymn reader remains the web, PWA, and native Android launch page", async () => {
@@ -29,4 +30,13 @@ test("offline app worker caches the reader and the Vite build emits both pages",
   const [worker, viteConfig] = await Promise.all([read("service-worker.js"), read("vite.config.js")]);
   assert.ok(worker.includes('"./hymnal.html"'));
   assert.ok(viteConfig.includes("hymnal.html"));
+});
+
+test("Pages deploys the signed APK alongside the website after a release", async () => {
+  const workflow = await read(".github/workflows/deploy-pages.yml");
+  assert.ok(workflow.includes("workflow_dispatch:"));
+  assert.ok(workflow.includes('workflows: ["Android signed release"]'));
+  assert.ok(workflow.includes("gh release download --repo"));
+  assert.ok(workflow.includes("actions/upload-pages-artifact@v3"));
+  assert.ok(workflow.includes("actions/deploy-pages@v4"));
 });
