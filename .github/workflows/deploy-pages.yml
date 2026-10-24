@@ -1,0 +1,117 @@
+name: Deploy hymnal website with Android APK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/deploy-pages.yml'
+      - 'index.html'
+      - 'README.md'
+      - 'tests/site-entrypoints.test.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.js'
+      - 'scripts/build-web.mjs'
+  workflow_run:
+    workflows: ["Android signed release"]
+    branches:
+      - main
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hymnal-pages
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    name: Test site bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Use the public npm registry in the lockfile
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+          const lockfilePath = "package-lock.json";
+          const privatePrefix = "http://package-firewall.replit.internal/npm/";
+          const publicPrefix = "https://registry.npmjs.org/";
+          const original = readFileSync(lockfilePath, "utf8");
+          const normalized = original.replaceAll(privatePrefix, publicPrefix);
+          if (normalized.includes("package-firewall.replit.internal")) throw new Error("The lockfile still contains a Replit-only registry URL.");
+          if (!original.includes(privatePrefix) && !original.includes(publicPrefix)) throw new Error("No recognized npm registry URLs were found.");
+          if (normalized !== original) writeFileSync(lockfilePath, normalized);
+          NODE
+      - name: Install, test, and build
+        run: |
+          npm ci --registry=https://registry.npmjs.org --no-audit --no-fund
+          npm test
+          npm run build
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    name: Publish site with latest signed APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out the source that produced the release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Use the public npm registry in the lockfile
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+          const lockfilePath = "package-lock.json";
+          const privatePrefix = "http://package-firewall.replit.internal/npm/";
+          const publicPrefix = "https://registry.npmjs.org/";
+          const original = readFileSync(lockfilePath, "utf8");
+          const normalized = original.replaceAll(privatePrefix, publicPrefix);
+          if (normalized.includes("package-firewall.replit.internal")) throw new Error("The lockfile still contains a Replit-only registry URL.");
+          if (!original.includes(privatePrefix) && !original.includes(publicPrefix)) throw new Error("No recognized npm registry URLs were found.");
+          if (normalized !== original) writeFileSync(lockfilePath, normalized);
+          NODE
+      - name: Build website
+        run: |
+          npm ci --registry=https://registry.npmjs.org --no-audit --no-fund
+          npm run build
+      - name: Download the latest signed Android APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download --repo "$GITHUB_REPOSITORY" --pattern "consolation-hymnal-android.apk" --dir dist
+      - name: Verify APK was staged
+        run: test -s dist/consolation-hymnal-android.apk
+      - name: Disable Jekyll processing
+        run: touch dist/.nojekyll
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
