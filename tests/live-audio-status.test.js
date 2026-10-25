@@ -22,6 +22,10 @@ test("public live audio status messages preserve the connected and ended states"
     "This broadcast has ended."
   );
   assert.equal(
+    publicLiveAudioConnectionMessage("reconnecting"),
+    "The connection dropped briefly. Reconnecting to live audio…"
+  );
+  assert.equal(
     publicLiveAudioConnectionMessage("unknown"),
     "Connecting to live audio…"
   );
