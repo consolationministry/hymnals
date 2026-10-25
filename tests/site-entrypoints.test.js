@@ -1,8 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { access, readFile } from "node:fs/promises";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 const read = (name) => readFile(new URL("../" + name, import.meta.url), "utf8");
+const run = promisify(execFile);
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
 test("public homepage offers app installation and a separate hymn-reader route", async () => {
   const home = await read("index.html");
@@ -35,6 +40,29 @@ test("offline app worker caches the reader and the Vite build emits both pages",
   const [worker, viteConfig] = await Promise.all([read("service-worker.js"), read("vite.config.js")]);
   assert.ok(worker.includes('"./hymnal.html"'));
   assert.ok(viteConfig.includes("hymnal.html"));
+});
+
+test("Pages build includes the admin workspace and its runtime dependencies", async () => {
+  await run(process.execPath, ["node_modules/vite/bin/vite.js", "build"], { cwd: repositoryRoot });
+  await run(process.execPath, ["scripts/build-web.mjs"], { cwd: repositoryRoot });
+
+  const files = [
+    "admin/index.html",
+    "admin/css/admin.css",
+    "admin/css/live-audio-admin.css",
+    "admin/js/admin-app.js",
+    "js/hymnal-selection.js",
+    "js/live-audio-recording.js",
+    "js/live-audio-realtime.js",
+    "js/live-audio-webrtc.js",
+    "data/uploaded-hymns.js",
+    "data/uploaded-yoruba-hymns.js",
+    "assets/demo-church-mark.svg"
+  ];
+  await Promise.all(files.map(file => access(new URL("../dist/" + file, import.meta.url))));
+
+  const worker = await read("dist/service-worker.js");
+  for (const file of files) assert.ok(worker.includes("./" + file), file + " should be precached");
 });
 
 test("Pages deploys the signed APK alongside the website after a release", async () => {
