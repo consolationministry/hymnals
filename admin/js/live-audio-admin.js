@@ -28,6 +28,7 @@ let activeBroadcaster = null;
 let activeBroadcastId = null;
 let activeRecording = null;
 let activeRecordingSessionId = null;
+let activeBroadcastRecordingEnabled = false;
 let audioSettings = Object.assign({}, DEFAULT_AUDIO_SETTINGS);
 let activeMicMuted = false;
 let activeListenerCount = 0;
@@ -714,7 +715,7 @@ function downloadDrafts() {
   URL.revokeObjectURL(url);
 }
 
-async function beginBroadcast(programId) {
+async function beginBroadcast(programId, recordBroadcast) {
   const program = cachedData.programs.find(item => item.id === programId);
   if (!program) throw new Error("Choose a saved programme first.");
   const mic = await ensureMicEngine();
@@ -728,6 +729,11 @@ async function beginBroadcast(programId) {
   let recorder = null;
   let startedProgram = null;
   try {
+    if (recordBroadcast) {
+      recorder = startLiveAudioRecording(mic.stream, undefined, {
+        onSegment: segment => uploadAdminLiveAudioSegment(programId, sessionId, segment)
+      });
+    }
     publisher = await startLiveAudioPublisher({
       programId,
       sessionId,
@@ -752,14 +758,12 @@ async function beginBroadcast(programId) {
         if (studioNode) studioNode.textContent = String(count);
       }
     });
-    recorder = startLiveAudioRecording(mic.stream, undefined, {
-      onSegment: segment => uploadAdminLiveAudioSegment(programId, sessionId, segment)
-    });
     startedProgram = await startAdminLiveAudioProgram(programId, sessionId);
     activeBroadcaster = publisher;
     activeBroadcastId = programId;
     activeRecording = recorder;
     activeRecordingSessionId = sessionId;
+    activeBroadcastRecordingEnabled = Boolean(recordBroadcast);
     if (cachedData) {
       cachedData.programs = cachedData.programs.map(item => item.id === programId ? startedProgram : item);
     }
@@ -785,24 +789,30 @@ async function beginBroadcast(programId) {
     activeBroadcastId = null;
     activeRecording = null;
     activeRecordingSessionId = null;
+    activeBroadcastRecordingEnabled = false;
     throw error;
   }
 }
 
 async function endBroadcast(programId) {
-  const program = cachedData && cachedData.programs.find(item => item.id === programId);
-  const title = program ? program.title : "this broadcast";
-  if (!window.confirm("End " + title + " now? Listeners will be disconnected. You’ll choose whether to publish the recording next.")) return false;
-  const hasLocalRecording = Boolean(activeRecording && activeRecordingSessionId && activeBroadcastId === programId);
-  const publishPrompt = hasLocalRecording
-    ? 'Publish "' + title + '" and its recording on the public Listen page now? Choose Cancel to save it as a draft.'
-    : 'This tab has no local recording for "' + title + '". Publish the programme details on the public Listen page? Choose Cancel to save it as a draft.';
-  const finalStatus = window.confirm(publishPrompt) ? "published" : "draft";
+  const ownsLiveSession = Boolean(activeBroadcaster && activeBroadcastId === programId);
+  if (!ownsLiveSession) {
+    await endAdminLiveAudioProgram(programId, "draft");
+    cachedData = await loadAdminLiveAudioData();
+    editingId = null;
+    wizardStep = 1;
+    activeTab = "programs";
+    studioVisible = false;
+    rerender();
+    toast("Broadcast ended and kept as a draft because this tab has no complete recording to publish.");
+    return true;
+  }
+  const recordingEnabled = activeBroadcastRecordingEnabled;
   let recordingError = null;
   let rewindSegmentError = false;
-  if (activeBroadcaster && activeBroadcastId === programId) {
+  if (ownsLiveSession) {
     await activeBroadcaster.stop();
-    if (activeRecording) {
+    if (recordingEnabled && activeRecording) {
       try {
         const recording = await activeRecording.stop();
         rewindSegmentError = Boolean(recording.segmentErrors && recording.segmentErrors.length);
@@ -810,7 +820,7 @@ async function endBroadcast(programId) {
       } catch (error) {
         recordingError = error;
       }
-    } else {
+    } else if (recordingEnabled) {
       recordingError = new Error("The stream did not produce an audio recording.");
     }
     stopStudioTimers();
@@ -818,6 +828,7 @@ async function endBroadcast(programId) {
     activeBroadcastId = null;
     activeRecording = null;
     activeRecordingSessionId = null;
+    activeBroadcastRecordingEnabled = false;
     studioVisible = false;
     activeMicMuted = false;
     activeListenerCount = 0;
@@ -828,7 +839,8 @@ async function endBroadcast(programId) {
     if (activeMicEngine) await activeMicEngine.stop();
     activeMicEngine = null;
   }
-  await endAdminLiveAudioProgram(programId, recordingError ? "draft" : finalStatus);
+  const finalStatus = recordingError ? "draft" : "published";
+  await endAdminLiveAudioProgram(programId, finalStatus);
   cachedData = await loadAdminLiveAudioData();
   editingId = null;
   wizardStep = 1;
@@ -841,8 +853,6 @@ async function endBroadcast(programId) {
     toast("Broadcast ended and saved. Some live rewind segments could not be uploaded; the full recording is available.");
   } else if (finalStatus === "published") {
     toast("Broadcast ended and published on the public Listen page.");
-  } else {
-    toast("Broadcast ended and saved as a draft. Publish it later from Drafts.");
   }
   return true;
 }
@@ -958,7 +968,10 @@ export async function handleLiveAudioAdminAction(button) {
     return true;
   }
   if (action === "audio-admin-go-live-now") {
-    try { await beginBroadcast(button.dataset.id); }
+    const recordBroadcast = window.confirm(
+      "Record this live programme? Choose OK to start recording with the broadcast and publish the complete recording when you end it. Choose Cancel to go live without a recording."
+    );
+    try { await beginBroadcast(button.dataset.id, recordBroadcast); }
     catch (error) { toast(error.message || "The broadcast could not start."); }
     return true;
   }

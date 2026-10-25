@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { afterEach, test } from "node:test";
 import {
   ensureLiveAudioAdminLoaded,
@@ -256,7 +257,7 @@ test("live studio loads real listen, reaction, and recent-comment counts", async
   assert.equal(interactions.comments[0].body, "God is good!");
 });
 
-test("ending a remote live broadcast can save it as a draft", async () => {
+test("ending a remote live broadcast without its local recording keeps it unpublished", async () => {
   const programs = installAdminEnvironment();
   programs.push({
     id: "123e4567-e89b-42d3-a456-426614174000",
@@ -267,10 +268,9 @@ test("ending a remote live broadcast can save it as a draft", async () => {
   });
   await ensureLiveAudioAdminLoaded();
   const prompts = [];
-  const answers = [true, false];
   globalThis.window.confirm = message => {
     prompts.push(message);
-    return answers.shift();
+    return true;
   };
 
   await handleLiveAudioAdminAction({
@@ -279,7 +279,7 @@ test("ending a remote live broadcast can save it as a draft", async () => {
 
   assert.equal(programs[0].status, "draft");
   assert.equal(programs[0].is_live, false);
-  assert.match(prompts[1], /save it as a draft/i);
+  assert.deepEqual(prompts, []);
 });
 
 test("completed recordings upload audio bytes and save their private storage path", async () => {
@@ -303,6 +303,25 @@ test("completed recordings upload audio bytes and save their private storage pat
 
   const ended = await endAdminLiveAudioProgram(programId, "draft");
   assert.equal(ended.status, "draft");
+});
+
+test("live recording starts before signaling and publication waits for the completed archive", async () => {
+  const source = await readFile(new URL("../admin/js/live-audio-admin.js", import.meta.url), "utf8");
+  const beginStart = source.indexOf("async function beginBroadcast(");
+  const endStart = source.indexOf("async function endBroadcast(", beginStart);
+  const actionStart = source.indexOf('if (action === "audio-admin-go-live-now")');
+  const actionEnd = source.indexOf('if (action === "audio-admin-stop-live")', actionStart);
+  assert.ok(beginStart >= 0 && endStart > beginStart);
+  assert.ok(actionStart >= 0 && actionEnd > actionStart);
+
+  const begin = source.slice(beginStart, endStart);
+  const end = source.slice(endStart, source.indexOf("export async function handleLiveAudioAdminAction", endStart));
+  const goLiveAction = source.slice(actionStart, actionEnd);
+  assert.ok(begin.indexOf("startLiveAudioRecording") < begin.indexOf("startLiveAudioPublisher"));
+  assert.match(goLiveAction, /Record this live programme/);
+  const finalization = end.indexOf("endAdminLiveAudioProgram(programId, finalStatus)");
+  assert.ok(end.indexOf("uploadAdminLiveAudioRecording") < finalization);
+  assert.doesNotMatch(end, /window\.confirm/);
 });
 
 test("live rewind segments upload audio bytes and register their session timeline", async () => {
