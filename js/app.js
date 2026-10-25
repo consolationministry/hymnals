@@ -1,32 +1,72 @@
 import { getAllHymns } from "./hymn-service.js";
 import { searchHymns } from "./search.js";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
-import { addRecent } from "./recent.js";
+import { addRecent, getRecentNumbers } from "./recent.js";
+import { getReadingParts } from "./hymn-reading.js";
+import { getMemberContent, servicePlanDayLabel } from "./public-content.js";
+import { castProgrammeVote, getProgrammeInteractions } from "./programme-interactions.js";
+import { excerptProgrammeDescription, PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT } from "./programme-feed-utils.js";
 import { ACCENT_THEMES, getSettings, saveSettings } from "./settings.js";
 import { shareHymn } from "./sharing.js";
 import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
 import { APP_VERSION } from "./version.js";
+import { remainingSplashMs } from "./splash-timing.js";
+import { displayCollectionLabel, displayHymnalName } from "./hymnal-labels.js";
+import {
+  emptyLiveAudioData,
+  loadPublicLiveAudioData,
+  recordPublicLiveAudioListen,
+  submitPublicLiveAudioComment,
+  togglePublicLiveAudioReaction
+} from "./live-audio-public-data.js";
+import { createLiveAudioId } from "./live-audio-realtime.js";
+import { publicLiveAudioConnectionMessage } from "./live-audio-status.js";
+import {
+  createSavedLiveAudioPlaybackUrl,
+  getSavedLiveAudioPrograms,
+  removeSavedLiveAudioProgram,
+  saveLiveAudioRecordingOffline
+} from "./live-audio-offline.js";
+import { startLiveAudioListener } from "./live-audio-webrtc.js";
+import {
+  mountAudioPlayer,
+  prepareAudioPlayer,
+  seekAudioPlayer,
+  returnToLiveAudio,
+  setAudioPlayerVolume,
+  stopAudioPlayer,
+  toggleAudioMute,
+  toggleAudioPlayback
+} from "./live-audio-player.js";
+import { renderLiveAudioListener, renderLiveAudioPage } from "./live-audio-views.js";
+
+const splashStartedAt = Date.now();
+const CHURCH_MOTTO = "Occupy Till I Come";
 
 const header = document.getElementById("brand-header");
 const main = document.getElementById("main-content");
 const nav = document.getElementById("bottom-nav");
 const shell = document.getElementById("app-shell");
 const splash = document.getElementById("splash");
+const splashMotto = document.querySelector(".splash-motto");
+if (splashMotto) splashMotto.textContent = CHURCH_MOTTO;
 const toast = document.getElementById("toast");
 const updateDialog = document.getElementById("update-dialog");
 const updateMessage = document.getElementById("update-message");
 const updateVersion = document.getElementById("update-version");
 const updateStatus = document.getElementById("update-status");
 const updateInstallButton = document.getElementById("update-install");
-const categories = ["Praise", "Worship", "Thanksgiving", "Prayer", "Faith", "Hope", "Service", "Community", "Family", "Evangelism"];
-const state = { hymns: [], view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, settings: getSettings(), toastTimer: null };
+const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
   book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5v14A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h7"/>',
   heart: '<path d="M20.8 8.8c0 5.3-8.8 11-8.8 11s-8.8-5.7-8.8-11a4.8 4.8 0 0 1 8.8-2.4 4.8 4.8 0 0 1 8.8 2.4Z"/>',
+  history: '<path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 1 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/>',
   search: '<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   arrow: '<path d="m15 18-6-6 6-6"/>',
   share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
@@ -36,7 +76,9 @@ const iconPaths = {
   moon: '<path d="M20.7 14.4A8.8 8.8 0 0 1 9.6 3.3 8.8 8.8 0 1 0 20.7 14.4Z"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
-  arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>'
+  arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  radio: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v10a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="m7 5 10-3M8 15h8"/><circle cx="8" cy="10" r="1.7"/>',
+  mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/>'
 };
 
 function icon(name, extraClass) {
@@ -56,6 +98,7 @@ function applyPreferences() {
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.accent = state.settings.accent;
   document.documentElement.style.setProperty("--hymn-size", state.settings.fontSize + "px");
+  document.documentElement.style.fontSize = (state.settings.fontSize * 16 / 21) + "px";
 }
 
 function languageLabel(language) {
@@ -70,7 +113,15 @@ function languageToggle() {
 }
 
 function renderHeader() {
-  header.innerHTML = '<button class="brand-lockup" type="button" data-action="navigate" data-view="home" aria-label="Go to Home" data-testid="button-brand-home"><img src="./assets/demo-church-mark.svg" alt="" width="44" height="44"><span><span class="brand-name">Consolation Evangelical<br class="brand-break"> and Revival Church</span><span class="brand-subtitle">Faith · Hope · Worship</span></span></button>';
+  const activeView = state.view === "reader" ? state.readerReturnView : state.view;
+  const items = [["home", "Home"], ["listen", "Stream Live", "mic"], ["hymns", "Hymns"], ["programs", "Upcoming Programmes"], ["services", "Service Plans"], ["favorites", "Favorites"], ["recent", "Recently viewed"], ["settings", "Settings"]];
+  const menu = '<nav id="header-nav-menu" class="header-nav-menu" aria-label="Main menu"' + (state.menuOpen ? "" : " hidden") + '>' + items.map(function (item) {
+      return '<button class="header-nav-item" type="button" data-action="navigate" data-view="' + item[0] + '" aria-current="' + (activeView === item[0] ? "page" : "false") + '" data-testid="menu-' + item[0] + '">' + (item[2] ? icon(item[2], "header-nav-item-icon") : "") + '<span>' + item[1] + '</span></button>';
+    }).join("") + '</nav>'
+  const searchExpanded = state.view === "home"
+    ? state.searchOpen || Boolean(state.query)
+    : state.view === "hymns";
+  header.innerHTML = '<button class="brand-lockup" type="button" data-action="navigate" data-view="home" aria-label="Go to Home" data-testid="button-brand-home"><img src="./assets/consolation-launcher.png" alt="" width="60" height="60"><span><span class="brand-name">Consolation Evangelical<br class="brand-break"> and Revival Church</span><span class="brand-subtitle">' + CHURCH_MOTTO + '</span></span></button><div class="header-actions"><button class="header-icon-button" type="button" data-action="header-search" aria-label="Search hymns" aria-expanded="' + searchExpanded + '" data-testid="button-header-search">' + icon("search") + '</button><button class="header-icon-button" type="button" data-action="toggle-menu" aria-label="Main menu" aria-expanded="' + state.menuOpen + '" aria-haspopup="true" aria-controls="header-nav-menu" data-testid="button-header-menu">' + icon(state.menuOpen ? "close" : "menu") + '</button>' + menu + '</div>';
 }
 
 function renderNav() {
@@ -78,7 +129,10 @@ function renderNav() {
   const items = [
     ["home", "Home", "home"],
     ["hymns", "Hymns", "book"],
+    ["programs", "Programs", "sparkle"],
+    ["services", "Services", "calendar"],
     ["favorites", "Favorites", "heart"],
+    ["recent", "Recent", "history"],
     ["settings", "Settings", "settings"]
   ];
   nav.innerHTML = items.map(function (item) {
@@ -91,9 +145,7 @@ function renderSearchBar() {
 }
 
 function renderHomeSearch() {
-  if (!state.searchOpen && !state.query) {
-    return '<div class="home-search-control"><button class="home-search-trigger" type="button" data-action="open-search" data-testid="button-open-search">' + icon("search") + '<span>Search hymns</span></button></div>';
-  }
+  if (!state.searchOpen && !state.query) return "";
   return '<div class="home-search-control is-open">' + renderSearchBar() + '<button class="home-search-close" type="button" data-action="close-search" aria-label="Close search" data-testid="button-close-search">' + icon("close") + '</button></div>';
 }
 
@@ -103,6 +155,22 @@ function renderLanguageArea() {
 
 function hasYorubaText(hymn) {
   return Array.isArray(hymn.verses_yoruba) && hymn.verses_yoruba.length > 0;
+}
+
+function hasEnglishText(hymn) {
+  return Array.isArray(hymn.verses_en) && hymn.verses_en.length > 0;
+}
+
+function displayHymnNumber(hymn) {
+  const label = String(hymn.source_number_label || hymn.source_hymn_number || hymn.hymn_number);
+  const match = label.match(/^(\d+)(.*)$/);
+  return match ? match[1].padStart(2, "0") + match[2] : label;
+}
+
+function currentHymnTitle(hymn) {
+  return state.settings.language === "yoruba"
+    ? (hymn.title_yoruba || hymn.title_en)
+    : (hymn.title_en || hymn.title_yoruba);
 }
 
 function pendingYorubaMarkup() {
@@ -127,12 +195,12 @@ function previewMarkup(hymn) {
 
 function favoriteButton(hymn) {
   const saved = isFavorite(hymn.hymn_number);
-  return '<button class="icon-button favorite-toggle ' + (saved ? "is-favorite" : "") + '" type="button" data-action="favorite" data-number="' + hymn.hymn_number + '" aria-label="' + (saved ? "Remove from" : "Add to") + ' favorites: ' + escapeHtml(hymn.title_en) + '" aria-pressed="' + saved + '" data-testid="button-favorite-' + hymn.hymn_number + '">' + icon("heart") + '</button>';
+  return '<button class="icon-button favorite-toggle ' + (saved ? "is-favorite" : "") + '" type="button" data-action="favorite" data-number="' + hymn.hymn_number + '" aria-label="' + (saved ? "Remove from" : "Add to") + ' favorites: ' + escapeHtml(currentHymnTitle(hymn)) + '" aria-pressed="' + saved + '" data-testid="button-favorite-' + hymn.hymn_number + '">' + icon("heart") + '</button>';
 }
 
 function hymnCard(hymn) {
-  const number = String(hymn.hymn_number).padStart(2, "0");
-  return '<article class="hymn-card" data-testid="card-hymn-' + hymn.hymn_number + '"><button class="hymn-open" type="button" data-action="open-hymn" data-number="' + hymn.hymn_number + '" aria-label="Open hymn ' + number + ': ' + escapeHtml(hymn.title_en) + '" data-testid="button-open-hymn-' + hymn.hymn_number + '"><span class="hymn-card-top"><span class="hymn-number">' + number + '</span><span class="hymn-details"><h3>' + titleMarkup(hymn) + '</h3><span class="hymn-preview">' + previewMarkup(hymn) + '</span><span class="hymn-category">' + escapeHtml(hymn.category) + '</span></span></span></button>' + favoriteButton(hymn) + '</article>';
+  const number = displayHymnNumber(hymn);
+  return '<article class="hymn-card" data-testid="card-hymn-' + hymn.hymn_number + '"><button class="hymn-open" type="button" data-action="open-hymn" data-number="' + hymn.hymn_number + '" aria-label="Open hymn ' + number + ': ' + escapeHtml(currentHymnTitle(hymn)) + '" data-testid="button-open-hymn-' + hymn.hymn_number + '"><span class="hymn-card-top"><span class="hymn-number">' + number + '</span><span class="hymn-details"><h3>' + titleMarkup(hymn) + '</h3><span class="hymn-preview">' + previewMarkup(hymn) + '</span><span class="hymn-category">' + escapeHtml(displayCollectionLabel(hymn.category, hymn.source_hymnal)) + '</span></span></span></button>' + favoriteButton(hymn) + '</article>';
 }
 
 function hymnList(hymns, emptyTitle, emptyMessage) {
@@ -143,25 +211,31 @@ function hymnList(hymns, emptyTitle, emptyMessage) {
 }
 
 function categoryButtons(selected) {
-  const all = [""].concat(categories);
-  return '<div class="category-list" role="group" aria-label="Filter hymns by theme">' + all.map(function (category) {
-    const label = category || "All hymns";
-    return '<button class="category-chip" type="button" data-action="category" data-category="' + escapeHtml(category) + '" aria-pressed="' + (selected === category) + '" data-testid="filter-category-' + (category ? category.toLowerCase() : "all") + '">' + escapeHtml(label) + '</button>';
+  const hasSelectedLanguage = state.settings.language === "yoruba" ? hasYorubaText : hasEnglishText;
+  const visibleCategories = Array.from(new Set(state.hymns
+    .filter(hasSelectedLanguage)
+    .map(function (hymn) { return String(hymn.category || "").trim(); })
+    .filter(Boolean)))
+    .sort(function (a, b) { return a.localeCompare(b); });
+  const all = [""].concat(visibleCategories);
+  return '<div class="category-list" role="group" aria-label="Filter by hymn collection">' + all.map(function (category) {
+    const label = category ? displayCollectionLabel(category) : "All hymns";
+    const testId = category ? category.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : "all";
+    return '<button class="category-chip" type="button" data-action="category" data-category="' + escapeHtml(category) + '" aria-pressed="' + (selected === category) + '" data-testid="filter-category-' + escapeHtml(testId) + '">' + escapeHtml(label) + '</button>';
   }).join("") + '</div>';
 }
 
 function pageHeading(title, subtitle) {
-  return '<div class="page-heading"><h1>' + escapeHtml(title) + '</h1><p>' + escapeHtml(subtitle) + '</p></div>';
+  const subtitleMarkup = subtitle ? '<p>' + escapeHtml(subtitle) + '</p>' : "";
+  return '<div class="page-heading"><h1>' + escapeHtml(title) + '</h1>' + subtitleMarkup + '</div>';
 }
 
 function renderHome() {
   const matchingHymns = searchHymns(state.hymns, state.query, "");
-  const visibleHymns = state.settings.language === "yoruba"
-    ? matchingHymns.filter(hasYorubaText)
-    : matchingHymns;
+  const visibleHymns = matchingHymns.filter(state.settings.language === "yoruba" ? hasYorubaText : hasEnglishText);
   let collection;
   if (!visibleHymns.length && state.settings.language === "yoruba") {
-    collection = '<section class="empty-state home-empty" aria-live="polite"><h2>Yorùbá hymns are not available yet</h2><p>This collection does not contain verified Yorùbá translations yet. Switch to English to read the available hymns.</p><button class="button-secondary" type="button" data-action="language" data-language="english" data-testid="button-switch-to-english">Show English hymns</button></section>';
+    collection = '<section class="empty-state home-empty" aria-live="polite"><h2>No matching Yorùbá hymns</h2><p>Try another number, title, keyword, or first line.</p><button class="button-secondary" type="button" data-action="clear-home-search" data-testid="button-clear-home-search">Clear search</button></section>';
   } else if (!visibleHymns.length) {
     collection = '<section class="empty-state home-empty" aria-live="polite"><h2>No matching hymns</h2><p>Try another number, title, word, or first line.</p><button class="button-secondary" type="button" data-action="clear-home-search" data-testid="button-clear-home-search">Clear search</button></section>';
   } else {
@@ -170,51 +244,233 @@ function renderHome() {
   return '<section class="page home-page">' + renderHomeSearch() + '<div class="home-language">' + languageToggle() + '</div>' + collection + '</section>';
 }
 function renderHymnLibrary() {
-  const results = searchHymns(state.hymns, state.query, state.category).filter(function (hymn) {
-    return state.settings.language !== "yoruba" || hasYorubaText(hymn);
-  });
-  const caption = state.category ? state.category : (state.query ? "Search results" : "All hymns");
-  const emptyTitle = state.settings.language === "yoruba" ? "No verified Yorùbá hymns" : "No matching hymns";
+  const results = searchHymns(state.hymns, state.query, state.category).filter(state.settings.language === "yoruba" ? hasYorubaText : hasEnglishText);
+  const caption = state.category ? displayCollectionLabel(state.category) : (state.query ? "Search results" : "All hymns");
+  const emptyTitle = state.settings.language === "yoruba" ? "No matching Yorùbá hymns" : "No matching hymns";
   const emptyMessage = state.settings.language === "yoruba"
-    ? "Verified Yorùbá translations are not available in this collection yet. Switch to English to browse the available hymns."
+    ? "Try another number, title, word, or first line."
     : (state.query ? "Try another number, title, word, or first line." : "No hymns are available.");
-  return '<section class="page">' + pageHeading("Hymn library", "Browse by number, title, keyword, or first line.") + renderSearchBar() + renderLanguageArea() + '<section class="library-tools"><div class="section-title-row"><div><h2>Browse by theme</h2></div></div>' + categoryButtons(state.category) + '</section><div class="results-meta"><span>' + escapeHtml(caption) + '</span><span>' + results.length + (results.length === 1 ? " hymn" : " hymns") + '</span></div>' + hymnList(results, emptyTitle, emptyMessage) + '</section>';
+  return '<section class="page">' + pageHeading("Hymn library", "Browse by number, title, collection, keyword, or first line.") + renderSearchBar() + renderLanguageArea() + '<section class="library-tools"><div class="section-title-row"><div><h2>Browse hymn collections</h2></div></div>' + categoryButtons(state.category) + '</section><div class="results-meta"><span>' + escapeHtml(caption) + '</span><span>' + results.length + (results.length === 1 ? " hymn" : " hymns") + '</span></div>' + hymnList(results, emptyTitle, emptyMessage) + '</section>';
 }
 
 function renderFavorites() {
   const ids = new Set(getFavorites());
   const saved = state.hymns.filter(function (hymn) {
-    return ids.has(String(hymn.hymn_number)) && (state.settings.language !== "yoruba" || hasYorubaText(hymn));
+    return ids.has(String(hymn.hymn_number)) && (state.settings.language === "yoruba" ? hasYorubaText(hymn) : hasEnglishText(hymn));
   });
   const emptyTitle = state.settings.language === "yoruba" ? "No Yorùbá favorites" : "No favorites yet";
   const emptyMessage = state.settings.language === "yoruba"
-    ? "No saved hymn has a verified Yorùbá translation yet."
+    ? "Save a Yorùbá hymn with the heart button."
     : "Tap the heart beside a hymn to keep it here for quick access.";
   return '<section class="page">' + pageHeading("Favorites", "Your saved hymns stay on this device.") + renderLanguageArea() + hymnList(saved, emptyTitle, emptyMessage) + '</section>';
 }
 
-function poemSection(label, verses, chorus, languageCode) {
-  const verseMarkup = verses.map(function (verse, index) {
-    return '<div class="verse-block"><span class="verse-label">Verse ' + (index + 1) + '</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(verse) + '</p></div>';
+function poemSection(label, verses, chorus, languageCode, hasMeterPreface, hymnalNote) {
+  const readingParts = getReadingParts(verses, chorus, { hasMeterPreface: hasMeterPreface === true });
+  if (hymnalNote) readingParts.unshift({ type: "note", text: hymnalNote });
+  const partsMarkup = readingParts.map(function (part) {
+    if (part.type === "heading" || part.type === "note") {
+      return '<div class="verse-block hymnal-note" role="note"><span class="verse-label">Hymnal note</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
+    }
+    if (part.type === "chorus") {
+      return '<div class="chorus-block"><span class="verse-label">Chorus</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
+    }
+    return '<div class="verse-block"><span class="verse-label">Verse ' + part.number + '</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
   }).join("");
-  const chorusMarkup = chorus ? '<div class="chorus-block"><span class="verse-label">Refrain</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(chorus) + '</p></div>' : "";
-  return '<section class="language-reading" lang="' + languageCode + '"><h2>' + label + '</h2>' + verseMarkup + chorusMarkup + '</section>';
+  return '<section class="language-reading" lang="' + languageCode + '"><h2>' + label + '</h2>' + partsMarkup + '</section>';
+}
+
+function renderRecentlyViewed() {
+  const viewed = getRecentNumbers().map(function (number) {
+    return state.hymns.find(function (hymn) { return hymn.hymn_number === number; });
+  }).filter(function (hymn) {
+    return hymn && (state.settings.language === "yoruba" ? hasYorubaText(hymn) : hasEnglishText(hymn));
+  });
+  return '<section class="page">' + pageHeading("Recently viewed", "Your hymn history on this device, newest first.") + hymnList(viewed, "No recently viewed hymns", "Open a hymn and it will appear here for quick access.") + '</section>';
+}
+
+function publicDate(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(String(value).slice(0, 10))) return "";
+  const date = new Date(String(value).slice(0, 10) + "T00:00:00");
+  return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(undefined, { dateStyle: "long" }).format(date);
+}
+
+function publicStatus(startValue, endValue) {
+  const start = String(startValue || "").slice(0, 10);
+  const end = String(endValue || startValue || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return "";
+  const now = new Date();
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0")
+  ].join("-");
+  if (end < today) return "Past";
+  if (start > today) return "Upcoming";
+  return "Current";
+}
+
+function publicStatusBadge(status) {
+  if (!status) return "";
+  return '<span class="public-content-status status-' + status.toLowerCase() + '">' + escapeHtml(status) + '</span>';
+}
+
+function publicPostedDate(value) {
+  const timestamp = String(value || "");
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+}
+
+function renderProgrammeInteractions(program) {
+  const programId = program && program.id;
+  const safeProgramId = escapeHtml(programId);
+  const interaction = state.programmeInteractions[programId] || { voteYesCount: 0, voteNoCount: 0, myVote: null };
+  const votesAvailable = state.programmeVotesAvailable === true;
+  const question = String(program && program.response_question || "Will you be available for this programme?").trim();
+  const yesLabel = String(program && program.yes_label || "Yes, I’ll be there").trim();
+  const noLabel = String(program && program.no_label || "Not this time").trim();
+  const votePending = Boolean(state.programmeVotePending[programId]);
+  const disabled = !votesAvailable || votePending;
+  const yesCount = votesAvailable ? escapeHtml(Math.max(0, Number(interaction.voteYesCount) || 0)) : "—";
+  const noCount = votesAvailable ? escapeHtml(Math.max(0, Number(interaction.voteNoCount) || 0)) : "—";
+  const voteStatus = votesAvailable
+    ? (interaction.myVote ? "Your response is saved. You can change it any time." : "Choose one response. Votes are anonymous.")
+    : (state.programmeInteractionsAvailable === null ? "Loading voting…" : "Voting is temporarily unavailable.");
+  return '<section class="programme-interactions" aria-label="Programme voting"><div class="programme-voting"><h3>' + escapeHtml(question) + '</h3><div class="programme-vote-options">' +
+    '<button class="programme-vote-button" type="button" data-action="cast-programme-vote" data-choice="yes" data-program-id="' + safeProgramId + '" aria-pressed="' + (interaction.myVote === "yes") + '"' + (disabled ? " disabled" : "") + '><span>' + escapeHtml(yesLabel) + '</span><strong>' + yesCount + '</strong></button>' +
+    '<button class="programme-vote-button" type="button" data-action="cast-programme-vote" data-choice="no" data-program-id="' + safeProgramId + '" aria-pressed="' + (interaction.myVote === "no") + '"' + (disabled ? " disabled" : "") + '><span>' + escapeHtml(noLabel) + '</span><strong>' + noCount + '</strong></button>' +
+    '</div><p class="programme-vote-status" aria-live="polite">' + escapeHtml(voteStatus) + '</p></div></section>';
+}
+
+function renderPublicPrograms(programs, available) {
+  if (!programs.length) {
+    const message = available ? "No programmes have been posted yet." : "Programme announcements are unavailable right now. Please try again later.";
+    return '<div class="public-content-empty">' + escapeHtml(message) + '</div>';
+  }
+  return '<div class="public-program-list">' + programs.map(function (program) {
+    const title = escapeHtml(program.title);
+    const startDateValue = String(program.start_date || "").slice(0, 10);
+    const startDate = publicDate(program.start_date);
+    const endDate = publicDate(program.end_date);
+    const status = publicStatus(program.start_date, program.end_date);
+    const dateLabel = startDate && endDate && String(program.end_date).slice(0, 10) !== startDateValue
+      ? startDate + " – " + endDate
+      : startDate;
+    const flyer = typeof program.flyer_data_url === "string"
+      && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(program.flyer_data_url)
+      && program.flyer_data_url.length <= 1900000
+      ? '<img class="public-program-post-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
+      : "";
+    const media = flyer ? '<div class="public-program-post-media">' + flyer + '</div>' : "";
+    const postedLabel = publicPostedDate(program.created_at);
+    const posted = postedLabel
+      ? '<time class="public-program-post-published" datetime="' + escapeHtml(program.created_at) + '">Posted ' + escapeHtml(postedLabel) + '</time>'
+      : "";
+    const venue = String(program.venue || "").trim();
+    const venueMarkup = venue
+      ? '<p class="public-program-post-venue"><span class="public-program-post-detail-label">Location</span><span>' + escapeHtml(venue) + '</span></p>'
+      : "";
+    const description = String(program.description || "").trim();
+    const expanded = Boolean(state.programmeDescriptionsExpanded[program.id]);
+    const descriptionId = "programme-description-" + String(program.id || "programme").replace(/[^a-z0-9_-]/gi, "").slice(0, 80);
+    const descriptionIsLong = Array.from(description).length > PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT;
+    const descriptionMarkup = description
+      ? '<div class="public-program-post-description"><p class="public-program-post-description-copy" id="' + descriptionId + '">' + escapeHtml(expanded ? description : excerptProgrammeDescription(description)) + '</p>' +
+        (descriptionIsLong ? '<button class="public-program-read-more" type="button" data-action="toggle-programme-description" data-program-id="' + escapeHtml(program.id) + '" aria-controls="' + descriptionId + '" aria-expanded="' + expanded + '">' + (expanded ? "Show less" : "Read more") + '</button>' : "") + '</div>'
+      : "";
+    const eventDate = dateLabel
+      ? '<div class="public-program-post-meta">' + publicStatusBadge(status) + '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time></div>'
+      : publicStatusBadge(status);
+    return '<article class="public-program-post"><header class="public-program-post-header"><h2 class="public-program-post-title">' + title + '</h2>' + posted + '</header>' + media + renderProgrammeInteractions(program) + '<div class="public-program-post-body">' + descriptionMarkup + eventDate + venueMarkup + '</div></article>';
+  }).join("") + '</div>';
+}
+
+function renderPublicServicePlans(plans, available) {
+  if (!plans.length) {
+    const message = available ? "No service plans have been posted yet." : "Service plans are unavailable right now. Please try again later.";
+    return '<div class="public-content-empty">' + escapeHtml(message) + '</div>';
+  }
+  return '<div class="public-service-list">' + plans.map(function (plan) {
+    const dateValue = String(plan.date || "").slice(0, 10);
+    const dayLabel = servicePlanDayLabel(dateValue) || publicDate(dateValue) || "Service date";
+    const hymnLinks = (Array.isArray(plan.hymn_ids) ? plan.hymn_ids : []).map(function (id) {
+      return state.hymns.find(function (hymn) { return hymn.id && String(hymn.id) === String(id); });
+    }).filter(Boolean);
+    const hymns = hymnLinks.length
+      ? '<ol class="public-service-hymns">' + hymnLinks.map(function (hymn) {
+        return '<li><button type="button" class="public-service-hymn" data-action="open-hymn" data-number="' + hymn.hymn_number + '"><span>' + escapeHtml(displayHymnNumber(hymn)) + '</span>' + escapeHtml(currentHymnTitle(hymn)) + '</button></li>';
+      }).join("") + '</ol>'
+      : '<p class="public-content-unavailable">The selected hymns are not in the published member catalog.</p>';
+    return '<details class="public-service-card public-schedule-card"><summary class="public-schedule-summary"><span class="public-schedule-main"><span class="public-schedule-date"><time datetime="' + escapeHtml(dateValue) + '">' + escapeHtml(dayLabel) + '</time></span><span class="public-schedule-title">' + escapeHtml(plan.title) + '</span></span><span class="public-schedule-chevron" aria-hidden="true"></span></summary><div class="public-schedule-details public-service-details">' + hymns + '</div></details>';
+  }).join("") + '</div>';
+}
+
+function renderPublicProgramsPage() {
+  const content = state.publicContent || { programs: [], servicePlans: [], programsAvailable: false, servicePlansAvailable: false };
+  return '<section class="page public-programs-page">' + pageHeading("Upcoming Programmes") +
+    '<section class="public-content-section" aria-label="Programme announcements">' + renderPublicPrograms(content.programs, content.programsAvailable) + '</section></section>';
+}
+
+async function refreshProgrammeInteractions() {
+  const programs = state.publicContent && Array.isArray(state.publicContent.programs)
+    ? state.publicContent.programs
+    : [];
+  const result = await getProgrammeInteractions(programs);
+  state.programmeInteractions = result.byProgram;
+  state.programmeInteractionsAvailable = result.available;
+  state.programmeVotesAvailable = result.votesAvailable;
+  if (state.view === "programs") render();
+}
+
+async function castPublicProgrammeVote(programId, choice) {
+  if (state.programmeVotePending[programId]) return;
+  state.programmeVotePending[programId] = true;
+  if (state.view === "programs") render();
+  try {
+    const result = await castProgrammeVote(programId, choice);
+    const current = state.programmeInteractions[programId] || {};
+    state.programmeInteractions[programId] = Object.assign({}, current, {
+      myVote: result.myVote,
+      voteYesCount: result.voteYesCount,
+      voteNoCount: result.voteNoCount
+    });
+  } catch (error) {
+    showToast(error && error.message ? error.message : "Your response could not be saved. Please try again.");
+  } finally {
+    delete state.programmeVotePending[programId];
+    if (state.view === "programs") render();
+  }
+}
+
+function renderPublicServicePlansPage() {
+  const content = state.publicContent || { programs: [], servicePlans: [], programsAvailable: false, servicePlansAvailable: false };
+  return '<section class="page public-service-plans-page">' + pageHeading("Service Plans", "Hymns planned for past and upcoming services.") +
+    '<section class="public-content-section" aria-label="Service plans">' + renderPublicServicePlans(content.servicePlans, content.servicePlansAvailable) + '</section></section>';
 }
 
 function homeHymn(hymn) {
-  const number = String(hymn.hymn_number).padStart(2, "0");
-  const yoruba = state.settings.language === "yoruba" && hasYorubaText(hymn);
-  const title = yoruba ? hymn.title_yoruba : hymn.title_en;
+  const number = displayHymnNumber(hymn);
+  const title = currentHymnTitle(hymn);
   return '<article class="home-hymn" data-testid="home-hymn-' + hymn.hymn_number + '"><header class="home-hymn-heading"><button class="home-hymn-open" type="button" data-action="open-hymn" data-number="' + hymn.hymn_number + '" aria-label="Open hymn ' + number + ': ' + escapeHtml(title) + '"><span class="hymn-number">' + number + '</span><span class="home-hymn-title">' + escapeHtml(title) + '</span></button></header></article>';
 }
 
 function renderReader() {
   const hymn = state.hymns.find(function (item) { return item.hymn_number === Number(state.selectedNumber); });
   if (!hymn) return '<section class="page">' + pageHeading("Hymn not found", "This number is not in the current collection.") + '<button class="button-secondary" type="button" data-action="back" data-testid="button-reader-back">' + icon("arrow") + ' Back to hymns</button></section>';
-  const number = String(hymn.hymn_number).padStart(2, "0");
-  let title = '<span lang="en">' + escapeHtml(hymn.title_en) + '</span>';
-  let firstLine = '<span lang="en">' + escapeHtml(hymn.first_line_en) + '</span>';
-  let sections = poemSection("English", hymn.verses_en, hymn.chorus_en, "en");
+  const number = displayHymnNumber(hymn);
+  const hasEnglish = hasEnglishText(hymn);
+  const sourceHymnal = String(hymn.source_hymnal || "").toLowerCase();
+  const showEnglishGospelMeterHeading = sourceHymnal.includes("ghb") || sourceHymnal.includes("gospel hymn book");
+  let title = hasEnglish
+    ? '<span lang="en">' + escapeHtml(hymn.title_en) + '</span>'
+    : '<span lang="yo">' + escapeHtml(hymn.title_yoruba) + '</span>';
+  let firstLine = hasEnglish
+    ? '<span lang="en">' + escapeHtml(hymn.first_line_en) + '</span>'
+    : '<span lang="yo">' + escapeHtml(hymn.first_line_yoruba) + '</span>';
+  let sections = hasEnglish
+    ? poemSection("English", hymn.verses_en, hymn.chorus_en, "en", showEnglishGospelMeterHeading)
+    : poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo", false, hymn.hymnal_note);
   let translationNote = "";
   const hasYoruba = hasYorubaText(hymn);
   if (state.settings.language === "yoruba") {
@@ -226,12 +482,10 @@ function renderReader() {
       title = '<span lang="en">' + escapeHtml(hymn.title_en) + '</span>';
       firstLine = "";
       sections = "";
-      translationNote = '<p class="translation-note" role="note">A verified Yorùbá text is not available for this hymn yet. The English lyrics are hidden while Yorùbá is selected.</p>';
+      translationNote = '<p class="translation-note" role="note">This hymn has no Yorùbá text. Switch to the English view to read it.</p>';
     }
-  } else {
-    title += pendingYorubaMarkup();
   }
-  return '<section class="page reader-page"><div class="reader-topbar"><button class="reader-back" type="button" data-action="back" data-testid="button-reader-back">' + icon("arrow") + ' Back</button><div class="reader-actions">' + favoriteButton(hymn) + '<button class="icon-button" type="button" data-action="share" data-number="' + hymn.hymn_number + '" aria-label="Share hymn ' + number + '" data-testid="button-share-hymn">' + icon("share") + '</button></div></div><header class="reader-heading"><div class="reader-edition"><span class="hymn-number">' + number + '</span><span>Pentecostal Hymns No. 1</span></div><h1>' + title + '</h1><p class="reader-first-line">' + firstLine + '</p><span class="hymn-category">' + escapeHtml(hymn.category) + '</span></header><div class="reader-meta">' + languageToggle() + '<div class="reading-size" role="group" aria-label="Change hymn text size"><button type="button" data-action="font-decrease" aria-label="Decrease hymn text size" data-testid="button-font-decrease">A−</button><output id="reader-font-size">' + state.settings.fontSize + ' px</output><button type="button" data-action="font-increase" aria-label="Increase hymn text size" data-testid="button-font-increase">A+</button></div></div><div class="hymn-reading">' + translationNote + sections + '</div><footer class="reader-footer"><a class="source-link" href="' + escapeHtml(hymn.lyrics_source_url) + '" target="_blank" rel="noopener noreferrer">Lyrics source: Hymnary</a><button class="text-link" type="button" data-action="share" data-number="' + hymn.hymn_number + '">' + icon("share") + ' Share hymn</button></footer></section>';
+  return '<section class="page reader-page"><div class="reader-topbar"><button class="reader-back" type="button" data-action="back" data-testid="button-reader-back">' + icon("arrow") + ' Back</button><div class="reader-actions">' + favoriteButton(hymn) + '<button class="icon-button" type="button" data-action="share" data-number="' + hymn.hymn_number + '" aria-label="Share hymn ' + number + '" data-testid="button-share-hymn">' + icon("share") + '</button></div></div><header class="reader-heading"><div class="reader-edition"><span class="hymn-number">' + number + '</span><span>' + escapeHtml(displayHymnalName(hymn)) + '</span></div><h1>' + title + '</h1><p class="reader-first-line">' + firstLine + '</p><span class="hymn-category">' + escapeHtml(displayCollectionLabel(hymn.category, hymn.source_hymnal)) + '</span></header><div class="reader-meta">' + languageToggle() + '<div class="reading-size" role="group" aria-label="Change hymn text size"><button type="button" data-action="font-decrease" aria-label="Decrease hymn text size" data-testid="button-font-decrease">A−</button><output id="reader-font-size">' + state.settings.fontSize + ' px</output><button type="button" data-action="font-increase" aria-label="Increase hymn text size" data-testid="button-font-increase">A+</button></div></div><div class="hymn-reading">' + translationNote + sections + '</div><footer class="reader-footer"><button class="text-link" type="button" data-action="share" data-number="' + hymn.hymn_number + '">' + icon("share") + ' Share hymn</button></footer></section>';
 }
 
 function themeChoice(theme, label, iconName) {
@@ -240,15 +494,24 @@ function themeChoice(theme, label, iconName) {
 
 function renderSettings() {
   const size = state.settings.fontSize;
-  const accentLabels = {
-    ruby: "Red", blue: "Blue", purple: "Purple", berry: "Berry", teal: "Teal",
-    emerald: "Emerald", green: "Green", lime: "Lime", amber: "Amber",
-    orange: "Orange", coral: "Coral", rose: "Rose", indigo: "Indigo",
-    sky: "Sky", slate: "Slate"
-  };
-  return '<section class="page">' + pageHeading("Settings", "Make the hymn book comfortable for you.") + '<section class="settings-group"><h2>Appearance</h2><p class="settings-description">Choose how the app looks on this device.</p><div class="preference-choices">' + themeChoice("light", "Light", "sun") + themeChoice("dark", "Dark", "moon") + themeChoice("system", "System", "settings") + '</div></section><section class="settings-group"><h2>Accent colour</h2><p class="settings-description">Choose from 15 colours. Your choice works with light and dark mode.</p><div class="accent-grid">' + ACCENT_THEMES.map(function (accent) {
+  const accentLabels = { red: "Red", purple: "Purple", black: "Black", green: "Green", sky: "Sky", blue: "Blue" };
+  const accentChoices = ACCENT_THEMES.map(function (accent) {
     return '<button class="preference-choice accent-choice" type="button" data-action="accent" data-accent="' + accent + '" aria-pressed="' + (state.settings.accent === accent) + '" data-testid="button-accent-' + accent + '"><span class="color-dot" aria-hidden="true"></span><span>' + accentLabels[accent] + '</span></button>';
-    }).join("") + '</div></section><section class="settings-group"><h2>Reading</h2><p class="settings-description">Set your preferred hymn language and text size. Yorùbá text is still being sourced.</p><div class="setting-row"><span><strong>Language</strong><small>Choose which hymn text to show.</small></span>' + languageToggle() + '</div><div class="setting-row"><span><strong>Text size</strong><small id="settings-font-value">' + size + ' px</small></span><input class="setting-range" id="settings-font-size" type="range" min="17" max="32" step="1" value="' + size + '" aria-label="Hymn text size" data-testid="input-font-size"></div><p class="verse-text setting-preview" style="--hymn-size:' + size + 'px">The hymn text will use this size.</p></section><section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal · Version ' + APP_VERSION + '</small></span></div><p class="about-copy">The current collection contains 197 English texts associated with <em>Pentecostal Hymns No. 1</em> (1894). Each included text is marked Public Domain on its Hymnary text authority page. Yorùbá versions are pending sourcing and review.</p><div class="setting-note" style="margin-top:14px"><strong>Rights scope</strong><br>The source’s Public Domain designation and the 1894 publication date do not establish status in every country. Verify local rights before use outside the United States.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
+  }).join("");
+  return '<section class="page">' + pageHeading("Settings", "Make the hymn book comfortable for you.") +
+    '<section class="settings-group"><h2>Appearance</h2><p class="settings-description">Choose how the app looks on this device.</p><div class="preference-choices">' + themeChoice("light", "Light", "sun") + themeChoice("dark", "Dark", "moon") + themeChoice("system", "System", "settings") + '</div></section>' +
+    '<section class="settings-group"><h2>Accent colour</h2><p class="settings-description">Choose from six colours. Your choice works with light and dark mode.</p><div class="accent-grid">' + accentChoices + '</div></section>' +
+    '<section class="settings-group"><h2>Reading</h2><p class="settings-description">Set your preferred hymn language and text size. English and Yorùbá are available as separate hymn collections.</p><div class="setting-row"><span><strong>Language</strong><small>Choose which hymn text to show.</small></span>' + languageToggle() + '</div><div class="setting-row"><span><strong>Text size</strong><small id="settings-font-value">' + size + ' px</small></span><input class="setting-range" id="settings-font-size" type="range" min="17" max="32" step="1" value="' + size + '" aria-label="Text size across the app" data-testid="input-font-size"></div><p class="verse-text setting-preview" style="--hymn-size:' + size + 'px">The hymn text will use this size.</p></section>' +
+    '<div class="settings-actions"><button class="button-primary settings-save" type="button" data-action="save-settings" data-testid="button-save-settings">' + icon("check") + ' Save settings</button></div>' +
+    '<section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal · Version ' + APP_VERSION + '</small></span></div><p class="about-copy">The catalog contains 128 English hymns and 122 user-provided Yorùbá hymns in separate collections. Printed numbers are preserved, and matching numbers are not treated as translations. See data/SOURCES.md for catalog notes.</p><div class="setting-note" style="margin-top:14px"><strong>Publishing and attribution</strong><br>Hymns marked Published in the admin workspace appear in the public catalog. Confirm the source attribution and publishing permission before publishing additional material.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
+}
+
+function finishSplash() {
+  const delay = remainingSplashMs(splashStartedAt);
+  window.setTimeout(function () {
+    splash.classList.add("is-leaving");
+    window.setTimeout(function () { splash.hidden = true; }, 370);
+  }, delay);
 }
 
 function showToast(message) {
@@ -260,23 +523,105 @@ function showToast(message) {
   state.toastTimer = window.setTimeout(function () { toast.hidden = true; }, 2800);
 }
 
-function render() {
-  applyPreferences();
-  renderHeader();
-  if (state.view === "home") main.innerHTML = renderHome();
-  else if (state.view === "hymns") main.innerHTML = renderHymnLibrary();
-  else if (state.view === "favorites") main.innerHTML = renderFavorites();
-  else if (state.view === "settings") main.innerHTML = renderSettings();
-  else main.innerHTML = renderReader();
-  renderNav();
-  document.title = state.view === "reader" ? "Hymn " + String(state.selectedNumber).padStart(2, "0") + " · Consolation Hymnal" : "Consolation Hymnal";
+function getLiveAudioViewData() {
+  const programs = state.liveAudioData.programs.slice();
+  if (state.selectedLiveAudioProgramId) {
+    let index = programs.findIndex(function (program) {
+      return program.id === state.selectedLiveAudioProgramId;
+    });
+    if (index === -1) {
+      const savedProgram = state.savedLiveAudioPrograms.find(function (program) {
+        return program.id === state.selectedLiveAudioProgramId;
+      });
+      if (savedProgram) {
+        programs.push(savedProgram);
+        index = programs.length - 1;
+      }
+    }
+    if (index !== -1 && state.liveAudioPlaybackUrl) {
+      programs[index] = Object.assign({}, programs[index], {
+        recordingUrl: state.liveAudioPlaybackUrl,
+        savedOffline: true
+      });
+    }
+  }
+  return Object.assign({}, state.liveAudioData, {
+    programs,
+    savedPrograms: state.savedLiveAudioPrograms,
+    savingProgramIds: state.savingLiveAudioIds
+  });
 }
 
-function setSettings(changes) {
-  const result = saveSettings(changes);
+function clearSavedAudioPlayback() {
+  if (state.liveAudioPlaybackUrl && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+    URL.revokeObjectURL(state.liveAudioPlaybackUrl);
+  }
+  state.liveAudioPlaybackUrl = "";
+  state.liveAudioOfflinePlayback = false;
+}
+
+function render() {
+  document.body.classList.toggle("audio-library-mode", state.view === "listen" && !state.selectedLiveAudioProgramId);
+  document.body.classList.toggle("audio-listener-mode", state.view === "listen" && Boolean(state.selectedLiveAudioProgramId));
+  applyPreferences();
+  renderHeader();
+  const preservedAudioPlayer = state.view === "listen" && state.selectedLiveAudioProgramId &&
+    (state.liveAudioConnecting || state.liveAudioListener)
+    ? main.querySelector("[data-live-audio-player]")
+    : null;
+  const liveAudioViewData = getLiveAudioViewData();
+  if (state.view === "home") main.innerHTML = renderHome();
+  else if (state.view === "listen") main.innerHTML = state.selectedLiveAudioProgramId
+    ? renderLiveAudioListener(
+      Object.assign({}, liveAudioViewData, { error: state.liveAudioError }),
+      state.selectedLiveAudioProgramId,
+      {
+        status: state.liveAudioConnectionStatus,
+        connecting: state.liveAudioConnecting,
+        connected: Boolean(state.liveAudioListener),
+        offlinePlayback: state.liveAudioOfflinePlayback
+      }
+    )
+    : renderLiveAudioPage(
+      Object.assign({}, liveAudioViewData, { loading: state.liveAudioLoading, error: state.liveAudioError }),
+      state.liveAudioQuery,
+      state.liveAudioCategory
+    );
+  else if (state.view === "hymns") main.innerHTML = renderHymnLibrary();
+  else if (state.view === "programs") main.innerHTML = renderPublicProgramsPage();
+  else if (state.view === "services") main.innerHTML = renderPublicServicePlansPage();
+  else if (state.view === "favorites") main.innerHTML = renderFavorites();
+  else if (state.view === "recent") main.innerHTML = renderRecentlyViewed();
+  else if (state.view === "settings") main.innerHTML = renderSettings();
+  else main.innerHTML = renderReader();
+  if (preservedAudioPlayer) {
+    const nextAudioPlayer = main.querySelector("[data-live-audio-player]");
+    if (nextAudioPlayer) {
+      const liveSegments = nextAudioPlayer.dataset.liveAudioSegments;
+      nextAudioPlayer.replaceWith(preservedAudioPlayer);
+      if (liveSegments !== undefined) preservedAudioPlayer.dataset.liveAudioSegments = liveSegments;
+    }
+  }
+  main.querySelectorAll("[data-audio-player]").forEach(function (audio) {
+    mountAudioPlayer(audio, audio.closest(".audio-listener-player"));
+  });
+  renderNav();
+  document.title = state.view === "reader" ? "Hymn " + String(state.selectedNumber).padStart(2, "0") + " · Consolation Hymnal" : state.view === "listen" ? "Listen · Consolation Hymnal" : "Consolation Hymnal";
+}
+
+function setSettings(changes, persist = true) {
+  state.settings = Object.assign({}, state.settings, changes);
+  const result = persist ? saveSettings(state.settings) : { settings: state.settings, persisted: true };
   state.settings = result.settings;
   render();
   if (!result.persisted) showToast("Preference changed for now, but browser storage is unavailable.");
+}
+
+function saveCurrentSettings() {
+  const result = saveSettings(state.settings);
+  state.settings = result.settings;
+  render();
+  showToast(result.persisted ? "Settings saved on this device." : "Settings changed for now, but browser storage is unavailable.");
 }
 
 function openHymn(number) {
@@ -293,13 +638,316 @@ function openHymn(number) {
 }
 
 function navigate(view) {
-  if (!["home", "hymns", "favorites", "settings"].includes(view)) return;
+  if (!["home", "listen", "hymns", "programs", "services", "favorites", "recent", "settings"].includes(view)) return;
+  if (state.view === "listen" && (view !== "listen" || state.selectedLiveAudioProgramId)) {
+    state.liveAudioOpenToken += 1;
+    main.querySelectorAll("[data-audio-player]").forEach(stopAudioPlayer);
+    stopLiveAudioConnection();
+    clearSavedAudioPlayback();
+    if (view !== "listen") stopLiveAudioRefresh();
+  }
   state.view = view;
   state.searchOpen = false;
+  state.menuOpen = false;
+  if (view === "listen") {
+    state.selectedLiveAudioProgramId = null;
+    state.liveAudioLoading = navigator.onLine !== false;
+    state.liveAudioError = "";
+  }
   if (view !== "hymns") state.category = "";
   render();
   window.scrollTo(0, 0);
   main.focus({ preventScroll: true });
+  if (view === "listen") {
+    if (navigator.onLine !== false) {
+      void refreshLiveAudioData();
+      startLiveAudioRefresh();
+    } else {
+      stopLiveAudioRefresh();
+      state.liveAudioLoading = false;
+      render();
+    }
+  }
+}
+
+function stopLiveAudioTimer() {
+  if (state.liveAudioTimer) window.clearInterval(state.liveAudioTimer);
+  state.liveAudioTimer = null;
+  state.liveAudioStartedAt = null;
+}
+
+function updateLiveAudioTimer() {
+  const label = main.querySelector("[data-audio-listen-timer]");
+  if (!label || !state.liveAudioStartedAt) return;
+  const elapsed = Math.max(0, Math.floor((Date.now() - state.liveAudioStartedAt) / 1000));
+  const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
+  const seconds = String(elapsed % 60).padStart(2, "0");
+  label.textContent = "Listening · " + minutes + ":" + seconds;
+}
+
+function beginLiveAudioTimer() {
+  stopLiveAudioTimer();
+  state.liveAudioStartedAt = Date.now();
+  updateLiveAudioTimer();
+  state.liveAudioTimer = window.setInterval(updateLiveAudioTimer, 1000);
+}
+
+async function refreshLiveAudioData() {
+  const requestToken = ++state.liveAudioRequestToken;
+  state.liveAudioLoading = true;
+  state.liveAudioError = "";
+  try {
+    const data = await loadPublicLiveAudioData();
+    if (requestToken !== state.liveAudioRequestToken) return;
+    state.liveAudioData = data;
+    if (state.selectedLiveAudioProgramId && state.liveAudioListener) {
+      const current = data.programs.find(program => program.id === state.selectedLiveAudioProgramId);
+      if (!current || !current.onAir || current.liveSessionId !== state.liveAudioSessionId) {
+        state.liveAudioConnectToken += 1;
+        const listener = state.liveAudioListener;
+        state.liveAudioListener = null;
+        state.liveAudioConnecting = false;
+        state.liveAudioStatusCode = "ended";
+        state.liveAudioConnectionStatus = "This broadcast has ended.";
+        stopLiveAudioTimer();
+        stopAudioPlayer(main.querySelector("[data-live-audio-player]"));
+        if (listener) listener.stop().catch(() => {});
+      }
+    }
+  } catch (error) {
+    if (requestToken !== state.liveAudioRequestToken) return;
+    state.liveAudioError = error && error.message
+      ? error.message
+      : "Live Audio could not load. Check your connection and try again.";
+  } finally {
+    if (requestToken === state.liveAudioRequestToken) {
+      state.liveAudioLoading = false;
+      if (state.view === "listen") render();
+    }
+  }
+}
+
+function startLiveAudioRefresh() {
+  stopLiveAudioRefresh();
+  state.liveAudioPollTimer = window.setInterval(function () {
+    if (state.view === "listen" && navigator.onLine !== false) void refreshLiveAudioData();
+  }, 25000);
+}
+
+function stopLiveAudioRefresh() {
+  if (state.liveAudioPollTimer) window.clearInterval(state.liveAudioPollTimer);
+  state.liveAudioPollTimer = null;
+  state.liveAudioRequestToken += 1;
+}
+
+function stopLiveAudioConnection() {
+  state.liveAudioConnectToken += 1;
+  const listener = state.liveAudioListener;
+  state.liveAudioListener = null;
+  state.liveAudioConnecting = false;
+  state.liveAudioStatusCode = "";
+  state.liveAudioConnectionStatus = "";
+  state.liveAudioSessionId = "";
+  state.liveAudioCountRecorded = false;
+  state.liveAudioListenEventId = "";
+  stopLiveAudioTimer();
+  if (listener) listener.stop().catch(() => {});
+}
+
+async function recordCurrentLiveAudioListen(programId, connectToken) {
+  if (state.liveAudioCountRecorded || !state.liveAudioListenEventId) return;
+  state.liveAudioCountRecorded = true;
+  try {
+    await recordPublicLiveAudioListen(programId, state.liveAudioListenEventId);
+    if (connectToken === state.liveAudioConnectToken) await refreshLiveAudioData();
+  } catch (error) {
+    state.liveAudioCountRecorded = false;
+    if (connectToken === state.liveAudioConnectToken) {
+      state.liveAudioConnectionStatus = "Connected, but listener totals could not sync.";
+      const status = main.querySelector("[data-live-audio-status]");
+      if (status) status.textContent = state.liveAudioConnectionStatus;
+    }
+  }
+}
+
+function updateLiveAudioConnectionStatus(connectToken, status) {
+  if (connectToken !== state.liveAudioConnectToken) return;
+  state.liveAudioStatusCode = status;
+  state.liveAudioConnectionStatus = publicLiveAudioConnectionMessage(status);
+  const statusNode = main.querySelector("[data-live-audio-status]");
+  if (statusNode) statusNode.textContent = state.liveAudioConnectionStatus;
+
+  if (status === "live") {
+    if (!state.liveAudioStartedAt) beginLiveAudioTimer();
+    if (state.liveAudioListener) void recordCurrentLiveAudioListen(state.selectedLiveAudioProgramId, connectToken);
+  } else if (status === "ended" || status === "failed") {
+    state.liveAudioConnectToken += 1;
+    const listener = state.liveAudioListener;
+    state.liveAudioListener = null;
+    state.liveAudioConnecting = false;
+    stopLiveAudioTimer();
+    stopAudioPlayer(main.querySelector("[data-live-audio-player]"));
+    if (listener) listener.stop().catch(() => {});
+    render();
+    if (status === "ended") void refreshLiveAudioData();
+  }
+}
+
+async function connectLiveAudioProgram(programId) {
+  if (state.liveAudioConnecting || state.liveAudioListener) return;
+  const program = state.liveAudioData.programs.find(item => item.id === programId);
+  if (!program || !program.onAir || !program.liveSessionId) {
+    showToast("This programme is no longer live. Refresh Listen to see the current broadcast.");
+    void refreshLiveAudioData();
+    return;
+  }
+
+  const connectToken = ++state.liveAudioConnectToken;
+  state.liveAudioConnecting = true;
+  state.liveAudioConnectionStatus = "Connecting to live audio…";
+  state.liveAudioStatusCode = "connecting";
+  state.liveAudioCountRecorded = false;
+  state.liveAudioListenEventId = createLiveAudioId();
+  render();
+  const audioElement = main.querySelector("[data-live-audio-player]");
+  if (!audioElement) {
+    state.liveAudioConnecting = false;
+    state.liveAudioConnectionStatus = "The live player could not be opened. Try again.";
+    render();
+    return;
+  }
+  void prepareAudioPlayer(audioElement);
+
+  try {
+    const listener = await startLiveAudioListener({
+      programId: program.id,
+      sessionId: program.liveSessionId,
+      audioElement,
+      onStatus: status => updateLiveAudioConnectionStatus(connectToken, status)
+    });
+    if (connectToken !== state.liveAudioConnectToken || state.view !== "listen" ||
+        state.selectedLiveAudioProgramId !== program.id || state.liveAudioStatusCode === "ended" ||
+        state.liveAudioStatusCode === "failed") {
+      await listener.stop();
+      return;
+    }
+    state.liveAudioListener = listener;
+    state.liveAudioSessionId = program.liveSessionId;
+    state.liveAudioConnecting = false;
+    if (state.liveAudioStatusCode === "live") {
+      void recordCurrentLiveAudioListen(program.id, connectToken);
+    }
+    render();
+  } catch (error) {
+    if (connectToken !== state.liveAudioConnectToken) return;
+    state.liveAudioConnecting = false;
+    state.liveAudioConnectionStatus = error && error.message
+      ? error.message
+      : "Could not connect to the live broadcast. Try again.";
+    const statusNode = main.querySelector("[data-live-audio-status]");
+    if (statusNode) statusNode.textContent = state.liveAudioConnectionStatus;
+    render();
+  }
+}
+
+async function handleLiveAudioReaction(programId, reaction) {
+  try {
+    await togglePublicLiveAudioReaction(programId, reaction);
+    await refreshLiveAudioData();
+  } catch (error) {
+    showToast(error && error.message ? error.message : "The reaction could not be saved.");
+  }
+}
+
+async function handleLiveAudioComment(form) {
+  const programId = form.dataset.programId;
+  const input = form.elements.comment;
+  try {
+    await submitPublicLiveAudioComment(programId, input.value);
+    await refreshLiveAudioData();
+    showToast("Comment shared with listeners.");
+  } catch (error) {
+    showToast(error && error.message ? error.message : "Comment could not be saved.");
+  }
+}
+
+async function saveLiveAudioForOffline(programId) {
+  const program = state.liveAudioData.programs.find(function (item) {
+    return item.id === programId && item.status === "published";
+  });
+  if (!program) {
+    showToast("Refresh the programme list before saving this recording.");
+    return;
+  }
+  state.savingLiveAudioIds.add(programId);
+  render();
+  try {
+    await saveLiveAudioRecordingOffline(program);
+    state.savedLiveAudioPrograms = getSavedLiveAudioPrograms();
+    showToast("Recording saved on this device for offline listening.");
+  } catch (error) {
+    showToast(error && error.message ? error.message : "The recording could not be saved.");
+  } finally {
+    state.savingLiveAudioIds.delete(programId);
+    render();
+  }
+}
+
+async function removeLiveAudioFromOffline(programId) {
+  try {
+    state.savedLiveAudioPrograms = await removeSavedLiveAudioProgram(programId);
+    render();
+    showToast("Recording removed from this device.");
+  } catch (error) {
+    showToast(error && error.message ? error.message : "The saved recording could not be removed.");
+  }
+}
+
+async function openLiveAudioProgram(programId) {
+  const program = state.liveAudioData.programs.find(function (item) {
+    return item.id === programId;
+  }) || state.savedLiveAudioPrograms.find(function (item) {
+    return item.id === programId;
+  });
+  if (!program) return;
+
+  const openToken = ++state.liveAudioOpenToken;
+  main.querySelectorAll("[data-audio-player]").forEach(stopAudioPlayer);
+  stopLiveAudioConnection();
+  clearSavedAudioPlayback();
+  state.selectedLiveAudioProgramId = programId;
+  state.view = "listen";
+  state.menuOpen = false;
+  stopLiveAudioTimer();
+  render();
+  window.scrollTo(0, 0);
+  main.focus({ preventScroll: true });
+
+  const isSaved = state.savedLiveAudioPrograms.some(function (item) {
+    return item.id === programId;
+  });
+  if (!program.onAir && isSaved) {
+    try {
+      const playbackUrl = await createSavedLiveAudioPlaybackUrl(programId);
+      if (openToken !== state.liveAudioOpenToken || state.view !== "listen" ||
+          state.selectedLiveAudioProgramId !== programId) {
+        if (playbackUrl) URL.revokeObjectURL(playbackUrl);
+        return;
+      }
+      if (playbackUrl) {
+        state.liveAudioPlaybackUrl = playbackUrl;
+        state.liveAudioOfflinePlayback = true;
+        render();
+      } else if (!program.recordingUrl) {
+        showToast("This saved audio is missing from device storage. Reconnect and save it again.");
+      }
+    } catch (error) {
+      showToast("The saved recording could not be opened from device storage.");
+    }
+  }
+  if (program.onAir && program.liveSessionId) {
+    void connectLiveAudioProgram(programId);
+  }
 }
 
 function updateSearch(value, selectionStart, selectionEnd) {
@@ -372,23 +1020,112 @@ async function installAvailableUpdate() {
   }
 }
 
+async function shareLiveAudioProgram(programId) {
+  const program = state.liveAudioData.programs.find(item => item.id === programId && item.status === "published");
+  if (!program) return;
+  const shareData = {
+    title: program.title,
+    text: "Listen to " + program.title + " from Consolation Evangelical and Revival Church.",
+    url: window.location.href
+  };
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(shareData.text + " " + shareData.url);
+      showToast("Programme details copied to clipboard.");
+    } else {
+      showToast("Sharing is not available on this device.");
+    }
+  } catch (error) {
+    if (error && error.name === "AbortError") return;
+    showToast("Could not share this programme.");
+  }
+}
+
 document.addEventListener("click", function (event) {
   const target = event.target.closest("[data-action]");
-  if (!target) return;
+  if (state.menuOpen && !header.contains(event.target)) {
+    state.menuOpen = false;
+    renderHeader();
+  }
+  if (!target) {
+    return;
+  }
   const action = target.dataset.action;
   if (action === "dismiss-update") updateDialog.close();
   else if (action === "install-update") installAvailableUpdate();
+  else if (action === "save-settings") saveCurrentSettings();
   else if (action === "navigate") navigate(target.dataset.view);
-  else if (action === "open-search") {
-    state.searchOpen = true;
+  else if (action === "header-search") {
+    state.menuOpen = false;
+    if (state.view === "home") {
+      state.searchOpen = state.query ? true : !state.searchOpen;
+    } else if (state.view !== "hymns") {
+      state.view = "hymns";
+      state.category = "";
+      state.searchOpen = true;
+    }
     render();
     const input = document.getElementById("hymn-search");
     if (input) input.focus();
+  } else if (action === "toggle-menu") {
+    state.menuOpen = !state.menuOpen;
+    renderHeader();
   } else if (action === "close-search" || action === "clear-home-search") {
     state.query = "";
     state.searchOpen = false;
     render();
   } else if (action === "open-hymn") openHymn(target.dataset.number);
+  else if (action === "filter-live-audio") {
+    state.liveAudioCategory = target.dataset.category || "";
+    render();
+    const selectedFilter = Array.from(main.querySelectorAll('[data-action="filter-live-audio"]')).find(function (button) { return button.dataset.category === state.liveAudioCategory; });
+    if (selectedFilter) selectedFilter.focus({ preventScroll: true });
+  } else if (action === "open-live-audio") {
+    void openLiveAudioProgram(target.dataset.programId);
+  } else if (action === "save-live-audio") {
+    void saveLiveAudioForOffline(target.dataset.programId);
+  } else if (action === "remove-saved-live-audio") {
+    void removeLiveAudioFromOffline(target.dataset.programId);
+  } else if (action === "connect-live-audio") {
+    void connectLiveAudioProgram(target.dataset.programId);
+  } else if (action === "disconnect-live-audio") {
+    stopLiveAudioConnection();
+    state.liveAudioConnectionStatus = "Listening stopped.";
+    render();
+  } else if (action === "back-to-live-audio") {
+    state.liveAudioOpenToken += 1;
+    main.querySelectorAll("[data-audio-player]").forEach(stopAudioPlayer);
+    stopLiveAudioConnection();
+    stopLiveAudioTimer();
+    clearSavedAudioPlayback();
+    state.selectedLiveAudioProgramId = null;
+    render();
+    if (navigator.onLine !== false) void refreshLiveAudioData();
+  } else if (action === "share-live-audio") {
+    void shareLiveAudioProgram(target.dataset.programId);
+  } else if (action === "toggle-audio-playback") {
+    const audio = main.querySelector('[data-audio-player="' + target.dataset.playerType + '"]');
+    void toggleAudioPlayback(audio).catch(function () {
+      showToast("Audio could not start. Check your connection and try again.");
+    });
+  } else if (action === "return-to-live-audio") {
+    returnToLiveAudio(main.querySelector('[data-audio-player="live"]'));
+  } else if (action === "toggle-audio-mute") {
+    toggleAudioMute(main.querySelector('[data-audio-player="' + target.dataset.playerType + '"]'));
+  } else if (action === "audio-reaction") {
+    void handleLiveAudioReaction(target.dataset.programId, target.dataset.reaction);
+  }
+  else if (action === "toggle-programme-description") {
+    const programId = target.dataset.programId;
+    state.programmeDescriptionsExpanded[programId] = !state.programmeDescriptionsExpanded[programId];
+    render();
+    const descriptionButtons = Array.from(main.querySelectorAll('[data-action="toggle-programme-description"]'));
+    const nextButton = descriptionButtons.find(function (button) { return button.dataset.programId === programId; });
+    if (nextButton) nextButton.focus();
+  }
+  else if (action === "cast-programme-vote") castPublicProgrammeVote(target.dataset.programId, target.dataset.choice);
   else if (action === "back") {
     state.view = state.readerReturnView;
     render();
@@ -398,7 +1135,10 @@ document.addEventListener("click", function (event) {
     render();
     showToast(result.isFavorite ? "Added to Favorites." : "Removed from Favorites.");
     if (!result.persisted) showToast("Favorite changed for now, but browser storage is unavailable.");
-  } else if (action === "language") setSettings({ language: target.dataset.language });
+  } else if (action === "language") {
+    state.category = "";
+    setSettings({ language: target.dataset.language }, state.view !== "settings");
+  }
   else if (action === "category") {
     state.category = target.dataset.category || "";
     state.view = "hymns";
@@ -411,31 +1151,60 @@ document.addEventListener("click", function (event) {
     render();
   } else if (action === "font-increase") adjustFont(1);
   else if (action === "font-decrease") adjustFont(-1);
-  else if (action === "theme") setSettings({ theme: target.dataset.theme });
-  else if (action === "accent") setSettings({ accent: target.dataset.accent });
+  else if (action === "theme") setSettings({ theme: target.dataset.theme }, state.view !== "settings");
+  else if (action === "accent") setSettings({ accent: target.dataset.accent }, state.view !== "settings");
   else if (action === "share") performShare(target.dataset.number);
 });
 
+document.addEventListener("keydown", function (event) {
+  if (event.key === "Escape" && state.menuOpen) {
+    state.menuOpen = false;
+    renderHeader();
+    document.querySelector('[data-testid="button-header-menu"]').focus();
+  }
+});
+
 document.addEventListener("input", function (event) {
-  if (event.target.id === "hymn-search") {
+  if (event.target.matches("[data-audio-seek]")) {
+    if (event.target.dataset.audioSeek !== "live") {
+      seekAudioPlayer(main.querySelector('[data-audio-player="' + event.target.dataset.audioSeek + '"]'), event.target.value);
+    }
+  } else if (event.target.matches("[data-audio-volume]")) {
+    setAudioPlayerVolume(main.querySelector('[data-audio-player="' + event.target.dataset.audioVolume + '"]'), event.target.value);
+  } else if (event.target.matches("[data-live-audio-search]")) {
+    state.liveAudioQuery = event.target.value;
+    render();
+    const input = document.getElementById("live-audio-search");
+    if (input) {
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  } else if (event.target.id === "hymn-search") {
     const start = event.target.selectionStart == null ? event.target.value.length : event.target.selectionStart;
     const end = event.target.selectionEnd == null ? event.target.value.length : event.target.selectionEnd;
     updateSearch(event.target.value, start, end);
   } else if (event.target.id === "settings-font-size") {
     const size = Number(event.target.value);
-    const result = saveSettings({ fontSize: size });
-    state.settings = result.settings;
+    state.settings = Object.assign({}, state.settings, { fontSize: size });
     applyPreferences();
     const label = document.getElementById("settings-font-value");
     const preview = main.querySelector(".setting-preview");
     if (label) label.textContent = size + " px";
     if (preview) preview.style.setProperty("--hymn-size", size + "px");
-    if (!result.persisted) showToast("Text size changed for now, but browser storage is unavailable.");
   }
 });
 
+document.addEventListener("change", function (event) {
+  if (!event.target.matches("[data-live-audio-category]")) return;
+  state.liveAudioCategory = event.target.value;
+  render();
+});
+
 document.addEventListener("submit", function (event) {
-  if (event.target.matches("[data-search-form]")) {
+  if (event.target.matches("[data-audio-comment-form]")) {
+    event.preventDefault();
+    void handleLiveAudioComment(event.target);
+  } else if (event.target.matches("[data-search-form]")) {
     event.preventDefault();
     if (state.view !== "home") {
       state.view = "hymns";
@@ -451,22 +1220,29 @@ if (window.matchMedia) {
   media.addEventListener("change", function () { if (state.settings.theme === "system") applyPreferences(); });
 }
 
+window.addEventListener("online", function () {
+  if (state.view !== "listen") return;
+  state.liveAudioError = "";
+  void refreshLiveAudioData();
+  startLiveAudioRefresh();
+});
+
 async function boot() {
   try {
-    state.hymns = await getAllHymns();
+    const results = await Promise.all([getAllHymns(), getMemberContent()]);
+    state.hymns = results[0];
+    state.publicContent = results[1];
     render();
+    refreshProgrammeInteractions();
     shell.hidden = false;
-    window.setTimeout(function () {
-      splash.classList.add("is-leaving");
-      window.setTimeout(function () { splash.hidden = true; }, 370);
-    }, 950);
+    finishSplash();
     initializeUpdates({ onAvailable: showUpdateNotice });
   } catch (error) {
     shell.hidden = false;
     header.innerHTML = "";
     main.innerHTML = '<section class="page empty-state" role="alert"><h1>Hymns could not be loaded</h1><p>Refresh this page to try again.</p></section>';
     nav.innerHTML = "";
-    window.setTimeout(function () { splash.classList.add("is-leaving"); }, 950);
+    finishSplash();
   }
 }
 

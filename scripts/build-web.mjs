@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { cp, copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,7 +13,21 @@ if (appVersion !== packageJson.version) {
 }
 
 await mkdir(path.join(dist, "assets"), { recursive: true });
+await copyFile(path.join(root, "assets/consolation-launcher.png"), path.join(dist, "assets/consolation-launcher.png"));
+await copyFile(path.join(root, "assets/consolation-launcher-192.png"), path.join(dist, "assets/consolation-launcher-192.png"));
 await copyFile(path.join(root, "assets/demo-church-mark.svg"), path.join(dist, "assets/demo-church-mark.svg"));
+
+// GitHub Pages must include the separate static admin app and the source modules it imports.
+await cp(path.join(root, "admin"), path.join(dist, "admin"), { recursive: true });
+for (const [directory, filenames] of [
+  ["js", ["hymnal-selection.js", "live-audio-recording.js", "live-audio-realtime.js", "live-audio-webrtc.js"]],
+  ["data", ["uploaded-hymns.js", "uploaded-yoruba-hymns.js"]]
+]) {
+  await mkdir(path.join(dist, directory), { recursive: true });
+  await Promise.all(filenames.map(filename =>
+    copyFile(path.join(root, directory, filename), path.join(dist, directory, filename))
+  ));
+}
 await copyFile(path.join(root, "manifest.webmanifest"), path.join(dist, "manifest.webmanifest"));
 const sourceWorker = await readFile(path.join(root, "service-worker.js"), "utf8");
 if (!sourceWorker.includes(`consolation-hymnal-${packageJson.version}`)) {

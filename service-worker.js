@@ -1,18 +1,33 @@
-const CACHE_NAME = "consolation-hymnal-1.1.1";
+const CACHE_NAME = "consolation-hymnal-1.1.84-offline-audio";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
+  "./hymnal.html",
   "./manifest.webmanifest",
   "./css/theme.css",
   "./css/style.css",
-  "./assets/demo-church-mark.svg",
-  "./data/public-domain-hymns.js",
+  "./css/live-audio.css",
+  "./assets/consolation-launcher.png",
+  "./assets/consolation-launcher-192.png",
+  "./data/uploaded-hymns.js",
+  "./data/uploaded-yoruba-hymns.js",
+  "./js/hymnal-selection.js",
   "./js/app.js",
+  "./js/live-audio-data.js",
+  "./js/live-audio-offline.js",
+  "./js/live-audio-player.js",
+  "./js/live-audio-public-data.js",
+  "./js/live-audio-realtime.js",
+  "./js/live-audio-recording.js",
+  "./js/live-audio-views.js",
+  "./js/live-audio-webrtc.js",
   "./js/favorites.js",
   "./js/hymn-service.js",
+  "./js/hymn-reading.js",
   "./js/local-store.js",
   "./js/native-updates.js",
   "./js/recent.js",
+  "./js/public-content.js",
   "./js/search.js",
   "./js/settings.js",
   "./js/sharing.js",
@@ -61,7 +76,7 @@ self.addEventListener("fetch", function (event) {
         return response;
       }).catch(function () {
         return caches.match(request).then(function (cached) {
-          return cached || caches.match(new URL("./index.html", self.location.href).href);
+          return cached || caches.match(new URL("./hymnal.html", self.location.href).href) || caches.match(new URL("./index.html", self.location.href).href);
         });
       })
     );
