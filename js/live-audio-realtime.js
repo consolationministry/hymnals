@@ -142,9 +142,15 @@ export async function liveAudioRequest(path, options) {
 
 export async function createLiveAudioRecordingSignedUrl(recordingPath) {
   const parts = String(recordingPath || "").split("/");
-  if (parts.length !== 2 || !UUID_PATTERN.test(parts[0])) return "";
-  const file = parts[1].match(/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.(webm|ogg|m4a)$/i);
-  if (!file || !UUID_PATTERN.test(file[1])) return "";
+  const isRecording = parts.length === 2 &&
+    UUID_PATTERN.test(parts[0]) &&
+    new RegExp("^" + UUID_PATTERN.source.slice(1, -1) + "\\.(webm|ogg|m4a)$", "i").test(parts[1]);
+  const isSegment = parts.length === 4 &&
+    UUID_PATTERN.test(parts[0]) &&
+    UUID_PATTERN.test(parts[1]) &&
+    parts[2] === "segments" &&
+    /^[0-9]{6}\.(webm|ogg|m4a)$/i.test(parts[3]);
+  if (!isRecording && !isSegment) return "";
 
   try {
     const response = await liveAudioRequest(

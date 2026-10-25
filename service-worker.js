@@ -15,6 +15,7 @@ const PRECACHE_URLS = [
   "./js/app.js",
   "./js/live-audio-data.js",
   "./js/live-audio-offline.js",
+  "./js/live-audio-player.js",
   "./js/live-audio-public-data.js",
   "./js/live-audio-realtime.js",
   "./js/live-audio-recording.js",

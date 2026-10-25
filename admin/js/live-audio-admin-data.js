@@ -153,6 +153,55 @@ export async function uploadAdminLiveAudioRecording(programId, sessionId, record
   }
 }
 
+export async function uploadAdminLiveAudioSegment(programId, sessionId, segment) {
+  if (!UUID_PATTERN.test(String(programId || "")) || !UUID_PATTERN.test(String(sessionId || ""))) {
+    throw new Error("This live audio segment could not be identified.");
+  }
+  if (!segment || !segment.blob || !segment.blob.size ||
+      !Number.isInteger(Number(segment.index)) || Number(segment.index) < 0) {
+    throw new Error("This live audio segment is incomplete.");
+  }
+  const format = String(segment.contentType || segment.blob.type || "").split(";")[0].trim().toLowerCase();
+  const extensions = { "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a" };
+  const extension = extensions[format];
+  const startedAt = new Date(segment.startedAt);
+  const durationSeconds = Number(segment.durationSeconds);
+  if (!extension || Number.isNaN(startedAt.getTime()) ||
+      !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    throw new Error("This live audio segment has invalid recording details.");
+  }
+
+  const segmentIndex = Number(segment.index);
+  const storagePath = programId + "/" + sessionId + "/segments/" +
+    String(segmentIndex).padStart(6, "0") + "." + extension;
+  const storageEndpoint = "storage/v1/object/live-audio-recordings/" +
+    storagePath.split("/").map(encodeURIComponent).join("/");
+  await supabaseRequest(storageEndpoint, {
+    method: "POST",
+    headers: { "content-type": format },
+    body: segment.blob
+  });
+
+  try {
+    await supabaseRequest("rest/v1/live_audio_segments", {
+      method: "POST",
+      prefer: "return=minimal",
+      body: {
+        program_id: programId,
+        session_id: sessionId,
+        segment_index: segmentIndex,
+        started_at: startedAt.toISOString(),
+        duration_seconds: Math.round(durationSeconds * 1000) / 1000,
+        storage_path: storagePath
+      }
+    });
+    return storagePath;
+  } catch (error) {
+    await supabaseRequest(storageEndpoint, { method: "DELETE" }).catch(() => {});
+    throw error;
+  }
+}
+
 export async function saveAdminLiveAudioCategories(categories) {
   const names = Array.from(new Set((Array.isArray(categories) ? categories : [])
     .map(value => String(value || "").trim().slice(0, 48))

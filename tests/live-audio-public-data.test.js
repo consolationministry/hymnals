@@ -67,7 +67,10 @@ function installBackend(options) {
         created_at: "2026-10-20T10:00:00.000Z"
       }];
     } else if (url.pathname.includes("/storage/v1/object/sign/live-audio-recordings/")) {
-      payload = { signedURL: "/object/sign/live-audio-recordings/" + opts.recordingPath + "?token=test-token" };
+      const objectPath = decodeURIComponent(url.pathname.split("/object/sign/live-audio-recordings/")[1] || "");
+      payload = { signedURL: "/object/sign/live-audio-recordings/" + objectPath + "?token=test-token" };
+    } else if (url.pathname.endsWith("/live_audio_segments")) {
+      payload = opts.segmentRows || [];
     } else if (url.pathname.endsWith("/rpc/get_live_audio_interactions")) {
       payload = [{
         program_id: PROGRAM_ID,
@@ -108,13 +111,19 @@ test("public audio loads published Supabase programmes and shared listener inter
   assert.deepEqual(data.reactions[PROGRAM_ID], { love: 4, clap: 2, fire: 1 });
   assert.equal(liveAudioReactionSelected(data, PROGRAM_ID, "love"), true);
   assert.deepEqual(data.comments.map(comment => comment.body), ["Amen!"]);
-  assert.deepEqual(calls[1].body, { p_program_ids: [PROGRAM_ID], p_visitor_id: VISITOR_ID });
+  assert.ok(calls.some(call => call.path.endsWith("/live_audio_segments")));
+  assert.deepEqual(
+    calls.find(call => call.path.endsWith("/rpc/get_live_audio_interactions")).body,
+    { p_program_ids: [PROGRAM_ID], p_visitor_id: VISITOR_ID }
+  );
 
   assert.match(renderLiveAudioPage(data, "", ""), /Listen now/);
   const listener = renderLiveAudioListener(data, PROGRAM_ID);
   assert.match(listener, /<audio[^>]*autoplay playsinline[^>]*data-live-audio-player/);
   assert.doesNotMatch(listener, /<audio[^>]*\scontrols(?:\s|>|=)/);
   assert.match(listener, /data-audio-waveform="live"/);
+  assert.match(listener, /data-audio-seek="live"/);
+  assert.match(listener, /data-action="return-to-live-audio"/);
   assert.match(listener, /data-action="toggle-audio-playback" data-player-type="live"/);
   assert.match(listener, /data-action="toggle-audio-mute" data-player-type="live"/);
   assert.doesNotMatch(listener, /data-action="connect-live-audio"|data-action="disconnect-live-audio"|Stop listening/);
@@ -162,8 +171,29 @@ test("published recordings get temporary public playback URLs and an archive pla
   assert.match(listener, /data-audio-current-time="recorded"/);
   assert.match(listener, /data-audio-duration="recorded"/);
   assert.match(listener, /data-audio-waveform="recorded"/);
+  assert.match(listener, /data-audio-waveform-seek/);
   assert.doesNotMatch(listener, /<audio[^>]*\scontrols(?:\s|>|=)/);
   assert.doesNotMatch(listener, /data-action="connect-live-audio"/);
+});
+
+test("live programmes expose signed rewind segments in timeline order", async () => {
+  const segments = [
+    { segment_index: 0, started_at: "2026-10-25T10:00:00.000Z", duration_seconds: 15, storage_path: PROGRAM_ID + "/" + SESSION_ID + "/segments/000000.webm" },
+    { segment_index: 1, started_at: "2026-10-25T10:00:15.000Z", duration_seconds: 15, storage_path: PROGRAM_ID + "/" + SESSION_ID + "/segments/000001.webm" }
+  ];
+  const calls = installBackend({ segmentRows: segments });
+  const data = await loadPublicLiveAudioData();
+  const program = data.programs[0];
+
+  assert.equal(program.liveStartedAt, "");
+  assert.deepEqual(program.liveSegments.map(segment => segment.index), [0, 1]);
+  assert.deepEqual(program.liveSegments.map(segment => segment.durationSeconds), [15, 15]);
+  assert.ok(program.liveSegments.every(segment => segment.url.includes("token=test-token")));
+  assert.equal(calls.filter(call => call.path.includes("/storage/v1/object/sign/live-audio-recordings/")).length, 2);
+  await loadPublicLiveAudioData();
+  assert.equal(calls.filter(call => call.path.includes("/storage/v1/object/sign/live-audio-recordings/")).length, 2);
+  const listener = renderLiveAudioListener(data, PROGRAM_ID);
+  assert.match(listener, /data-live-audio-segments=/);
 });
 
 test("live audio remains available before the recording migration is applied", async () => {
@@ -179,6 +209,7 @@ test("live audio remains available before the recording migration is applied", a
 test("published live audio and listener interactions are granted to anonymous visitors", async () => {
   const migration = await readFile(new URL("../supabase/migrations/202610200001_live_audio.sql", import.meta.url), "utf8");
   const recordingsMigration = await readFile(new URL("../supabase/migrations/202610210001_live_audio_recordings.sql", import.meta.url), "utf8");
+  const rewindMigration = await readFile(new URL("../supabase/migrations/202610250001_live_audio_rewind_segments.sql", import.meta.url), "utf8");
   const publicClient = await readFile(new URL("../js/live-audio-public-data.js", import.meta.url), "utf8");
 
   assert.match(migration, /create policy live_audio_programs_public_read on public\.live_audio_programs\s+for select to anon, authenticated using \(status = 'published'\)/);
@@ -187,5 +218,9 @@ test("published live audio and listener interactions are granted to anonymous vi
   assert.match(recordingsMigration, /values \(\s*'live-audio-recordings',\s*'live-audio-recordings',\s*false,/);
   assert.match(recordingsMigration, /create policy live_audio_recordings_published_read on storage\.objects\s+for select to anon, authenticated/);
   assert.match(recordingsMigration, /p\.recording_path = name\s+and p\.status = 'published'/);
+  assert.match(rewindMigration, /create table if not exists public\.live_audio_segments/);
+  assert.match(rewindMigration, /for select to anon, authenticated/);
+  assert.match(rewindMigration, /p\.live_session_id = live_audio_segments\.session_id/);
+  assert.match(rewindMigration, /live_audio_segments_admin_insert/);
   assert.doesNotMatch(publicClient, /initializeAdminAuth|loginAdmin|requireAdmin/i);
 });

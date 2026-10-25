@@ -4,6 +4,7 @@ const DEFAULT_CATEGORIES = ["Bible Study", "Sunday Service", "Prayer Meeting", "
 const REACTION_TYPES = ["love", "clap", "fire"];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECORDING_URL_CACHE = new Map();
+const LIVE_SEGMENT_URL_CACHE = new Map();
 
 function asArray(value) {
   return Array.isArray(value) ? value : value && typeof value === "object" ? [value] : [];
@@ -36,6 +37,8 @@ function normalizeProgram(row) {
     status: row.status === "published" ? "published" : "draft",
     onAir: row.is_live === true && Boolean(row.live_session_id),
     liveSessionId: String(row.live_session_id || ""),
+    liveStartedAt: String(row.live_started_at || ""),
+    liveSegments: [],
     recordingPath: String(row.recording_path || ""),
     recordingDurationSeconds: Math.max(0, Number(row.recording_duration_seconds) || 0),
     recordingUrl: "",
@@ -53,6 +56,57 @@ async function resolveRecordingUrl(program) {
   const url = await createLiveAudioRecordingSignedUrl(program.recordingPath);
   if (url) RECORDING_URL_CACHE.set(program.recordingPath, { url, expiresAt: Date.now() + 55 * 60 * 1000 });
   return url;
+}
+
+async function resolveLiveAudioSegments(program) {
+  if (!program || !program.onAir || !UUID_PATTERN.test(program.id) ||
+      !UUID_PATTERN.test(program.liveSessionId)) return [];
+  try {
+    const rows = asArray(await liveAudioRequest(
+      "live_audio_segments?select=segment_index,started_at,duration_seconds,storage_path" +
+      "&program_id=eq." + encodeURIComponent(program.id) +
+      "&session_id=eq." + encodeURIComponent(program.liveSessionId) +
+      "&order=segment_index.asc"
+    ));
+    const prefix = program.id + "/" + program.liveSessionId + "/segments/";
+    const segments = rows.map(row => {
+      const index = Number(row.segment_index);
+      const durationSeconds = Number(row.duration_seconds);
+      const storagePath = String(row.storage_path || "");
+      const file = storagePath.startsWith(prefix)
+        ? storagePath.slice(prefix.length).match(/^([0-9]{6})\.(webm|ogg|m4a)$/i)
+        : null;
+      if (!Number.isInteger(index) || index < 0 ||
+          !Number.isFinite(durationSeconds) || durationSeconds <= 0 ||
+          !file || Number(file[1]) !== index) return null;
+      return {
+        index,
+        durationSeconds,
+        startedAt: String(row.started_at || ""),
+        storagePath
+      };
+    }).filter(Boolean);
+    const now = Date.now();
+    const resolved = await Promise.all(segments.map(async segment => {
+      const cached = LIVE_SEGMENT_URL_CACHE.get(segment.storagePath);
+      const url = cached && cached.expiresAt > now
+        ? cached.url
+        : await createLiveAudioRecordingSignedUrl(segment.storagePath);
+      if (url) LIVE_SEGMENT_URL_CACHE.set(segment.storagePath, {
+        url,
+        expiresAt: now + 55 * 60 * 1000
+      });
+      return { ...segment, url };
+    }));
+    if (LIVE_SEGMENT_URL_CACHE.size > 4000) {
+      for (const [path, cached] of LIVE_SEGMENT_URL_CACHE) {
+        if (cached.expiresAt <= now || LIVE_SEGMENT_URL_CACHE.size > 3000) LIVE_SEGMENT_URL_CACHE.delete(path);
+      }
+    }
+    return resolved.filter(segment => Boolean(segment.url));
+  } catch (error) {
+    return [];
+  }
 }
 
 export function emptyLiveAudioData() {
@@ -84,7 +138,12 @@ export async function loadPublicLiveAudioData() {
   const data = emptyLiveAudioData();
   data.programs = programs;
   await Promise.all(programs.map(async program => {
-    program.recordingUrl = await resolveRecordingUrl(program);
+    const [recordingUrl, liveSegments] = await Promise.all([
+      resolveRecordingUrl(program),
+      resolveLiveAudioSegments(program)
+    ]);
+    program.recordingUrl = recordingUrl;
+    program.liveSegments = liveSegments;
   }));
   data.categories = Array.from(new Set(programs.map(program => program.category)))
     .sort((left, right) => left.localeCompare(right));

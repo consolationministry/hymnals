@@ -7,10 +7,11 @@ import {
   saveAdminLiveAudioProgram,
   setAdminLiveAudioStatus,
   startAdminLiveAudioProgram,
+  uploadAdminLiveAudioSegment,
   uploadAdminLiveAudioRecording
 } from "./live-audio-admin-data.js";
 import { createLiveAudioId } from "../../js/live-audio-realtime.js";
-import { startLiveAudioRecording } from "../../js/live-audio-recording.js?v=1";
+import { startLiveAudioRecording } from "../../js/live-audio-recording.js?v=2";
 import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=2";
 import { buildWaveformBars, getWaveformDisplayGain, scaleWaveformBars } from "./live-audio-waveform.js";
 
@@ -751,7 +752,9 @@ async function beginBroadcast(programId) {
         if (studioNode) studioNode.textContent = String(count);
       }
     });
-    recorder = startLiveAudioRecording(mic.stream);
+    recorder = startLiveAudioRecording(mic.stream, undefined, {
+      onSegment: segment => uploadAdminLiveAudioSegment(programId, sessionId, segment)
+    });
     startedProgram = await startAdminLiveAudioProgram(programId, sessionId);
     activeBroadcaster = publisher;
     activeBroadcastId = programId;
@@ -796,11 +799,13 @@ async function endBroadcast(programId) {
     : 'This tab has no local recording for "' + title + '". Publish the programme details on the public Listen page? Choose Cancel to save it as a draft.';
   const finalStatus = window.confirm(publishPrompt) ? "published" : "draft";
   let recordingError = null;
+  let rewindSegmentError = false;
   if (activeBroadcaster && activeBroadcastId === programId) {
     await activeBroadcaster.stop();
     if (activeRecording) {
       try {
         const recording = await activeRecording.stop();
+        rewindSegmentError = Boolean(recording.segmentErrors && recording.segmentErrors.length);
         await uploadAdminLiveAudioRecording(programId, activeRecordingSessionId, recording);
       } catch (error) {
         recordingError = error;
@@ -832,6 +837,8 @@ async function endBroadcast(programId) {
   rerender();
   if (recordingError) {
     toast("Broadcast ended and saved as a draft, but no recording was saved. " + (recordingError.message || "Check the connection before your next broadcast."));
+  } else if (rewindSegmentError) {
+    toast("Broadcast ended and saved. Some live rewind segments could not be uploaded; the full recording is available.");
   } else if (finalStatus === "published") {
     toast("Broadcast ended and published on the public Listen page.");
   } else {

@@ -10,6 +10,7 @@ import {
 import {
   endAdminLiveAudioProgram,
   loadAdminLiveAudioInteractions,
+  uploadAdminLiveAudioSegment,
   uploadAdminLiveAudioRecording
 } from "../admin/js/live-audio-admin-data.js";
 import { buildWaveformBars, buildWaveformPeaks, getWaveformDisplayGain, scaleWaveformBars } from "../admin/js/live-audio-waveform.js";
@@ -302,4 +303,34 @@ test("completed recordings upload audio bytes and save their private storage pat
 
   const ended = await endAdminLiveAudioProgram(programId, "draft");
   assert.equal(ended.status, "draft");
+});
+
+test("live rewind segments upload audio bytes and register their session timeline", async () => {
+  const programs = installAdminEnvironment();
+  const programId = "123e4567-e89b-42d3-a456-426614174000";
+  const sessionId = "123e4567-e89b-42d3-a456-426614174001";
+  const storagePath = await uploadAdminLiveAudioSegment(programId, sessionId, {
+    index: 3,
+    startedAt: "2026-10-25T10:00:00.000Z",
+    durationSeconds: 15,
+    blob: new Blob(["captured segment"], { type: "audio/webm" }),
+    contentType: "audio/webm"
+  });
+
+  assert.equal(storagePath, programId + "/" + sessionId + "/segments/000003.webm");
+  const upload = programs.calls.find(call => call.url.pathname.includes("/storage/v1/object/live-audio-recordings/"));
+  assert.ok(upload);
+  assert.equal(upload.method, "POST");
+  assert.ok(upload.body instanceof Blob);
+  const savedSegment = programs.calls.find(call => call.url.pathname.endsWith("/live_audio_segments"));
+  assert.ok(savedSegment);
+  assert.equal(savedSegment.method, "POST");
+  assert.deepEqual(JSON.parse(savedSegment.body), {
+    program_id: programId,
+    session_id: sessionId,
+    segment_index: 3,
+    started_at: "2026-10-25T10:00:00.000Z",
+    duration_seconds: 15,
+    storage_path: storagePath
+  });
 });

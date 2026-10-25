@@ -342,6 +342,9 @@ body.audio-listener-mode .toast { bottom:calc(16px + env(safe-area-inset-bottom)
 .audio-listener-player .audio-listener-audio-source { position:absolute; display:block; width:1px; min-height:0; height:1px; overflow:hidden; clip-path:inset(50%); opacity:0; pointer-events:none; white-space:nowrap; }
 .audio-listener-controls { display:grid; gap:10px; min-width:0; }
 .audio-listener-waveform { display:flex; height:48px; align-items:center; gap:3px; overflow:hidden; }
+.audio-listener-waveform[data-audio-waveform-seek] { border-radius:6px; outline:none; cursor:pointer; touch-action:none; }
+.audio-listener-waveform[data-audio-waveform-seek]:focus-visible { outline:2px solid #a89cff; outline-offset:4px; }
+.audio-listener-waveform[data-audio-waveform-seek].is-disabled { cursor:default; opacity:.55; }
 .audio-listener-waveform span { width:3px; min-width:2px; height:5%; flex:1 1 0; border-radius:4px; background:linear-gradient(180deg,#a89cff,#5c41f0); opacity:.72; transition:height .07s linear,opacity .12s ease,background .12s ease; }
 .audio-listener-waveform span.is-played { background:linear-gradient(180deg,#c8c0ff,#7059ff); opacity:1; }
 .audio-listener-waveform span.is-active { opacity:1; box-shadow:0 0 8px rgba(145,126,255,.36); }
@@ -355,6 +358,8 @@ body.audio-listener-mode .toast { bottom:calc(16px + env(safe-area-inset-bottom)
 .audio-player-control:hover, .audio-player-control:focus-visible { border-color:#8978ff; color:#c8c0ff; outline:none; background:#18233a; }
 .audio-player-toggle-audio-playback { width:43px; height:43px; color:#fff; border-color:#614cf0; background:#5638ef; box-shadow:0 5px 16px rgba(83,57,240,.26); }
 .audio-player-toggle-audio-playback:hover, .audio-player-toggle-audio-playback:focus-visible { color:#fff; border-color:#9b8eff; background:#694fff; }
+.audio-player-live-return { min-height:32px; padding:5px 9px; border:1px solid #e72b55; border-radius:999px; color:#fff; background:rgba(231,43,85,.16); font:inherit; font-size:.65rem; font-weight:850; cursor:pointer; }
+.audio-player-live-return:hover, .audio-player-live-return:focus-visible { outline:2px solid rgba(255,255,255,.65); outline-offset:2px; background:#dc2450; }
 .audio-listener-time, .audio-listener-timer { color:#c5cce0; font-size:.72rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .audio-listener-timer { flex:1 1 auto; color:#a99cff; font-weight:750; }
 .audio-player-volume { display:flex; min-width:64px; flex:1 1 100px; align-items:center; }

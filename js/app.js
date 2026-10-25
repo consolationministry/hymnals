@@ -32,6 +32,7 @@ import {
   mountAudioPlayer,
   prepareAudioPlayer,
   seekAudioPlayer,
+  returnToLiveAudio,
   setAudioPlayerVolume,
   stopAudioPlayer,
   toggleAudioMute,
@@ -595,7 +596,11 @@ function render() {
   else main.innerHTML = renderReader();
   if (preservedAudioPlayer) {
     const nextAudioPlayer = main.querySelector("[data-live-audio-player]");
-    if (nextAudioPlayer) nextAudioPlayer.replaceWith(preservedAudioPlayer);
+    if (nextAudioPlayer) {
+      const liveSegments = nextAudioPlayer.dataset.liveAudioSegments;
+      nextAudioPlayer.replaceWith(preservedAudioPlayer);
+      if (liveSegments !== undefined) preservedAudioPlayer.dataset.liveAudioSegments = liveSegments;
+    }
   }
   main.querySelectorAll("[data-audio-player]").forEach(function (audio) {
     mountAudioPlayer(audio, audio.closest(".audio-listener-player"));
@@ -1105,6 +1110,8 @@ document.addEventListener("click", function (event) {
     void toggleAudioPlayback(audio).catch(function () {
       showToast("Audio could not start. Check your connection and try again.");
     });
+  } else if (action === "return-to-live-audio") {
+    returnToLiveAudio(main.querySelector('[data-audio-player="live"]'));
   } else if (action === "toggle-audio-mute") {
     toggleAudioMute(main.querySelector('[data-audio-player="' + target.dataset.playerType + '"]'));
   } else if (action === "audio-reaction") {
@@ -1159,7 +1166,9 @@ document.addEventListener("keydown", function (event) {
 
 document.addEventListener("input", function (event) {
   if (event.target.matches("[data-audio-seek]")) {
-    seekAudioPlayer(main.querySelector('[data-audio-player="' + event.target.dataset.audioSeek + '"]'), event.target.value);
+    if (event.target.dataset.audioSeek !== "live") {
+      seekAudioPlayer(main.querySelector('[data-audio-player="' + event.target.dataset.audioSeek + '"]'), event.target.value);
+    }
   } else if (event.target.matches("[data-audio-volume]")) {
     setAudioPlayerVolume(main.querySelector('[data-audio-player="' + event.target.dataset.audioVolume + '"]'), event.target.value);
   } else if (event.target.matches("[data-live-audio-search]")) {
