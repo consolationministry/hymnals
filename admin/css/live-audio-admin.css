@@ -580,3 +580,93 @@
   .audio-studio-mixer .audio-mixer-grid { grid-template-columns: 1fr; }
   .audio-studio-artwork-wrap { min-height: 250px; }
 }
+
+.audio-finalize-backdrop {
+  position: fixed;
+  z-index: 1300;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: 20px;
+  background: rgba(2, 10, 23, .78);
+  backdrop-filter: blur(6px);
+}
+.audio-finalize-dialog {
+  width: min(100%, 540px);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: clamp(21px, 5vw, 31px);
+  border: 1px solid #244363;
+  border-radius: 16px;
+  color: #eef5ff;
+  background: linear-gradient(160deg, #102746, #09182d 72%);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .5);
+}
+.audio-finalize-kicker {
+  display: block;
+  margin-bottom: 10px;
+  color: #72b5ff;
+  font-size: .67rem;
+  font-weight: 850;
+  letter-spacing: .13em;
+}
+.audio-finalize-dialog h2 {
+  margin: 0;
+  color: #f6f9ff;
+  font-size: clamp(1.2rem, 4vw, 1.55rem);
+  letter-spacing: -.025em;
+}
+.audio-finalize-dialog > p {
+  margin: 11px 0 0;
+  color: #b6c5d9;
+  font-size: .88rem;
+  line-height: 1.6;
+}
+.audio-finalize-dialog .audio-finalize-error {
+  color: #ffbdc7;
+}
+.audio-finalize-warning {
+  margin-top: 17px;
+  padding: 12px 14px;
+  border: 1px solid #68542b;
+  border-radius: 10px;
+  color: #efdca4;
+  background: #292518;
+  font-size: .78rem;
+  line-height: 1.5;
+}
+.audio-finalize-warning strong {
+  display: block;
+  margin-bottom: 2px;
+}
+.audio-finalize-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 21px;
+}
+.audio-finalize-actions .button {
+  min-height: 42px;
+  padding: 9px 14px;
+}
+.audio-finalize-spinner {
+  display: block;
+  width: 30px;
+  height: 30px;
+  margin-top: 18px;
+  border: 3px solid #29466a;
+  border-top-color: #65adff;
+  border-radius: 50%;
+  animation: audio-finalize-spin .8s linear infinite;
+}
+@keyframes audio-finalize-spin {
+  to { transform: rotate(360deg); }
+}
+@media (max-width: 520px) {
+  .audio-finalize-backdrop { padding: 12px; }
+  .audio-finalize-dialog { padding: 20px 17px; }
+  .audio-finalize-actions { flex-direction: column-reverse; }
+  .audio-finalize-actions .button { width: 100%; }
+}

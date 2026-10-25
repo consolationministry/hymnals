@@ -127,7 +127,7 @@ export async function uploadAdminLiveAudioRecording(programId, sessionId, record
   const storageEndpoint = "storage/v1/object/live-audio-recordings/" + encodedPath;
   await supabaseRequest(storageEndpoint, {
     method: "POST",
-    headers: { "content-type": format },
+    headers: { "content-type": format, "x-upsert": "true" },
     body: recording.blob
   });
 

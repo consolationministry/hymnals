@@ -29,6 +29,11 @@ let activeBroadcastId = null;
 let activeRecording = null;
 let activeRecordingSessionId = null;
 let activeBroadcastRecordingEnabled = false;
+let pendingRecordingChoiceId = null;
+let pendingDraftPublishId = null;
+let pendingBroadcastFinalization = null;
+let endingBroadcastId = null;
+let unloadWarningHandler = null;
 let audioSettings = Object.assign({}, DEFAULT_AUDIO_SETTINGS);
 let activeMicMuted = false;
 let activeListenerCount = 0;
@@ -58,6 +63,26 @@ function toast(message) {
   node.hidden = false;
   window.clearTimeout(toast.timer);
   toast.timer = window.setTimeout(() => { node.hidden = true; }, 4200);
+}
+
+function syncBeforeUnloadWarning() {
+  if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+  const pendingRecording = pendingBroadcastFinalization &&
+    pendingBroadcastFinalization.recording &&
+    !pendingBroadcastFinalization.recordingUploaded &&
+    pendingBroadcastFinalization.phase !== "complete";
+  const shouldWarn = Boolean(activeBroadcaster || endingBroadcastId || pendingRecording);
+  if (shouldWarn && !unloadWarningHandler) {
+    unloadWarningHandler = event => {
+      event.preventDefault();
+      event.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", unloadWarningHandler);
+  } else if (!shouldWarn && unloadWarningHandler) {
+    window.removeEventListener("beforeunload", unloadWarningHandler);
+    unloadWarningHandler = null;
+  }
 }
 
 function formatDate(value) {
@@ -255,6 +280,81 @@ function renderProgramRows(data) {
         escapeHtml(program.id) + '" aria-label="Delete ' + escapeHtml(program.title) + '">' + icon("trash") + "</button>" +
         "</div></td></tr>";
     }).join("") + "</tbody></table></div>";
+}
+
+function renderBroadcastActionDialog() {
+  if (pendingBroadcastFinalization) {
+    const finalization = pendingBroadcastFinalization;
+    const title = escapeHtml(finalization.title || "Broadcast");
+    let heading = "Broadcast ended";
+    let message = "";
+    let actions = "";
+    let status = "";
+
+    if (finalization.phase === "ending") {
+      heading = "Finishing your broadcast";
+      message = "The stream is stopping and the recording is being finalized. Keep this page open.";
+      status = '<span class="audio-finalize-spinner" aria-hidden="true"></span>';
+    } else if (finalization.phase === "choice") {
+      message = '“' + title + '” is off air and saved as a draft. It will stay off the public Listen page until you choose to publish the complete recording.';
+      actions = '<button class="button button-secondary" type="button" data-action="audio-admin-keep-draft">Keep as draft</button>' +
+        '<button class="button button-primary" type="button" data-action="audio-admin-publish-ended">Upload &amp; publish</button>';
+    } else if (finalization.phase === "uploading") {
+      heading = "Uploading the complete recording";
+      message = '“' + title + '” remains unpublished while its full recording uploads. Do not refresh or close this page until upload is complete.';
+      status = '<span class="audio-finalize-spinner" aria-hidden="true"></span>';
+    } else if (finalization.phase === "complete") {
+      heading = "Recording published";
+      message = 'The complete recording of “' + title + '” is uploaded and now available on the public Listen page.';
+      actions = '<button class="button button-primary" type="button" data-action="audio-admin-complete-finalization">Complete</button>';
+    } else if (finalization.phase === "error" && finalization.errorStage === "ending") {
+      heading = "Broadcast stopped — retry save";
+      message = "The stream has stopped, but the programme could not yet be marked as ended. It has not been published.";
+      actions = '<button class="button button-primary" type="button" data-action="audio-admin-retry-end">Retry</button>';
+    } else if (finalization.phase === "error") {
+      heading = "Upload did not complete";
+      message = "The programme remains a draft and is hidden from the public Listen page. Keep this page open if you want to retry without losing the recording.";
+      actions = '<button class="button button-secondary" type="button" data-action="audio-admin-keep-draft">Keep as draft</button>' +
+        '<button class="button button-primary" type="button" data-action="audio-admin-publish-ended">' +
+        (finalization.recordingUploaded ? "Retry publishing" : "Retry upload & publish") + '</button>';
+    } else {
+      heading = "Broadcast saved as a draft";
+      message = finalization.error
+        ? "The broadcast ended, but no complete recording is available to publish. " + escapeHtml(finalization.error)
+        : "The broadcast ended without a complete recording, so it remains a draft and is not visible on the public Listen page.";
+      actions = '<button class="button button-primary" type="button" data-action="audio-admin-complete-finalization">Complete</button>';
+    }
+
+    const warning = finalization.recording && !finalization.recordingUploaded &&
+      finalization.phase !== "complete" && finalization.phase !== "ending"
+      ? '<div class="audio-finalize-warning"><strong>Keep this page open.</strong> Refreshing or closing it before the upload completes can discard the recording.</div>'
+      : "";
+    return '<div class="audio-finalize-backdrop"><section class="audio-finalize-dialog" role="dialog" aria-modal="true" aria-labelledby="audio-finalize-title">' +
+      '<span class="audio-finalize-kicker">LIVE AUDIO · BROADCAST ENDED</span><h2 id="audio-finalize-title">' + heading + '</h2>' +
+      '<p>' + message + '</p>' + (finalization.error && finalization.phase === "error"
+        ? '<p class="audio-finalize-error" role="alert">' + escapeHtml(finalization.error) + '</p>' : "") +
+      status + warning + (actions ? '<div class="audio-finalize-actions">' + actions + '</div>' : "") + '</section></div>';
+  }
+
+  if (pendingRecordingChoiceId) {
+    return '<div class="audio-finalize-backdrop"><section class="audio-finalize-dialog" role="dialog" aria-modal="true" aria-labelledby="audio-recording-choice-title">' +
+      '<span class="audio-finalize-kicker">LIVE AUDIO · READY TO GO LIVE</span><h2 id="audio-recording-choice-title">Record this broadcast?</h2>' +
+      '<p>Recording starts with the live broadcast. You can publish it after the complete audio has uploaded, or keep the ended programme as a draft.</p>' +
+      '<div class="audio-finalize-actions"><button class="button button-secondary" type="button" data-action="audio-admin-cancel-live-start">Cancel</button>' +
+      '<button class="button button-secondary" type="button" data-action="audio-admin-live-without-recording">Go live without recording</button>' +
+      '<button class="button button-primary" type="button" data-action="audio-admin-live-with-recording">Go live &amp; record</button></div></section></div>';
+  }
+
+  if (pendingDraftPublishId) {
+    const program = cachedData && cachedData.programs.find(item => item.id === pendingDraftPublishId);
+    const title = escapeHtml(program ? program.title : "this broadcast");
+    return '<div class="audio-finalize-backdrop"><section class="audio-finalize-dialog" role="dialog" aria-modal="true" aria-labelledby="audio-draft-publish-title">' +
+      '<span class="audio-finalize-kicker">LIVE AUDIO · DRAFT</span><h2 id="audio-draft-publish-title">Publish this broadcast?</h2>' +
+      '<p>“' + title + '” will be visible on the public Listen page.</p>' +
+      '<div class="audio-finalize-actions"><button class="button button-secondary" type="button" data-action="audio-admin-cancel-draft-publish">Cancel</button>' +
+      '<button class="button button-primary" type="button" data-action="audio-admin-confirm-draft-publish">Publish</button></div></section></div>';
+  }
+  return "";
 }
 
 function renderProgramDetails(data) {
@@ -498,13 +598,18 @@ export function renderLiveAudioStudio(program) {
     ? interactions.loveCount + interactions.clapCount + interactions.fireCount
     : null;
   const duration = formatElapsed(program.liveStartedAt);
+  const keepOpenMessage = activeBroadcastRecordingEnabled
+    ? "Broadcast is live and recording. Keep this page open while streaming."
+    : "Broadcast is live. Keep this page open while streaming.";
   return '<section class="audio-live-studio" aria-label="Live Audio control room">' +
     '<header class="audio-studio-header"><div><p class="audio-studio-kicker">ON AIR CONTROL ROOM</p><h1>Live Audio Studio</h1><p>Monitor your microphone and listener activity while the service is live.</p></div>' +
     '<div class="audio-studio-header-actions"><div class="audio-network-meter" data-network-meter data-level="' + String(Math.max(0, Math.min(5, Number(activeNetworkStatus.level) || 0))) + '" role="status" aria-label="Network quality: ' + escapeHtml(activeNetworkStatus.label || "Checking") + '">' +
     '<span class="audio-network-meter-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="audio-network-meter-copy"><strong data-network-label>' +
     escapeHtml(activeNetworkStatus.label || "Checking") + '</strong><small data-network-route>' + escapeHtml(activeNetworkStatus.route || "Measuring") + '</small></span></div>' +
     '<button class="button button-secondary" type="button" data-action="audio-admin-back">' + icon("back") + 'Back to broadcasts</button>' +
-    '<button class="button audio-studio-end" type="button" data-action="audio-admin-stop-live" data-id="' + escapeHtml(program.id) + '">End broadcast</button></div></header>' +
+    '<button class="button audio-studio-end" type="button" data-action="audio-admin-stop-live" data-id="' + escapeHtml(program.id) + '"' +
+    (endingBroadcastId === program.id ? " disabled" : "") + '>' +
+    (endingBroadcastId === program.id ? "Ending…" : "End broadcast") + '</button></div></header>' +
     '<div class="audio-network-toast" data-network-toast role="alert" aria-live="assertive" hidden><span class="audio-network-toast-icon" aria-hidden="true">!</span><div>' +
     '<strong data-network-toast-title>Network needs attention</strong><p data-network-toast-message>The connection is retrying automatically.</p></div></div>' +
     '<div class="audio-studio-layout"><div class="audio-studio-main">' +
@@ -530,7 +635,7 @@ export function renderLiveAudioStudio(program) {
     '</div><p class="audio-studio-panel-note">Changes apply to the live microphone immediately.</p></section>' +
     '<section class="audio-studio-panel audio-studio-mic-panel"><header><div><p class="audio-studio-kicker">INPUT MONITOR</p><h2>Microphone level</h2></div></header>' +
     '<div class="audio-mic-meter audio-studio-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-audio-mic-level></span></div>' +
-    '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">Broadcast is live. Keep this browser tab open while streaming.</p>' +
+     '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">' + keepOpenMessage + '</p>' +
     '<button class="button audio-studio-mute" type="button" data-action="audio-admin-toggle-mic" data-mic-mute-button aria-pressed="' + String(activeMicMuted) + '">' +
     (activeMicMuted ? "Unmute microphone" : "Mute microphone") + '</button></section></div>' +
     '<section class="audio-studio-reactions" aria-label="Listener reactions"><div class="audio-studio-reaction-heading"><div><p class="audio-studio-kicker">LIVE ENGAGEMENT</p><h2>Listener reactions</h2></div><span>All-time counts</span></div>' +
@@ -843,6 +948,7 @@ async function beginBroadcast(programId, recordBroadcast) {
     if (cachedData) {
       cachedData.programs = cachedData.programs.map(item => item.id === programId ? startedProgram : item);
     }
+    syncBeforeUnloadWarning();
     try {
       cachedData = await loadAdminLiveAudioData();
     } catch (error) {
@@ -853,7 +959,9 @@ async function beginBroadcast(programId, recordBroadcast) {
     studioVisible = true;
     rerender();
     const status = document.querySelector("[data-audio-mic-status]");
-    if (status) status.textContent = "Broadcast is live. Keep this browser tab open while streaming.";
+    if (status) status.textContent = recordBroadcast
+      ? "Broadcast is live and recording. Keep this page open while streaming."
+      : "Broadcast is live. Keep this page open while streaming.";
     await refreshStudioActivity(programId);
     startStudioTimers();
     toast("You are live. Listeners can now join from the web Listen page.");
@@ -866,6 +974,7 @@ async function beginBroadcast(programId, recordBroadcast) {
     activeRecording = null;
     activeRecordingSessionId = null;
     activeBroadcastRecordingEnabled = false;
+    syncBeforeUnloadWarning();
     activeNetworkStatus = { level: 0, label: "Checking", connectedListeners: 0, listenerCount: 0, weakListeners: 0, route: "—" };
     networkAlertKey = "";
     throw error;
@@ -873,6 +982,7 @@ async function beginBroadcast(programId, recordBroadcast) {
 }
 
 async function endBroadcast(programId) {
+  if (endingBroadcastId === programId) return false;
   const ownsLiveSession = Boolean(activeBroadcaster && activeBroadcastId === programId);
   if (!ownsLiveSession) {
     await endAdminLiveAudioProgram(programId, "draft");
@@ -885,58 +995,153 @@ async function endBroadcast(programId) {
     toast("Broadcast ended and kept as a draft because this tab has no complete recording to publish.");
     return true;
   }
+
+  const program = cachedData && cachedData.programs.find(item => item.id === programId);
   const recordingEnabled = activeBroadcastRecordingEnabled;
+  const finalization = {
+    programId,
+    sessionId: activeRecordingSessionId,
+    title: program ? program.title : "Broadcast",
+    recording: null,
+    recordingUploaded: false,
+    rewindSegmentError: false,
+    phase: "ending",
+    error: "",
+    errorStage: ""
+  };
+  pendingBroadcastFinalization = finalization;
+  endingBroadcastId = programId;
+  syncBeforeUnloadWarning();
+  rerender();
+
   let recordingError = null;
-  let rewindSegmentError = false;
-  if (ownsLiveSession) {
+  let streamStopError = null;
+  try {
     await activeBroadcaster.stop();
-    if (recordingEnabled && activeRecording) {
-      try {
-        const recording = await activeRecording.stop();
-        rewindSegmentError = Boolean(recording.segmentErrors && recording.segmentErrors.length);
-        await uploadAdminLiveAudioRecording(programId, activeRecordingSessionId, recording);
-      } catch (error) {
-        recordingError = error;
-      }
-    } else if (recordingEnabled) {
-      recordingError = new Error("The stream did not produce an audio recording.");
-    }
-    stopStudioTimers();
-    activeBroadcaster = null;
-    activeBroadcastId = null;
-    activeRecording = null;
-    activeRecordingSessionId = null;
-    activeBroadcastRecordingEnabled = false;
-    activeNetworkStatus = { level: 0, label: "Checking", connectedListeners: 0, listenerCount: 0, weakListeners: 0, route: "—" };
-    networkAlertKey = "";
-    if (networkToastTimer !== null) window.clearTimeout(networkToastTimer);
-    networkToastTimer = null;
-    studioVisible = false;
-    activeMicMuted = false;
-    activeListenerCount = 0;
-    studioInteractions = null;
-    studioInteractionsError = "";
-    if (activeMicFrame) cancelAnimationFrame(activeMicFrame);
-    activeMicFrame = null;
-    if (activeMicEngine) await activeMicEngine.stop();
-    activeMicEngine = null;
+  } catch (error) {
+    streamStopError = error;
   }
-  const finalStatus = recordingError ? "draft" : "published";
-  await endAdminLiveAudioProgram(programId, finalStatus);
-  cachedData = await loadAdminLiveAudioData();
+  if (recordingEnabled && activeRecording) {
+    try {
+      finalization.recording = await activeRecording.stop();
+      finalization.rewindSegmentError = Boolean(
+        finalization.recording.segmentErrors && finalization.recording.segmentErrors.length
+      );
+    } catch (error) {
+      recordingError = error;
+    }
+  } else if (recordingEnabled) {
+    recordingError = new Error("The stream did not produce an audio recording.");
+  }
+
+  stopStudioTimers();
+  activeBroadcaster = null;
+  activeBroadcastId = null;
+  activeRecording = null;
+  activeRecordingSessionId = null;
+  activeBroadcastRecordingEnabled = false;
+  activeNetworkStatus = { level: 0, label: "Checking", connectedListeners: 0, listenerCount: 0, weakListeners: 0, route: "—" };
+  networkAlertKey = "";
+  if (networkToastTimer !== null) window.clearTimeout(networkToastTimer);
+  networkToastTimer = null;
+  studioVisible = false;
+  activeMicMuted = false;
+  activeListenerCount = 0;
+  studioInteractions = null;
+  studioInteractionsError = "";
+  if (activeMicFrame) cancelAnimationFrame(activeMicFrame);
+  activeMicFrame = null;
+  if (activeMicEngine) {
+    try { await activeMicEngine.stop(); } catch (error) {}
+  }
+  activeMicEngine = null;
+
+  endingBroadcastId = "";
+  finalization.error = recordingError
+    ? recordingError.message || "The full recording could not be finalized."
+    : streamStopError
+      ? streamStopError.message || "The live connection did not stop cleanly."
+      : "";
+  syncBeforeUnloadWarning();
+  rerender();
+
+  try {
+    // Hide the ended programme from public listings before the full archive upload begins.
+    const endedProgram = await endAdminLiveAudioProgram(programId, "draft");
+    if (cachedData && endedProgram) {
+      cachedData.programs = cachedData.programs.map(item => item.id === programId ? endedProgram : item);
+    }
+    finalization.phase = finalization.recording ? "choice" : "no-recording";
+  } catch (error) {
+    finalization.phase = "error";
+    finalization.errorStage = "ending";
+    finalization.error = error.message || "The programme could not be marked as ended.";
+  }
+
+  try {
+    cachedData = await loadAdminLiveAudioData();
+  } catch (error) {
+    // The finalization dialog remains actionable even if refreshing the admin list fails.
+  }
   editingId = null;
   wizardStep = 1;
   activeTab = "programs";
   studioVisible = false;
+  syncBeforeUnloadWarning();
   rerender();
-  if (recordingError) {
-    toast("Broadcast ended and saved as a draft, but no recording was saved. " + (recordingError.message || "Check the connection before your next broadcast."));
-  } else if (rewindSegmentError) {
-    toast("Broadcast ended and saved. Some live rewind segments could not be uploaded; the full recording is available.");
-  } else if (finalStatus === "published") {
-    toast("Broadcast ended and published on the public Listen page.");
+  if (finalization.phase === "error") {
+    toast("The broadcast stopped, but it could not yet be saved as ended. Retry from the message on screen.");
+  } else if (finalization.phase === "no-recording") {
+    toast("Broadcast ended and kept as a draft because no complete recording is available.");
+  } else if (finalization.rewindSegmentError) {
+    toast("Broadcast ended. The full recording is ready; some live rewind segments could not be uploaded.");
+  } else {
+    toast("Broadcast ended. Choose whether to publish the complete recording.");
   }
   return true;
+}
+
+async function publishEndedBroadcast() {
+  const finalization = pendingBroadcastFinalization;
+  if (!finalization || (!finalization.recording && !finalization.recordingUploaded) ||
+      finalization.phase === "uploading") return;
+  finalization.phase = "uploading";
+  finalization.error = "";
+  finalization.errorStage = "";
+  syncBeforeUnloadWarning();
+  rerender();
+
+  try {
+    if (!finalization.recordingUploaded) {
+      await uploadAdminLiveAudioRecording(
+        finalization.programId,
+        finalization.sessionId,
+        finalization.recording
+      );
+      finalization.recordingUploaded = true;
+      finalization.recording = null;
+    }
+    await setAdminLiveAudioStatus(finalization.programId, "published");
+    finalization.phase = "complete";
+    try {
+      cachedData = await loadAdminLiveAudioData();
+    } catch (error) {
+      // Publishing succeeded; keep the completion state visible if the list refresh fails.
+    }
+    toast("The complete recording is uploaded and published on the public Listen page.");
+  } catch (error) {
+    finalization.phase = "error";
+    finalization.errorStage = "publish";
+    finalization.error = error.message || "The recording could not be uploaded and published.";
+  }
+  syncBeforeUnloadWarning();
+  rerender();
+}
+
+function completeBroadcastFinalization() {
+  pendingBroadcastFinalization = null;
+  syncBeforeUnloadWarning();
+  rerender();
 }
 
 export async function handleLiveAudioAdminAction(button) {
@@ -999,15 +1204,84 @@ export async function handleLiveAudioAdminAction(button) {
     rerender();
     return true;
   }
-  if (action === "audio-admin-publish") {
-    const program = cachedData.programs.find(item => item.id === button.dataset.id);
-    if (!program || !window.confirm('Publish "' + program.title + '" on the web Listen page?')) return true;
+  if (action === "audio-admin-keep-draft") {
+    pendingBroadcastFinalization = null;
+    syncBeforeUnloadWarning();
+    rerender();
+    toast("Broadcast kept as a draft and hidden from the public Listen page.");
+    return true;
+  }
+  if (action === "audio-admin-publish-ended") {
+    await publishEndedBroadcast();
+    return true;
+  }
+  if (action === "audio-admin-complete-finalization") {
+    completeBroadcastFinalization();
+    return true;
+  }
+  if (action === "audio-admin-retry-end") {
+    const finalization = pendingBroadcastFinalization;
+    if (!finalization || finalization.errorStage !== "ending") return true;
+    finalization.phase = "ending";
+    finalization.error = "";
+    rerender();
     try {
-      await setAdminLiveAudioStatus(program.id, "published");
+      const endedProgram = await endAdminLiveAudioProgram(finalization.programId, "draft");
+      if (cachedData && endedProgram) {
+        cachedData.programs = cachedData.programs.map(item => item.id === finalization.programId ? endedProgram : item);
+      }
+      finalization.phase = finalization.recording ? "choice" : "no-recording";
+      finalization.errorStage = "";
+      finalization.error = "";
+      try { cachedData = await loadAdminLiveAudioData(); } catch (error) {}
+      rerender();
+    } catch (error) {
+      finalization.phase = "error";
+      finalization.error = error.message || "The programme could not be marked as ended.";
+      rerender();
+    }
+    return true;
+  }
+  if (action === "audio-admin-live-with-recording" || action === "audio-admin-live-without-recording") {
+    const programId = pendingRecordingChoiceId;
+    pendingRecordingChoiceId = null;
+    rerender();
+    try {
+      await beginBroadcast(programId, action === "audio-admin-live-with-recording");
+    } catch (error) {
+      toast(error.message || "The broadcast could not start.");
+    }
+    return true;
+  }
+  if (action === "audio-admin-cancel-live-start") {
+    pendingRecordingChoiceId = null;
+    rerender();
+    return true;
+  }
+  if (action === "audio-admin-cancel-draft-publish") {
+    pendingDraftPublishId = null;
+    rerender();
+    return true;
+  }
+  if (action === "audio-admin-confirm-draft-publish") {
+    const programId = pendingDraftPublishId;
+    if (!programId) return true;
+    try {
+      await setAdminLiveAudioStatus(programId, "published");
       cachedData = await loadAdminLiveAudioData();
+      pendingDraftPublishId = null;
       rerender();
       toast("Programme published.");
-    } catch (error) { toast(error.message || "The programme could not be published."); }
+    } catch (error) {
+      toast(error.message || "The programme could not be published.");
+    }
+    return true;
+  }
+  if (action === "audio-admin-publish") {
+    const program = cachedData.programs.find(item => item.id === button.dataset.id);
+    if (!program) return true;
+    pendingDraftPublishId = program.id;
+    rerender();
     return true;
   }
   if (action === "audio-admin-delete") {
@@ -1050,11 +1324,8 @@ export async function handleLiveAudioAdminAction(button) {
     return true;
   }
   if (action === "audio-admin-go-live-now") {
-    const recordBroadcast = window.confirm(
-      "Record this live programme? Choose OK to start recording with the broadcast and publish the complete recording when you end it. Choose Cancel to go live without a recording."
-    );
-    try { await beginBroadcast(button.dataset.id, recordBroadcast); }
-    catch (error) { toast(error.message || "The broadcast could not start."); }
+    pendingRecordingChoiceId = button.dataset.id;
+    rerender();
     return true;
   }
   if (action === "audio-admin-stop-live") {
@@ -1151,5 +1422,5 @@ if (typeof document !== "undefined" && document.addEventListener) {
 }
 
 export function renderLiveAudioAdmin() {
-  return renderLiveAudioContent();
+  return renderLiveAudioContent() + renderBroadcastActionDialog();
 }

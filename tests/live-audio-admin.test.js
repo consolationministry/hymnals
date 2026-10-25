@@ -11,6 +11,7 @@ import {
 import {
   endAdminLiveAudioProgram,
   loadAdminLiveAudioInteractions,
+  setAdminLiveAudioStatus,
   uploadAdminLiveAudioSegment,
   uploadAdminLiveAudioRecording
 } from "../admin/js/live-audio-admin-data.js";
@@ -290,7 +291,7 @@ test("completed recordings upload audio bytes and save their private storage pat
   const programs = installAdminEnvironment();
   const programId = "123e4567-e89b-42d3-a456-426614174000";
   const sessionId = "123e4567-e89b-42d3-a456-426614174001";
-  programs.push({ id: programId, title: "Sunday Service", status: "published", is_live: true });
+  programs.push({ id: programId, title: "Sunday Service", status: "draft", is_live: false });
 
   const saved = await uploadAdminLiveAudioRecording(programId, sessionId, {
     blob: new Blob(["captured audio"], { type: "audio/webm" }),
@@ -304,29 +305,64 @@ test("completed recordings upload audio bytes and save their private storage pat
   assert.ok(upload);
   assert.equal(upload.method, "POST");
   assert.ok(upload.body instanceof Blob);
+  assert.equal(upload.headers.get("x-upsert"), "true");
+  assert.equal(programs[0].status, "draft");
 
-  const ended = await endAdminLiveAudioProgram(programId, "draft");
-  assert.equal(ended.status, "draft");
+  const published = await setAdminLiveAudioStatus(programId, "published");
+  assert.equal(published.status, "published");
 });
 
-test("live recording starts before signaling and publication waits for the completed archive", async () => {
+test("live recording starts before signaling and the ended draft stays private until upload completes", async () => {
   const source = await readFile(new URL("../admin/js/live-audio-admin.js", import.meta.url), "utf8");
   const beginStart = source.indexOf("async function beginBroadcast(");
   const endStart = source.indexOf("async function endBroadcast(", beginStart);
   const actionStart = source.indexOf('if (action === "audio-admin-go-live-now")');
   const actionEnd = source.indexOf('if (action === "audio-admin-stop-live")', actionStart);
+  const publishStart = source.indexOf("async function publishEndedBroadcast(", endStart);
+  const publishEnd = source.indexOf("function completeBroadcastFinalization(", publishStart);
   assert.ok(beginStart >= 0 && endStart > beginStart);
   assert.ok(actionStart >= 0 && actionEnd > actionStart);
+  assert.ok(publishStart > endStart && publishEnd > publishStart);
 
   const begin = source.slice(beginStart, endStart);
-  const end = source.slice(endStart, source.indexOf("export async function handleLiveAudioAdminAction", endStart));
+  const end = source.slice(endStart, publishStart);
   const goLiveAction = source.slice(actionStart, actionEnd);
+  const publish = source.slice(publishStart, publishEnd);
   assert.ok(begin.indexOf("startLiveAudioRecording") < begin.indexOf("startLiveAudioPublisher"));
   assert.match(begin, /onNetworkStatus/);
-  assert.match(goLiveAction, /Record this live programme/);
-  const finalization = end.indexOf("endAdminLiveAudioProgram(programId, finalStatus)");
-  assert.ok(end.indexOf("uploadAdminLiveAudioRecording") < finalization);
+  assert.doesNotMatch(goLiveAction, /window\.confirm/);
+  assert.match(source, /Record this broadcast\?/);
+  assert.match(end, /endAdminLiveAudioProgram\(programId, "draft"\)/);
+  assert.doesNotMatch(end, /uploadAdminLiveAudioRecording/);
+  assert.ok(publish.indexOf("uploadAdminLiveAudioRecording") < publish.indexOf('setAdminLiveAudioStatus(finalization.programId, "published")'));
+  assert.match(source, /Do not refresh or close this page until upload is complete/);
+  assert.match(source, /beforeunload/);
   assert.doesNotMatch(end, /window\.confirm/);
+});
+
+test("recording and draft publication decisions use the in-app dialog", async () => {
+  const programs = await prepare();
+  const programId = "123e4567-e89b-42d3-a456-426614174000";
+  programs.push({
+    id: programId,
+    title: "Sunday Service",
+    status: "draft",
+    is_live: false
+  });
+  await ensureLiveAudioAdminLoaded();
+  const prompts = [];
+  globalThis.window.confirm = message => { prompts.push(message); return true; };
+
+  await handleLiveAudioAdminAction({ dataset: { action: "audio-admin-go-live-now", id: programId } });
+  assert.match(renderLiveAudioAdmin(), /Record this broadcast\?/);
+  assert.match(renderLiveAudioAdmin(), /data-action="audio-admin-live-with-recording"/);
+  await handleLiveAudioAdminAction({ dataset: { action: "audio-admin-cancel-live-start" } });
+
+  await handleLiveAudioAdminAction({ dataset: { action: "audio-admin-publish", id: programId } });
+  assert.match(renderLiveAudioAdmin(), /Publish this broadcast\?/);
+  assert.match(renderLiveAudioAdmin(), /data-action="audio-admin-confirm-draft-publish"/);
+  assert.deepEqual(prompts, []);
+  await handleLiveAudioAdminAction({ dataset: { action: "audio-admin-cancel-draft-publish" } });
 });
 
 test("live rewind segments upload audio bytes and register their session timeline", async () => {
