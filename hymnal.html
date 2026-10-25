@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f8f6fa">
+  <meta name="description" content="A simple bilingual digital hymnal for Consolation Evangelical and Revival Church.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <title>Consolation Hymnal</title>
+  <link rel="icon" type="image/png" sizes="512x512" href="./assets/consolation-launcher.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="./assets/consolation-launcher-192.png">
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/live-audio.css">
+</head>
+<body>
+  <section class="splash" id="splash" aria-label="Opening Consolation Hymnal" aria-live="polite">
+    <div class="splash-emblem" aria-hidden="true">
+      <span class="splash-ring"></span>
+      <img class="splash-logo" src="./assets/consolation-launcher.png" width="138" height="138" alt="">
+    </div>
+    <p class="splash-kicker">WELCOME TO</p>
+    <h1>Consolation Evangelical<br>and Revival Church</h1>
+    <p class="splash-motto">Occupy Till I Come</p>
+    <span class="splash-loader" aria-label="Loading"></span>
+  </section>
+
+  <div class="app-shell" id="app-shell" hidden>
+    <header class="brand-header" id="brand-header"></header>
+    <main class="main-content" id="main-content" tabindex="-1"></main>
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Main navigation"></nav>
+  </div>
+  <dialog class="update-dialog" id="update-dialog" aria-labelledby="update-title" aria-describedby="update-message">
+    <div class="update-dialog-content">
+      <span class="update-dialog-icon" aria-hidden="true">↻</span>
+      <p class="update-kicker">APP UPDATE</p>
+      <h2 id="update-title">A new update is available</h2>
+      <p id="update-message">Get the latest screens and hymns inside the app. No APK installer or reinstall is needed.</p>
+      <p class="update-version" id="update-version"></p>
+      <p class="update-status" id="update-status" role="status" aria-live="polite" hidden></p>
+      <div class="update-dialog-actions">
+        <button class="button-secondary" type="button" data-action="dismiss-update">Later</button>
+        <button class="button-primary" type="button" data-action="install-update" id="update-install">Update now</button>
+      </div>
+    </div>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

@@ -1,10 +1,177 @@
-import { hymns } from "../data/public-domain-hymns.js";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
+import { readLocal, writeLocal } from "./local-store.js";
+import { DEFAULT_ACTIVE_HYMNAL, filterHymnsForActiveHymnal, isActiveHymnalId, isManagedHymnSource, normalizeActiveHymnal, UPLOADED_HYMN_SOURCE, UPLOADED_YORUBA_HYMN_SOURCE } from "./hymnal-selection.js";
 
-// Keep hymn data access behind this small service so the source can later be replaced by Supabase.
+const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-dual-v7";
+const ACTIVE_HYMNAL_CACHE_KEY = "cerc-active-hymnal-v2";
+const PUBLIC_HYMN_COLUMNS = [
+  "id",
+  "hymn_number",
+  "title_en",
+  "title_yoruba",
+  "first_line_en",
+  "first_line_yoruba",
+  "category",
+  "verses_en",
+  "verses_yoruba",
+  "chorus_en",
+  "chorus_yoruba",
+  "hymnal_note",
+  "keywords",
+  "author_en",
+  "source_hymnal",
+  "source_publication_year",
+  "source_hymn_number",
+  "source_first_line_en",
+  "source_hymnary_url",
+  "lyrics_source_url",
+  "status"
+].join(",");
+
+// Preserve printed "Various" labels without bundling hymn text in the member app.
+const VARIOUS_SOURCE_LABEL_HYMN_NUMBERS = new Set([
+  3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 28,
+  1003, 1005, 1007, 1009, 1010, 1012, 1014, 1016, 1018, 1020, 1022, 1024, 10038, 10040, 10058, 10084, 10107
+]);
+
+function asString(value) {
+  return typeof value === "string" ? value : "";
+}
+
+function asStringArray(value) {
+  return Array.isArray(value) ? value.filter(function (item) {
+    return typeof item === "string";
+  }) : [];
+}
+
+function isMeterTitle(title) {
+  return /^(?:\d+\.)+\d*(?:\s*[d&.]+\s*(?:ref\.?|chorus)?)?$/i.test(title);
+}
+
+function firstLine(verses) {
+  const first = Array.isArray(verses) ? verses.find(function (line) { return typeof line === "string" && line.trim(); }) : "";
+  return String(first || "").split(/\r?\n/)[0].trim();
+}
+
+function normalizePublishedRows(rows) {
+  if (!Array.isArray(rows)) return null;
+  const normalized = rows
+    .filter(function (row) {
+      if (!row || row.status !== "published" || !Number.isInteger(Number(row.hymn_number)) || Number(row.hymn_number) <= 0) return false;
+      return isManagedHymnSource(asString(row.source_hymnal).trim());
+    })
+    .map(function (row) {
+      const versesEn = asStringArray(row.verses_en);
+      const titleEn = asString(row.title_en);
+      const sourceHymnal = asString(row.source_hymnal).trim();
+      const isUploadedCollection = sourceHymnal === UPLOADED_HYMN_SOURCE;
+      const isYorubaCollection = sourceHymnal === UPLOADED_YORUBA_HYMN_SOURCE;
+      const hasMeterTitle = isMeterTitle(titleEn);
+      const firstVerseLine = firstLine(versesEn);
+      const lyricLine = firstLine(hasMeterTitle && isMeterTitle(firstVerseLine) ? versesEn.slice(1) : versesEn);
+      return {
+        id: asString(row.id),
+        hymn_number: Number(row.hymn_number),
+        title_en: hasMeterTitle ? lyricLine : titleEn,
+        title_yoruba: asString(row.title_yoruba),
+        first_line_en: hasMeterTitle ? lyricLine : asString(row.first_line_en),
+        first_line_yoruba: asString(row.first_line_yoruba),
+        category: asString(row.category),
+        verses_en: versesEn,
+        verses_yoruba: asStringArray(row.verses_yoruba),
+        chorus_en: asString(row.chorus_en),
+        chorus_yoruba: asString(row.chorus_yoruba),
+        hymnal_note: asString(row.hymnal_note),
+        keywords: asStringArray(row.keywords),
+        author_en: asString(row.author_en),
+        source_hymnal: sourceHymnal,
+        source_number_label: asString(row.source_number_label) || (isYorubaCollection
+          ? String(row.source_hymn_number || row.hymn_number).padStart(3, "0")
+          : String(row.source_hymn_number || row.hymn_number) + (isUploadedCollection && VARIOUS_SOURCE_LABEL_HYMN_NUMBERS.has(Number(row.hymn_number)) ? "V" : "")),
+        source_publication_year: row.source_publication_year || null,
+        source_hymn_number: row.source_hymn_number ? Number(row.source_hymn_number) : null,
+        source_first_line_en: hasMeterTitle ? lyricLine : asString(row.source_first_line_en),
+        source_hymnary_url: asString(row.source_hymnary_url),
+        lyrics_source_url: asString(row.lyrics_source_url),
+        status: "published"
+      };
+    })
+    .sort(function (a, b) { return a.hymn_number - b.hymn_number; });
+
+  return normalized;
+}
+
+async function fetchActiveHymnal() {
+  const cached = normalizeActiveHymnal(readLocal(ACTIVE_HYMNAL_CACHE_KEY, DEFAULT_ACTIVE_HYMNAL));
+  if (typeof fetch !== "function" || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return cached;
+  try {
+    const response = await fetch(
+      SUPABASE_URL.replace(/\/+$/, "") + "/rest/v1/rpc/get_active_hymnal",
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+          authorization: "Bearer " + SUPABASE_PUBLISHABLE_KEY,
+          "content-type": "application/json",
+          accept: "application/json"
+        },
+        body: "{}"
+      }
+    );
+    if (!response.ok) return cached;
+    const selection = await response.json();
+    if (!isActiveHymnalId(selection)) return cached;
+    writeLocal(ACTIVE_HYMNAL_CACHE_KEY, selection);
+    return selection;
+  } catch (error) {
+    return cached;
+  }
+}
+
+async function fetchPublishedHymns() {
+  if (typeof fetch !== "function" || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return null;
+  const query = new URLSearchParams({
+    select: PUBLIC_HYMN_COLUMNS,
+    status: "eq.published",
+    order: "hymn_number.asc"
+  });
+
+  try {
+    const [activeHymnal, response] = await Promise.all([
+      fetchActiveHymnal(),
+      fetch(
+        SUPABASE_URL.replace(/\/+$/, "") + "/rest/v1/hymns?" + query.toString(),
+        {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+            authorization: "Bearer " + SUPABASE_PUBLISHABLE_KEY,
+            accept: "application/json"
+          }
+        }
+      )
+    ]);
+    if (!response.ok) return null;
+    const rows = normalizePublishedRows(await response.json());
+    if (rows === null) return null;
+    const activeRows = filterHymnsForActiveHymnal(rows, activeHymnal);
+    writeLocal(PUBLISHED_HYMNS_CACHE_KEY, activeRows);
+    return activeRows;
+  } catch (error) {
+    return null;
+  }
+}
 export async function getAllHymns() {
-  return hymns.slice().sort(function (a, b) { return a.hymn_number - b.hymn_number; });
+  const published = await fetchPublishedHymns();
+  if (published !== null) return published;
+
+  const cached = normalizePublishedRows(readLocal(PUBLISHED_HYMNS_CACHE_KEY, null));
+  return cached === null ? [] : filterHymnsForActiveHymnal(cached, normalizeActiveHymnal(readLocal(ACTIVE_HYMNAL_CACHE_KEY, DEFAULT_ACTIVE_HYMNAL)));
 }
 
 export async function getHymnByNumber(number) {
-  return hymns.find(function (hymn) { return hymn.hymn_number === Number(number); }) || null;
+  const allHymns = await getAllHymns();
+  return allHymns.find(function (hymn) { return hymn.hymn_number === Number(number); }) || null;
 }

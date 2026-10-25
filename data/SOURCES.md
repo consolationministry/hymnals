@@ -1,23 +1,10 @@
 # Hymn text sources and rights notes
 
-## Current English collection
+## Included collections
 
-The app includes 197 English texts associated with *Pentecostal Hymns No. 1: A Winnowed Collection for Evangelistic Services, Young People's Societies and Sunday-Schools* (Chicago: Hope Publishing Company, 1894).
+- Uploaded English hymn collection: 128 entries from a user-provided document. The app records their source as `Uploaded Hymn Collection` and presents them as Original Consolation Hymn.
+- Uploaded Yorùbá hymn collection: 122 entries from the attached user-provided document. Printed source numbers are retained; internal record IDs are separate. The two distinct hymns printed as 64 are both included, while the exact duplicate printed as 192 is stored once. These songs are a separate collection, not verified English translations. Scripture references are retained in the `hymnal_note` field.
 
-- Hymnary hymnal record: <https://hymnary.org/hymnal/PH11894>
-- Each record stores its original hymn number and a link to its Hymnary instance and text-authority page.
-- Included text-authority pages explicitly mark the text “Public Domain.”
-- The app preserves the wording returned by the selected representative text record; wording can differ from the first-line metadata for alternate versions.
+## Attribution and rights
 
-The target is 250 hymns. This update includes only entries with a clean full-text transcript and an explicit Public Domain marker. It does not use unproofread archive OCR to fill the remaining entries.
-
-## Rights scope
-
-Hymnary's Public Domain label and the 1894 publication date are source evidence, not a worldwide legal opinion. The U.S. Copyright Office's Circular 15A states that works published in the United States before January 1, 1931 are in the public domain in the United States. Copyright status can differ by country; confirm local requirements before distributing this collection outside the United States.
-
-- U.S. Copyright Office, Circular 15A: <https://www.copyright.gov/circs/circ15a.pdf>
-- Internet Archive scan/OCR used for research only; unproofread OCR was not added to the app: <https://archive.org/>
-
-## Yorùbá
-
-No Yorùbá translations are included in this collection. The interface marks those texts as pending until a suitable source and rights status can be checked. Do not treat English lyrics or generated translations as approved Yorùbá text.
+The user-provided English and Yorùbá documents did not include separate publication or licensing information. Their entries remain marked “User-supplied; rights not verified.” No additional copyright or public-domain status is claimed here.

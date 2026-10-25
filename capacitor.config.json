@@ -10,5 +10,8 @@
       "autoUpdate": "off",
       "statsUrl": ""
     }
+  },
+  "server": {
+    "appStartPath": "/hymnal.html"
   }
 }
