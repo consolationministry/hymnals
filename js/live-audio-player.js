@@ -12,6 +12,14 @@ export function formatAudioTime(value) {
     : minutes + ":" + String(remainder).padStart(2, "0");
 }
 
+export function getAudioWaveformPosition(clientX, left, width) {
+  const x = Number(clientX);
+  const start = Number(left);
+  const span = Number(width);
+  if (![x, start, span].every(Number.isFinite) || span <= 0) return 0;
+  return Math.round(Math.max(0, Math.min(1, (x - start) / span)) * 1000);
+}
+
 export function getAudioWaveformHeights(samples, barCount = 40) {
   const count = Math.max(1, Math.floor(Number(barCount) || 40));
   const length = samples && Number(samples.length) || 0;
@@ -43,6 +51,7 @@ function getController(audio) {
     source: null,
     samples: null,
     frame: 0,
+    waveformElement: null,
     handlersAttached: false,
     preparing: null
   };
@@ -69,6 +78,7 @@ function updatePlayerControls(audio, controller) {
   const currentOutput = root.querySelector("[data-audio-current-time]");
   const durationOutput = root.querySelector("[data-audio-duration]");
   const bars = root.querySelectorAll("[data-audio-waveform] span");
+  const waveform = root.querySelector('[data-audio-waveform="recorded"]');
 
   if (playButton) {
     const playing = !audio.paused && !audio.ended;
@@ -85,6 +95,19 @@ function updatePlayerControls(audio, controller) {
     seek.disabled = !hasDuration;
     seek.value = String(Math.round(ratio * 1000));
     seek.setAttribute("aria-valuetext", formatAudioTime(currentTime) + " of " + (hasDuration ? formatAudioTime(duration) : "unknown duration"));
+  }
+  if (waveform) {
+    waveform.setAttribute("role", "slider");
+    waveform.setAttribute("aria-label", "Seek through recording waveform");
+    waveform.setAttribute("aria-valuemin", "0");
+    waveform.setAttribute("aria-valuemax", "1000");
+    waveform.setAttribute("aria-valuenow", String(Math.round(ratio * 1000)));
+    waveform.setAttribute("aria-valuetext", formatAudioTime(currentTime) + " of " + (hasDuration ? formatAudioTime(duration) : "unknown duration"));
+    waveform.setAttribute("aria-disabled", String(!hasDuration));
+    waveform.tabIndex = hasDuration ? 0 : -1;
+    waveform.style.cursor = hasDuration ? "pointer" : "default";
+    waveform.style.touchAction = "none";
+    waveform.classList.toggle("is-disabled", !hasDuration);
   }
   if (volume) volume.value = String(Math.round((audio.muted ? 0 : audio.volume) * 100));
   if (currentOutput) currentOutput.textContent = formatAudioTime(currentTime);
@@ -154,11 +177,61 @@ function attachAudioEvents(audio, controller) {
   });
 }
 
+function attachWaveformSeek(audio, controller) {
+  const waveform = controller.root && controller.root.querySelector('[data-audio-waveform="recorded"]');
+  if (!waveform || controller.waveformElement === waveform) return;
+  controller.waveformElement = waveform;
+  let activePointerId = null;
+
+  const seekFromPointer = event => {
+    const duration = Number(audio.duration);
+    if (!Number.isFinite(duration) || duration <= 0) return;
+    const bounds = waveform.getBoundingClientRect();
+    seekAudioPlayer(audio, getAudioWaveformPosition(event.clientX, bounds.left, bounds.width));
+  };
+  waveform.addEventListener("pointerdown", event => {
+    if (event.button !== undefined && event.button !== 0) return;
+    if (!Number.isFinite(Number(audio.duration)) || Number(audio.duration) <= 0) return;
+    activePointerId = event.pointerId;
+    if (typeof waveform.setPointerCapture === "function" && event.pointerId !== undefined) {
+      try { waveform.setPointerCapture(event.pointerId); } catch (error) {}
+    }
+    seekFromPointer(event);
+    event.preventDefault();
+  });
+  waveform.addEventListener("pointermove", event => {
+    if (activePointerId === null || event.pointerId !== activePointerId) return;
+    seekFromPointer(event);
+    event.preventDefault();
+  });
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(eventName => {
+    waveform.addEventListener(eventName, event => {
+      if (activePointerId === event.pointerId) activePointerId = null;
+    });
+  });
+  waveform.addEventListener("keydown", event => {
+    const duration = Number(audio.duration);
+    if (!Number.isFinite(duration) || duration <= 0) return;
+    const step = Math.max(1, duration * 0.01);
+    let nextTime = Number(audio.currentTime) || 0;
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") nextTime -= step;
+    else if (event.key === "ArrowRight" || event.key === "ArrowUp") nextTime += step;
+    else if (event.key === "PageDown") nextTime -= 10;
+    else if (event.key === "PageUp") nextTime += 10;
+    else if (event.key === "Home") nextTime = 0;
+    else if (event.key === "End") nextTime = duration;
+    else return;
+    audio.currentTime = Math.max(0, Math.min(duration, nextTime));
+    event.preventDefault();
+  });
+}
+
 export function mountAudioPlayer(audio, root) {
   if (!audio || !root) return;
   const controller = getController(audio);
   controller.root = root;
   attachAudioEvents(audio, controller);
+  attachWaveformSeek(audio, controller);
   updatePlayerControls(audio, controller);
   if (controller.analyser && !audio.paused) animateWaveform(audio, controller);
 }
