@@ -57,7 +57,7 @@ export async function bumpReleaseFiles(bump, projectRoot = root) {
     throw new Error("js/version.js is out of sync with package.json. Fix the version before releasing.");
   }
 
-  const cacheName = workerSource.match(/^const CACHE_NAME = "consolation-hymnal-([^"]+)";$/m);
+  const cacheName = workerSource.match(/^const CACHE_NAME = "consolation-hymnal-(\d+\.\d+\.\d+)([^"]*)";$/m);
   if (!cacheName || cacheName[1] !== currentVersion) {
     throw new Error("service-worker.js is out of sync with package.json. Fix the cache version before releasing.");
   }
@@ -73,7 +73,7 @@ export async function bumpReleaseFiles(bump, projectRoot = root) {
   );
   await writeFile(
     workerPath,
-    workerSource.replace(cacheName[0], `const CACHE_NAME = "consolation-hymnal-${nextVersion}";`)
+    workerSource.replace(cacheName[0], `const CACHE_NAME = "consolation-hymnal-${nextVersion}${cacheName[2]}";`)
   );
 
   return nextVersion;

@@ -4,7 +4,8 @@ import { createCategory, createHymn, createProgram, createService, deleteCategor
 import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "./admin-hymn-display.js?v=1";
 import { ACTIVE_HYMNALS, isActiveHymnalId, normalizeActiveHymnal } from "../../js/hymnal-selection.js";
 import { GROQ_API_KEY_STORAGE_KEY, requestGroqHymnEdit, validateGroqApiKey } from "./groq-hymn-editor.js?v=1";
-import { handleLiveAudioAdminAction, handleLiveAudioAdminSubmit, renderLiveAudioAdmin, stopAdminAudioMicTest } from "./live-audio-admin.js?v=9";
+import { handleLiveAudioAdminAction, handleLiveAudioAdminSubmit, renderLiveAudioAdmin, stopAdminAudioMicTest } from "./live-audio-admin.js?v=10";
+import { getCloudinarySettings, renderCloudinarySettingsPanel, removeCloudinarySettings, saveCloudinarySettings } from "./cloudinary-settings.js?v=1";
 
 const root = document.getElementById("admin-root");
 const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null, hymnRowsCache: { hymns: null, drafts: null }, hymnRowsLoading: { hymns: null, drafts: null }, hymnRowsVersion: { hymns: 0, drafts: 0 }, selectedHymnIds: new Set() };
@@ -737,8 +738,14 @@ async function renderSettingsWorkspace() {
   headingContent.append(make("h1", "", "Settings"), make("p", "", "Admin-only preferences saved in Supabase."));
   heading.append(headingContent); content.append(heading);
   try {
-    const results = await Promise.all([getCategories(), getAdminSettings(), getDailyQuoteSettings()]);
+    const results = await Promise.all([
+      getCategories(),
+      getAdminSettings(),
+      getDailyQuoteSettings(),
+      getCloudinarySettings().catch(() => ({ available: false, configured: false, cloudName: "" }))
+    ]);
     const categories = results[0]; const settings = results[1]; const quoteSettings = results[2];
+    const cloudinarySettings = results[3];
     const themeMode = ["system", "light", "dark"].includes(settings.defaultTheme) ? settings.defaultTheme : "system";
     applyAdminTheme(themeMode);
     const darkEnabled = themeMode === "dark" || (themeMode === "system" && getSystemTheme() === "dark");
@@ -769,7 +776,11 @@ async function renderSettingsWorkspace() {
     if (groqKeyInput) groqKeyInput.value = getGroqApiKey();
     const groqStatus = groqPanel.querySelector("#groq-key-status");
     if (groqStatus) groqStatus.textContent = getGroqApiKey() ? "A key is available in this browser tab session." : "No key saved in this browser tab.";
-    const modules = make("div", "settings-modules-grid"); modules.append(programSettings, quotePanel); content.append(modules); content.append(groqPanel);
+    const cloudinaryPanel = make("div", "");
+    cloudinaryPanel.innerHTML = renderCloudinarySettingsPanel(cloudinarySettings);
+    const modules = make("div", "settings-modules-grid");
+    modules.append(programSettings, quotePanel, cloudinaryPanel.firstElementChild);
+    content.append(modules); content.append(groqPanel);
     state.settingsFormStart = settings.defaultHymnCategory || "";
     state.quoteSettingsFormStart = quoteSettingsFormSignature();
   } catch (error) {
@@ -829,6 +840,41 @@ async function saveDailyQuoteSettings() {
     showToast(mode === "browser" ? "Quote settings saved in this browser preview." : "Quote settings saved for this open session only; browser storage is unavailable.");
   } catch (error) {
     if (errors) { errors.textContent = error && error.message ? error.message : "Quote settings could not be saved."; errors.hidden = false; }
+  }
+}
+async function saveCloudinarySettingsForm() {
+  const form = document.getElementById("cloudinary-settings-form");
+  if (!form) return;
+  const status = document.getElementById("cloudinary-settings-status");
+  const button = form.querySelector('button[type="submit"]');
+  if (button) { button.disabled = true; button.setAttribute("aria-busy", "true"); }
+  try {
+    await saveCloudinarySettings({
+      cloudName: form.elements.cloudName.value,
+      apiKey: form.elements.apiKey.value,
+      apiSecret: form.elements.apiSecret.value
+    });
+    await renderSettingsWorkspace();
+    showToast("Cloudinary settings saved. New broadcasts will store audio in Cloudinary.");
+  } catch (error) {
+    if (status) status.textContent = error && error.message
+      ? error.message
+      : "Cloudinary settings could not be saved.";
+  } finally {
+    if (button && button.isConnected) { button.disabled = false; button.removeAttribute("aria-busy"); }
+  }
+}
+async function disconnectCloudinarySettings() {
+  if (!window.confirm("Disconnect Cloudinary? New broadcasts will no longer upload recordings or rewind segments.")) return;
+  try {
+    await removeCloudinarySettings();
+    await renderSettingsWorkspace();
+    showToast("Cloudinary disconnected. Existing files remain in Cloudinary, but audio signing is paused until it is reconnected.");
+  } catch (error) {
+    const status = document.getElementById("cloudinary-settings-status");
+    if (status) status.textContent = error && error.message
+      ? error.message
+      : "Cloudinary could not be disconnected.";
   }
 }
 function renderCurrentView() {
@@ -1203,6 +1249,8 @@ root.addEventListener("click", async function (event) {
     saveGroqApiKey();
   } else if (action === "clear-groq-key") {
     clearGroqApiKey();
+  } else if (action === "remove-cloudinary-settings") {
+    await disconnectCloudinarySettings();
   } else if (action === "toggle-groq-key") {
     const input = document.getElementById("groq-api-key"); if (!input) return;
     const show = input.type === "password"; input.type = show ? "text" : "password"; button.textContent = show ? "Hide key" : "Show key";
@@ -1336,6 +1384,8 @@ root.addEventListener("submit", async function (event) {
     event.preventDefault(); await saveSettingsForm();
   } else if (event.target.id === "daily-quote-form") {
     event.preventDefault(); await saveDailyQuoteSettings();
+  } else if (event.target.id === "cloudinary-settings-form") {
+    event.preventDefault(); await saveCloudinarySettingsForm();
   } else if (event.target.id === "service-form") {
     event.preventDefault(); await saveServiceForm(event.submitter);
   } else if (event.target.id === "program-form") {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "consolation-hymnal-1.1.85-offline-audio";
+const CACHE_NAME = "consolation-hymnal-1.1.86-offline-audio";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
@@ -17,6 +17,7 @@ const PRECACHE_URLS = [
   "./js/live-audio-offline.js",
   "./js/live-audio-player.js",
   "./js/live-audio-public-data.js",
+  "./js/cloudinary-live-audio.js",
   "./js/live-audio-realtime.js",
   "./js/live-audio-recording.js",
   "./js/live-audio-views.js",

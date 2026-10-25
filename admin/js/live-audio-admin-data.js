@@ -1,4 +1,5 @@
 import { supabaseRequest } from "./supabase-client.js?v=32";
+import { parseCloudinaryLiveAudioReference } from "../../js/cloudinary-live-audio.js";
 
 const CATEGORIES = ["Bible Study", "Sunday Service", "Prayer Meeting", "Worship", "Youth Service", "Other"];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -27,6 +28,90 @@ function normalizeProgram(row) {
     updatedAt: row.updated_at || "",
     listenCount: Math.max(0, Number(row.listener_count) || 0)
   };
+}
+
+const CLOUDINARY_CHUNK_SIZE = 20 * 1024 * 1024;
+
+async function getCloudinaryUploadSignature(programId, sessionId, kind, format, segmentIndex) {
+  const signature = await supabaseRequest("functions/v1/cloudinary-live-audio", {
+    method: "POST",
+    body: {
+      action: "sign-upload",
+      programId,
+      sessionId,
+      kind,
+      format,
+      segmentIndex: segmentIndex == null ? null : segmentIndex
+    }
+  });
+  const asset = parseCloudinaryLiveAudioReference(signature && signature.assetReference);
+  const expectedKind = kind === "segment" ? "segment" : "recording";
+  if (!asset || asset.programId !== programId || asset.sessionId !== sessionId ||
+      asset.kind !== expectedKind || asset.format !== format ||
+      (expectedKind === "segment" && asset.segmentIndex !== Number(segmentIndex)) ||
+      !/^[a-z0-9_-]{1,64}$/i.test(String(signature.cloudName || "")) ||
+      !String(signature.apiKey || "") || !String(signature.signature || "") ||
+      !Number.isInteger(Number(signature.timestamp)) || !String(signature.public_id || "")) {
+    throw new Error("Cloudinary could not prepare a safe audio upload. Check its connection in Admin Settings.");
+  }
+  return signature;
+}
+
+function makeCloudinaryUploadForm(signature, blob, filename) {
+  const form = new FormData();
+  form.append("file", blob, filename);
+  form.append("api_key", signature.apiKey);
+  form.append("timestamp", String(signature.timestamp));
+  form.append("public_id", signature.public_id);
+  form.append("overwrite", "true");
+  form.append("type", "authenticated");
+  form.append("signature", signature.signature);
+  return form;
+}
+
+async function uploadToCloudinary(signature, blob, filename) {
+  const endpoint = "https://api.cloudinary.com/v1_1/" +
+    encodeURIComponent(signature.cloudName) + "/video/upload";
+  const uploadId = globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
+    ? globalThis.crypto.randomUUID()
+    : String(Date.now()) + "-" + Math.random().toString(36).slice(2);
+  let finalResult = null;
+  for (let start = 0; start < blob.size; start += CLOUDINARY_CHUNK_SIZE) {
+    const endExclusive = Math.min(start + CLOUDINARY_CHUNK_SIZE, blob.size);
+    const chunk = blob.slice(start, endExclusive, blob.type || undefined);
+    const isChunked = blob.size > CLOUDINARY_CHUNK_SIZE;
+    const headers = isChunked
+      ? {
+          "Content-Range": "bytes " + start + "-" + (endExclusive - 1) + "/" + blob.size,
+          "X-Unique-Upload-Id": uploadId
+        }
+      : undefined;
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: makeCloudinaryUploadForm(signature, chunk, filename)
+      });
+    } catch (error) {
+      throw new Error("Cloudinary upload was interrupted. Retry the recording upload.");
+    }
+    const text = await response.text();
+    let result = null;
+    if (text) {
+      try { result = JSON.parse(text); }
+      catch (error) { result = null; }
+    }
+    if (!response.ok) {
+      throw new Error("Cloudinary rejected the audio upload. Check account limits and try again.");
+    }
+    finalResult = result;
+  }
+  if (!finalResult || !finalResult.public_id || finalResult.public_id !== signature.public_id ||
+      (finalResult.format && finalResult.format !== signature.format)) {
+    throw new Error("Cloudinary did not confirm the complete audio upload. Retry the recording upload.");
+  }
+  return signature.assetReference;
 }
 
 export async function loadAdminLiveAudioData() {
@@ -122,35 +207,28 @@ export async function uploadAdminLiveAudioRecording(programId, sessionId, record
   const extension = extensions[format];
   if (!extension) throw new Error("The recording uses an unsupported audio format.");
 
-  const storagePath = programId + "/" + sessionId + "." + extension;
-  const encodedPath = storagePath.split("/").map(encodeURIComponent).join("/");
-  const storageEndpoint = "storage/v1/object/live-audio-recordings/" + encodedPath;
-  await supabaseRequest(storageEndpoint, {
-    method: "POST",
-    headers: { "content-type": format, "x-upsert": "true" },
-    body: recording.blob
-  });
+  const signature = await getCloudinaryUploadSignature(programId, sessionId, "recording", extension);
+  const storagePath = await uploadToCloudinary(
+    signature,
+    recording.blob,
+    "recording." + extension
+  );
 
-  try {
-    const rows = await supabaseRequest(
-      "rest/v1/live_audio_programs?id=eq." + encodeURIComponent(programId) + "&select=*",
-      {
-        method: "PATCH",
-        prefer: "return=representation",
-        body: {
-          recording_path: storagePath,
-          recording_duration_seconds: Math.max(1, Math.round(Number(recording.durationSeconds) || 1)),
-          updated_at: new Date().toISOString()
-        }
+  const rows = await supabaseRequest(
+    "rest/v1/live_audio_programs?id=eq." + encodeURIComponent(programId) + "&select=*",
+    {
+      method: "PATCH",
+      prefer: "return=representation",
+      body: {
+        recording_path: storagePath,
+        recording_duration_seconds: Math.max(1, Math.round(Number(recording.durationSeconds) || 1)),
+        updated_at: new Date().toISOString()
       }
-    );
-    const row = asArray(rows)[0];
-    if (!row) throw new Error("The recording uploaded, but its broadcast details could not be saved.");
-    return normalizeProgram(row);
-  } catch (error) {
-    await supabaseRequest(storageEndpoint, { method: "DELETE" }).catch(() => {});
-    throw error;
-  }
+    }
+  );
+  const row = asArray(rows)[0];
+  if (!row) throw new Error("The recording uploaded to Cloudinary, but its broadcast details could not be saved. Retry publishing.");
+  return normalizeProgram(row);
 }
 
 export async function uploadAdminLiveAudioSegment(programId, sessionId, segment) {
@@ -172,34 +250,32 @@ export async function uploadAdminLiveAudioSegment(programId, sessionId, segment)
   }
 
   const segmentIndex = Number(segment.index);
-  const storagePath = programId + "/" + sessionId + "/segments/" +
-    String(segmentIndex).padStart(6, "0") + "." + extension;
-  const storageEndpoint = "storage/v1/object/live-audio-recordings/" +
-    storagePath.split("/").map(encodeURIComponent).join("/");
-  await supabaseRequest(storageEndpoint, {
-    method: "POST",
-    headers: { "content-type": format },
-    body: segment.blob
-  });
+  const signature = await getCloudinaryUploadSignature(
+    programId,
+    sessionId,
+    "segment",
+    extension,
+    segmentIndex
+  );
+  const storagePath = await uploadToCloudinary(
+    signature,
+    segment.blob,
+    String(segmentIndex).padStart(6, "0") + "." + extension
+  );
 
-  try {
-    await supabaseRequest("rest/v1/live_audio_segments", {
-      method: "POST",
-      prefer: "return=minimal",
-      body: {
-        program_id: programId,
-        session_id: sessionId,
-        segment_index: segmentIndex,
-        started_at: startedAt.toISOString(),
-        duration_seconds: Math.round(durationSeconds * 1000) / 1000,
-        storage_path: storagePath
-      }
-    });
-    return storagePath;
-  } catch (error) {
-    await supabaseRequest(storageEndpoint, { method: "DELETE" }).catch(() => {});
-    throw error;
-  }
+  await supabaseRequest("rest/v1/live_audio_segments", {
+    method: "POST",
+    prefer: "return=minimal",
+    body: {
+      program_id: programId,
+      session_id: sessionId,
+      segment_index: segmentIndex,
+      started_at: startedAt.toISOString(),
+      duration_seconds: Math.round(durationSeconds * 1000) / 1000,
+      storage_path: storagePath
+    }
+  });
+  return storagePath;
 }
 
 export async function saveAdminLiveAudioCategories(categories) {

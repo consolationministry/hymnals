@@ -1,4 +1,5 @@
 import { createLiveAudioId, createLiveAudioRecordingSignedUrl, getLiveAudioVisitorId, liveAudioRequest } from "./live-audio-realtime.js";
+import { createCloudinaryLiveAudioPlaybackUrl, parseCloudinaryLiveAudioReference } from "./cloudinary-live-audio.js";
 
 const DEFAULT_CATEGORIES = ["Bible Study", "Sunday Service", "Prayer Meeting", "Worship", "Youth Service", "Other"];
 const REACTION_TYPES = ["love", "clap", "fire"];
@@ -53,7 +54,10 @@ async function resolveRecordingUrl(program) {
   if (!program.recordingPath) return "";
   const cached = RECORDING_URL_CACHE.get(program.recordingPath);
   if (cached && cached.expiresAt > Date.now()) return cached.url;
-  const url = await createLiveAudioRecordingSignedUrl(program.recordingPath);
+  const cloudinaryAsset = parseCloudinaryLiveAudioReference(program.recordingPath);
+  const url = cloudinaryAsset
+    ? await createCloudinaryLiveAudioPlaybackUrl(program.recordingPath)
+    : await createLiveAudioRecordingSignedUrl(program.recordingPath);
   if (url) RECORDING_URL_CACHE.set(program.recordingPath, { url, expiresAt: Date.now() + 55 * 60 * 1000 });
   return url;
 }
@@ -68,17 +72,23 @@ async function resolveLiveAudioSegments(program) {
       "&session_id=eq." + encodeURIComponent(program.liveSessionId) +
       "&order=segment_index.asc"
     ));
-    const prefix = program.id + "/" + program.liveSessionId + "/segments/";
     const segments = rows.map(row => {
       const index = Number(row.segment_index);
       const durationSeconds = Number(row.duration_seconds);
       const storagePath = String(row.storage_path || "");
-      const file = storagePath.startsWith(prefix)
+      const cloudinaryAsset = parseCloudinaryLiveAudioReference(storagePath);
+      const isCloudinarySegment = cloudinaryAsset &&
+        cloudinaryAsset.kind === "segment" &&
+        cloudinaryAsset.programId === program.id &&
+        cloudinaryAsset.sessionId === program.liveSessionId &&
+        cloudinaryAsset.segmentIndex === index;
+      const prefix = program.id + "/" + program.liveSessionId + "/segments/";
+      const file = !cloudinaryAsset && storagePath.startsWith(prefix)
         ? storagePath.slice(prefix.length).match(/^([0-9]{6})\.(webm|ogg|m4a)$/i)
         : null;
       if (!Number.isInteger(index) || index < 0 ||
           !Number.isFinite(durationSeconds) || durationSeconds <= 0 ||
-          !file || Number(file[1]) !== index) return null;
+          (!isCloudinarySegment && (!file || Number(file[1]) !== index))) return null;
       return {
         index,
         durationSeconds,
@@ -91,7 +101,9 @@ async function resolveLiveAudioSegments(program) {
       const cached = LIVE_SEGMENT_URL_CACHE.get(segment.storagePath);
       const url = cached && cached.expiresAt > now
         ? cached.url
-        : await createLiveAudioRecordingSignedUrl(segment.storagePath);
+        : parseCloudinaryLiveAudioReference(segment.storagePath)
+          ? await createCloudinaryLiveAudioPlaybackUrl(segment.storagePath)
+          : await createLiveAudioRecordingSignedUrl(segment.storagePath);
       if (url) LIVE_SEGMENT_URL_CACHE.set(segment.storagePath, {
         url,
         expiresAt: now + 55 * 60 * 1000

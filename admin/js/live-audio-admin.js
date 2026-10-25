@@ -9,7 +9,7 @@ import {
   startAdminLiveAudioProgram,
   uploadAdminLiveAudioSegment,
   uploadAdminLiveAudioRecording
-} from "./live-audio-admin-data.js";
+} from "./live-audio-admin-data.js?v=1";
 import { createLiveAudioId } from "../../js/live-audio-realtime.js";
 import { startLiveAudioRecording } from "../../js/live-audio-recording.js?v=2";
 import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=3";

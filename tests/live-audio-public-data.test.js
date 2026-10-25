@@ -69,6 +69,14 @@ function installBackend(options) {
     } else if (url.pathname.includes("/storage/v1/object/sign/live-audio-recordings/")) {
       const objectPath = decodeURIComponent(url.pathname.split("/object/sign/live-audio-recordings/")[1] || "");
       payload = { signedURL: "/object/sign/live-audio-recordings/" + objectPath + "?token=test-token" };
+    } else if (url.pathname.endsWith("/functions/v1/cloudinary-live-audio")) {
+      const reference = body.kind === "segment"
+        ? "segments/" + String(body.segmentIndex).padStart(6, "0")
+        : "recording";
+      payload = {
+        url: "https://res.cloudinary.com/demo/video/authenticated/s--safeSig--/live-audio/" +
+          body.programId + "/" + body.sessionId + "/" + reference + "." + body.format
+      };
     } else if (url.pathname.endsWith("/live_audio_segments")) {
       payload = opts.segmentRows || [];
     } else if (url.pathname.endsWith("/rpc/get_live_audio_interactions")) {
@@ -176,6 +184,27 @@ test("published recordings get temporary public playback URLs and an archive pla
   assert.doesNotMatch(listener, /data-action="connect-live-audio"/);
 });
 
+test("published Cloudinary recordings resolve to protected Cloudinary playback URLs", async () => {
+  const recordingPath = "cloudinary:video:authenticated:live-audio/" + PROGRAM_ID + "/" + SESSION_ID + "/recording:webm";
+  const calls = installBackend({ recordingPath, isLive: false });
+  const data = await loadPublicLiveAudioData();
+  const program = data.programs[0];
+
+  assert.equal(program.recordingUrl, "https://res.cloudinary.com/demo/video/authenticated/s--safeSig--/live-audio/" +
+    PROGRAM_ID + "/" + SESSION_ID + "/recording.webm");
+  const playbackRequest = calls.find(call => call.path.endsWith("/functions/v1/cloudinary-live-audio"));
+  assert.ok(playbackRequest);
+  assert.deepEqual(playbackRequest.body, {
+    action: "resolve-playback-url",
+    kind: "recording",
+    programId: PROGRAM_ID,
+    sessionId: SESSION_ID,
+    segmentIndex: null,
+    format: "webm"
+  });
+  assert.equal(calls.some(call => call.path.includes("/storage/v1/object/sign/live-audio-recordings/")), false);
+});
+
 test("live programmes expose signed rewind segments in timeline order", async () => {
   const segments = [
     { segment_index: 0, started_at: "2026-10-25T10:00:00.000Z", duration_seconds: 15, storage_path: PROGRAM_ID + "/" + SESSION_ID + "/segments/000000.webm" },
@@ -194,6 +223,21 @@ test("live programmes expose signed rewind segments in timeline order", async ()
   assert.equal(calls.filter(call => call.path.includes("/storage/v1/object/sign/live-audio-recordings/")).length, 2);
   const listener = renderLiveAudioListener(data, PROGRAM_ID);
   assert.match(listener, /data-live-audio-segments=/);
+});
+
+test("Cloudinary live rewind segments resolve to protected URLs in order", async () => {
+  const segments = [
+    { segment_index: 0, started_at: "2026-10-25T10:00:00.000Z", duration_seconds: 15, storage_path: "cloudinary:video:authenticated:live-audio/" + PROGRAM_ID + "/" + SESSION_ID + "/segments/000000:webm" },
+    { segment_index: 1, started_at: "2026-10-25T10:00:15.000Z", duration_seconds: 15, storage_path: "cloudinary:video:authenticated:live-audio/" + PROGRAM_ID + "/" + SESSION_ID + "/segments/000001:webm" }
+  ];
+  const calls = installBackend({ segmentRows: segments });
+  const data = await loadPublicLiveAudioData();
+  const program = data.programs[0];
+
+  assert.deepEqual(program.liveSegments.map(segment => segment.index), [0, 1]);
+  assert.ok(program.liveSegments.every(segment => segment.url.startsWith("https://res.cloudinary.com/demo/video/authenticated/s--safeSig--/")));
+  assert.equal(calls.filter(call => call.path.endsWith("/functions/v1/cloudinary-live-audio")).length, 2);
+  assert.equal(calls.filter(call => call.path.includes("/storage/v1/object/sign/live-audio-recordings/")).length, 0);
 });
 
 test("live audio remains available before the recording migration is applied", async () => {

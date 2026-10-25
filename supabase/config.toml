@@ -1,2 +1,5 @@
 [functions.turn-credentials]
 verify_jwt = false
+
+[functions.cloudinary-live-audio]
+verify_jwt = false

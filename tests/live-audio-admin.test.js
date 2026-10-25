@@ -57,6 +57,7 @@ function installAdminEnvironment() {
     const url = new URL(input);
     const method = options && options.method || "GET";
     calls.push({ url, method, body: options && options.body, headers: options && options.headers });
+    const requestBody = options && typeof options.body === "string" ? JSON.parse(options.body) : options && options.body;
     let body = null;
     if (url.pathname.endsWith("/live_audio_programs")) {
       if (method === "GET") body = programs.slice();
@@ -100,6 +101,30 @@ function installAdminEnvironment() {
         listener_count: 19,
         comments: [{ id: "comment-1", body: "God is good!", created_at: "2026-10-20T12:30:00.000Z" }]
       }];
+    } else if (url.pathname.endsWith("/functions/v1/cloudinary-live-audio")) {
+      const suffix = requestBody.kind === "segment"
+        ? "/segments/" + String(requestBody.segmentIndex).padStart(6, "0")
+        : "/recording";
+      body = {
+        cloudName: "test-cloud",
+        apiKey: "1234567890",
+        timestamp: 1792946065,
+        public_id: "live-audio/" + requestBody.programId + "/" + requestBody.sessionId + suffix,
+        overwrite: "true",
+        type: "authenticated",
+        signature: "safe-test-signature",
+        kind: requestBody.kind,
+        format: requestBody.format,
+        assetReference: "cloudinary:video:authenticated:live-audio/" + requestBody.programId + "/" + requestBody.sessionId + suffix + ":" + requestBody.format
+      };
+    } else if (url.hostname === "api.cloudinary.com") {
+      const fields = options.body && Array.isArray(options.body.fields) ? options.body.fields : [];
+      const field = name => fields.find(item => item[0] === name)?.[1];
+      body = {
+        public_id: field("public_id"),
+        format: field("filename")?.split(".").pop() || "webm",
+        secure_url: "https://res.cloudinary.com/test-cloud/video/authenticated/asset.webm"
+      };
     }
     return {
       ok: true,
@@ -108,8 +133,9 @@ function installAdminEnvironment() {
     };
   };
   globalThis.FormData = class {
-    constructor(form) { this.form = form; }
-    entries() { return Object.entries(this.form.values)[Symbol.iterator](); }
+    constructor(form) { this.form = form || null; this.fields = []; }
+    entries() { return this.form ? Object.entries(this.form.values)[Symbol.iterator]() : this.fields[Symbol.iterator](); }
+    append(name, value, filename) { this.fields.push([name, value, filename]); }
   };
   programs.calls = calls;
   return programs;
@@ -287,7 +313,7 @@ test("ending a remote live broadcast without its local recording keeps it unpubl
   assert.deepEqual(prompts, []);
 });
 
-test("completed recordings upload audio bytes and save their private storage path", async () => {
+test("completed recordings upload directly to Cloudinary and save a private asset reference", async () => {
   const programs = installAdminEnvironment();
   const programId = "123e4567-e89b-42d3-a456-426614174000";
   const sessionId = "123e4567-e89b-42d3-a456-426614174001";
@@ -299,13 +325,18 @@ test("completed recordings upload audio bytes and save their private storage pat
     durationSeconds: 42
   });
 
-  assert.equal(saved.recordingPath, programId + "/" + sessionId + ".webm");
+  assert.equal(saved.recordingPath, "cloudinary:video:authenticated:live-audio/" + programId + "/" + sessionId + "/recording:webm");
   assert.equal(saved.recordingDurationSeconds, 42);
-  const upload = programs.calls.find(call => call.url.pathname.includes("/storage/v1/object/live-audio-recordings/"));
+  const signature = programs.calls.find(call => call.url.pathname.endsWith("/functions/v1/cloudinary-live-audio"));
+  assert.ok(signature);
+  assert.equal(JSON.parse(signature.body).action, "sign-upload");
+  const upload = programs.calls.find(call => call.url.hostname === "api.cloudinary.com");
   assert.ok(upload);
   assert.equal(upload.method, "POST");
-  assert.ok(upload.body instanceof Blob);
-  assert.equal(upload.headers.get("x-upsert"), "true");
+  assert.equal(upload.url.pathname, "/v1_1/test-cloud/video/upload");
+  assert.ok(upload.body.fields.some(field => field[0] === "file" && field[1] instanceof Blob));
+  assert.ok(upload.body.fields.some(field => field[0] === "type" && field[1] === "authenticated"));
+  assert.ok(!upload.body.fields.some(field => field[0] === "api_secret"));
   assert.equal(programs[0].status, "draft");
 
   const published = await setAdminLiveAudioStatus(programId, "published");
@@ -377,7 +408,7 @@ test("draft recording storage stays private until the programme is published", a
   assert.match(recordingsMigration, /create policy live_audio_recordings_published_read[\s\S]*?p\.status = 'published'/);
 });
 
-test("live rewind segments upload audio bytes and register their session timeline", async () => {
+test("live rewind segments upload to Cloudinary and register their session timeline", async () => {
   const programs = installAdminEnvironment();
   const programId = "123e4567-e89b-42d3-a456-426614174000";
   const sessionId = "123e4567-e89b-42d3-a456-426614174001";
@@ -389,11 +420,11 @@ test("live rewind segments upload audio bytes and register their session timelin
     contentType: "audio/webm"
   });
 
-  assert.equal(storagePath, programId + "/" + sessionId + "/segments/000003.webm");
-  const upload = programs.calls.find(call => call.url.pathname.includes("/storage/v1/object/live-audio-recordings/"));
+  assert.equal(storagePath, "cloudinary:video:authenticated:live-audio/" + programId + "/" + sessionId + "/segments/000003:webm");
+  const upload = programs.calls.find(call => call.url.hostname === "api.cloudinary.com");
   assert.ok(upload);
   assert.equal(upload.method, "POST");
-  assert.ok(upload.body instanceof Blob);
+  assert.ok(upload.body.fields.some(field => field[0] === "file" && field[1] instanceof Blob));
   const savedSegment = programs.calls.find(call => call.url.pathname.endsWith("/live_audio_segments"));
   assert.ok(savedSegment);
   assert.equal(savedSegment.method, "POST");
@@ -405,4 +436,23 @@ test("live rewind segments upload audio bytes and register their session timelin
     duration_seconds: 15,
     storage_path: storagePath
   });
+});
+
+test("large recordings use Cloudinary's ranged chunk upload protocol", async () => {
+  const programs = installAdminEnvironment();
+  const programId = "123e4567-e89b-42d3-a456-426614174000";
+  const sessionId = "123e4567-e89b-42d3-a456-426614174001";
+  programs.push({ id: programId, title: "Sunday Service", status: "draft", is_live: false });
+
+  await uploadAdminLiveAudioRecording(programId, sessionId, {
+    blob: new Blob([new Uint8Array(20 * 1024 * 1024 + 1)], { type: "audio/webm" }),
+    contentType: "audio/webm",
+    durationSeconds: 1200
+  });
+
+  const chunks = programs.calls.filter(call => call.url.hostname === "api.cloudinary.com");
+  assert.equal(chunks.length, 2);
+  assert.equal(new Headers(chunks[0].headers).get("content-range"), "bytes 0-20971519/20971521");
+  assert.equal(new Headers(chunks[1].headers).get("content-range"), "bytes 20971520-20971520/20971521");
+  assert.equal(new Headers(chunks[0].headers).get("x-unique-upload-id"), new Headers(chunks[1].headers).get("x-unique-upload-id"));
 });
