@@ -5,6 +5,12 @@
   "android": {
     "allowMixedContent": false
   },
+  "plugins": {
+    "CapacitorUpdater": {
+      "autoUpdate": "off",
+      "statsUrl": ""
+    }
+  },
   "server": {
     "appStartPath": "/hymnal.html"
   }

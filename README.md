@@ -55,15 +55,15 @@ The debug APK is for testing and sideloading, not a Play Store release.
 
 ## In-app Android updates
 
-The Android app checks the latest non-draft GitHub Release when online. If its tag is newer than the installed version and the release includes `consolation-hymnal-android.apk`, the app shows an update prompt, downloads the APK into app-private cache, then opens Android's package installer. Android—not the app—asks the user to confirm the install. The app cannot silently bypass that system prompt.
+The Android app checks the latest non-draft GitHub Release when online. The signed-release workflow attaches `consolation-hymnal-android-web.zip` beside the APK. The app downloads that web bundle and applies it inside the app; changes to app screens, code, or bundled hymn texts do not require downloading or reinstalling the APK. The updater confirms a bundle after it starts and can roll back a bundle that fails to start.
 
-Signed Android releases are built by `.github/workflows/android-release.yml`. To create the next release, open **Actions → Android signed release → Run workflow** on the `main` branch and choose a patch, minor, or major increment. The workflow updates the app, lockfile, and offline-cache versions together, commits the version bump, tags it, builds the signed APK, and publishes it as `consolation-hymnal-android.apk`. Existing `vX.Y.Z` tags that match `package.json` can still be pushed to build a release.
+To publish a live update, run the signed-release workflow on `main` and choose the version increment, or push a matching `vX.Y.Z` tag. The workflow builds and attaches both the signed APK and the web bundle. Native Android changes still require a newly built and signed APK, installed through Android or the app store.
+
+Signed Android releases are built by `.github/workflows/android-release.yml`. To create the next release, open **Actions → Android signed release → Run workflow** on the `main` branch and choose a patch, minor, or major increment. The workflow updates the app, lockfile, and offline-cache versions together, commits the version bump, tags it, builds the signed APK and in-app web bundle, and publishes both assets. Existing `vX.Y.Z` tags that match `package.json` can also be pushed to build a release.
 
 Configure the GitHub Actions secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. The workflow decodes the keystore only on the runner. Keep the same private keystore for every release, back it up securely, and never commit it. The Android `versionCode` is derived automatically from the app version. A pull request or feature-branch build alone does not publish an app update; members receive the update only after a signed release completes. The first official release may not install over earlier debug APKs if their signatures differ; uninstalling a mismatched test build can erase device-local favorites and settings.
 
-Older test APKs were produced by a separate debug workflow and may not share the release signing key. If Android rejects the first signed update because the signatures differ, install the signed release once from its GitHub Release; uninstalling a mismatched test build can erase its device-local favorites and settings.
-
-Updates require an internet connection. The web app updates its cached files through the service worker; Android app updates replace the installed APK through the Android installer. Neither update path removes local Favorites or preferences when the Android package signature remains the same.
+Live updates require an internet connection to download the bundle. Applying a live update keeps local Favorites and preferences. Native Android code changes are outside the live bundle and require an APK update.
 
 ## GitHub Pages
 
