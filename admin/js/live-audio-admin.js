@@ -297,12 +297,21 @@ function renderBroadcastActionDialog() {
       status = '<span class="audio-finalize-spinner" aria-hidden="true"></span>';
     } else if (finalization.phase === "choice") {
       message = '“' + title + '” is off air and saved as a draft. It will stay off the public Listen page until you choose to publish the complete recording.';
-      actions = '<button class="button button-secondary" type="button" data-action="audio-admin-keep-draft">Keep as draft</button>' +
+      actions = '<button class="button button-secondary" type="button" data-action="audio-admin-discard-recording">Keep draft without recording</button>' +
+        '<button class="button button-secondary" type="button" data-action="audio-admin-keep-draft">Save privately as draft</button>' +
         '<button class="button button-primary" type="button" data-action="audio-admin-publish-ended">Upload &amp; publish</button>';
     } else if (finalization.phase === "uploading") {
       heading = "Uploading the complete recording";
       message = '“' + title + '” remains unpublished while its full recording uploads. Do not refresh or close this page until upload is complete.';
       status = '<span class="audio-finalize-spinner" aria-hidden="true"></span>';
+    } else if (finalization.phase === "saving-draft") {
+      heading = "Saving the recording privately";
+      message = '“' + title + '” is being saved as a draft. Its full recording will stay private and will not appear on the public Listen page.';
+      status = '<span class="audio-finalize-spinner" aria-hidden="true"></span>';
+    } else if (finalization.phase === "draft-complete") {
+      heading = "Private draft saved";
+      message = 'The complete recording of “' + title + '” is saved privately. You can publish it later from Drafts.';
+      actions = '<button class="button button-primary" type="button" data-action="audio-admin-complete-finalization">Complete</button>';
     } else if (finalization.phase === "complete") {
       heading = "Recording published";
       message = 'The complete recording of “' + title + '” is uploaded and now available on the public Listen page.';
@@ -311,10 +320,17 @@ function renderBroadcastActionDialog() {
       heading = "Broadcast stopped — retry save";
       message = "The stream has stopped, but the programme could not yet be marked as ended. It has not been published.";
       actions = '<button class="button button-primary" type="button" data-action="audio-admin-retry-end">Retry</button>';
+    } else if (finalization.phase === "error" && finalization.errorStage === "draft") {
+      heading = "Private draft save did not complete";
+      message = "The programme remains unpublished. Retry to save the complete recording privately.";
+      actions = (!finalization.recordingUploaded
+        ? '<button class="button button-secondary" type="button" data-action="audio-admin-discard-recording">Keep draft without recording</button>'
+        : "") +
+        '<button class="button button-primary" type="button" data-action="audio-admin-keep-draft">Retry private save</button>';
     } else if (finalization.phase === "error") {
       heading = "Upload did not complete";
       message = "The programme remains a draft and is hidden from the public Listen page. Keep this page open if you want to retry without losing the recording.";
-      actions = '<button class="button button-secondary" type="button" data-action="audio-admin-keep-draft">Keep as draft</button>' +
+      actions = '<button class="button button-secondary" type="button" data-action="audio-admin-keep-draft">Save privately as draft</button>' +
         '<button class="button button-primary" type="button" data-action="audio-admin-publish-ended">' +
         (finalization.recordingUploaded ? "Retry publishing" : "Retry upload & publish") + '</button>';
     } else {
@@ -1138,6 +1154,43 @@ async function publishEndedBroadcast() {
   rerender();
 }
 
+async function saveEndedBroadcastAsDraft() {
+  const finalization = pendingBroadcastFinalization;
+  if (!finalization || (!finalization.recording && !finalization.recordingUploaded) ||
+      finalization.phase === "saving-draft") return;
+  finalization.phase = "saving-draft";
+  finalization.error = "";
+  finalization.errorStage = "";
+  syncBeforeUnloadWarning();
+  rerender();
+
+  try {
+    if (!finalization.recordingUploaded) {
+      await uploadAdminLiveAudioRecording(
+        finalization.programId,
+        finalization.sessionId,
+        finalization.recording
+      );
+      finalization.recordingUploaded = true;
+      finalization.recording = null;
+    }
+    await setAdminLiveAudioStatus(finalization.programId, "draft");
+    finalization.phase = "draft-complete";
+    try {
+      cachedData = await loadAdminLiveAudioData();
+    } catch (error) {
+      // The private draft is saved; keep its completion state visible if refresh fails.
+    }
+    toast("The complete recording is saved privately as a draft.");
+  } catch (error) {
+    finalization.phase = "error";
+    finalization.errorStage = "draft";
+    finalization.error = error.message || "The recording could not be saved privately.";
+  }
+  syncBeforeUnloadWarning();
+  rerender();
+}
+
 function completeBroadcastFinalization() {
   pendingBroadcastFinalization = null;
   syncBeforeUnloadWarning();
@@ -1205,10 +1258,14 @@ export async function handleLiveAudioAdminAction(button) {
     return true;
   }
   if (action === "audio-admin-keep-draft") {
+    await saveEndedBroadcastAsDraft();
+    return true;
+  }
+  if (action === "audio-admin-discard-recording") {
     pendingBroadcastFinalization = null;
     syncBeforeUnloadWarning();
     rerender();
-    toast("Broadcast kept as a draft and hidden from the public Listen page.");
+    toast("Broadcast kept as a draft without saving its recording.");
     return true;
   }
   if (action === "audio-admin-publish-ended") {

@@ -319,15 +319,17 @@ test("live recording starts before signaling and the ended draft stays private u
   const actionStart = source.indexOf('if (action === "audio-admin-go-live-now")');
   const actionEnd = source.indexOf('if (action === "audio-admin-stop-live")', actionStart);
   const publishStart = source.indexOf("async function publishEndedBroadcast(", endStart);
-  const publishEnd = source.indexOf("function completeBroadcastFinalization(", publishStart);
+  const draftSaveStart = source.indexOf("async function saveEndedBroadcastAsDraft(", publishStart);
+  const publishEnd = source.indexOf("function completeBroadcastFinalization(", draftSaveStart);
   assert.ok(beginStart >= 0 && endStart > beginStart);
   assert.ok(actionStart >= 0 && actionEnd > actionStart);
-  assert.ok(publishStart > endStart && publishEnd > publishStart);
+  assert.ok(publishStart > endStart && draftSaveStart > publishStart && publishEnd > draftSaveStart);
 
   const begin = source.slice(beginStart, endStart);
   const end = source.slice(endStart, publishStart);
   const goLiveAction = source.slice(actionStart, actionEnd);
-  const publish = source.slice(publishStart, publishEnd);
+  const publish = source.slice(publishStart, draftSaveStart);
+  const draftSave = source.slice(draftSaveStart, publishEnd);
   assert.ok(begin.indexOf("startLiveAudioRecording") < begin.indexOf("startLiveAudioPublisher"));
   assert.match(begin, /onNetworkStatus/);
   assert.doesNotMatch(goLiveAction, /window\.confirm/);
@@ -335,6 +337,8 @@ test("live recording starts before signaling and the ended draft stays private u
   assert.match(end, /endAdminLiveAudioProgram\(programId, "draft"\)/);
   assert.doesNotMatch(end, /uploadAdminLiveAudioRecording/);
   assert.ok(publish.indexOf("uploadAdminLiveAudioRecording") < publish.indexOf('setAdminLiveAudioStatus(finalization.programId, "published")'));
+  assert.ok(draftSave.indexOf("uploadAdminLiveAudioRecording") < draftSave.indexOf('setAdminLiveAudioStatus(finalization.programId, "draft")'));
+  assert.match(source, /Save privately as draft/);
   assert.match(source, /Do not refresh or close this page until upload is complete/);
   assert.match(source, /beforeunload/);
   assert.doesNotMatch(end, /window\.confirm/);
@@ -363,6 +367,14 @@ test("recording and draft publication decisions use the in-app dialog", async ()
   assert.match(renderLiveAudioAdmin(), /data-action="audio-admin-confirm-draft-publish"/);
   assert.deepEqual(prompts, []);
   await handleLiveAudioAdminAction({ dataset: { action: "audio-admin-cancel-draft-publish" } });
+});
+
+test("draft recording storage stays private until the programme is published", async () => {
+  const finalizationMigration = await readFile(new URL("../supabase/migrations/202610250002_live_audio_recording_finalization.sql", import.meta.url), "utf8");
+  const recordingsMigration = await readFile(new URL("../supabase/migrations/202610210001_live_audio_recordings.sql", import.meta.url), "utf8");
+  assert.match(finalizationMigration, /create policy live_audio_recordings_admin_upload[\s\S]*?public\.is_admin\(\)[\s\S]*?where p\.id::text = \(storage\.foldername\(name\)\)\[1\]/);
+  assert.match(finalizationMigration, /create policy live_audio_recordings_admin_update[\s\S]*?for update to authenticated/);
+  assert.match(recordingsMigration, /create policy live_audio_recordings_published_read[\s\S]*?p\.status = 'published'/);
 });
 
 test("live rewind segments upload audio bytes and register their session timeline", async () => {
