@@ -12,7 +12,7 @@ import {
 } from "./live-audio-admin-data.js";
 import { createLiveAudioId } from "../../js/live-audio-realtime.js";
 import { startLiveAudioRecording } from "../../js/live-audio-recording.js?v=2";
-import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=2";
+import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=3";
 import { buildWaveformBars, getWaveformDisplayGain, scaleWaveformBars } from "./live-audio-waveform.js";
 
 let activeTab = "programs";
@@ -33,6 +33,9 @@ let audioSettings = Object.assign({}, DEFAULT_AUDIO_SETTINGS);
 let activeMicMuted = false;
 let activeListenerCount = 0;
 let activeSignalStatus = "connecting";
+let activeNetworkStatus = { level: 0, label: "Checking", connectedListeners: 0, listenerCount: 0, weakListeners: 0, route: "—" };
+let networkAlertKey = "";
+let networkToastTimer = null;
 let studioInteractions = null;
 let studioInteractionsError = "";
 let studioRefreshTimer = null;
@@ -90,8 +93,64 @@ function safeImageUrl(value) {
 
 function studioConnectionLabel() {
   if (activeSignalStatus === "connected") return "Audio room connected";
-  if (activeSignalStatus === "disconnected") return "Reconnecting signal";
+  if (activeSignalStatus === "reconnecting" || activeSignalStatus === "disconnected") return "Reconnecting live audio";
   return "Connecting audio room";
+}
+
+function showNetworkToast(title, message, key) {
+  const toastNode = document.querySelector("[data-network-toast]");
+  if (!toastNode || !studioVisible) return;
+  if (networkAlertKey === key) return;
+  networkAlertKey = key;
+  const titleNode = toastNode.querySelector("[data-network-toast-title]");
+  const messageNode = toastNode.querySelector("[data-network-toast-message]");
+  if (titleNode) titleNode.textContent = title;
+  if (messageNode) messageNode.textContent = message;
+  toastNode.hidden = false;
+  if (networkToastTimer !== null) window.clearTimeout(networkToastTimer);
+  networkToastTimer = window.setTimeout(() => {
+    toastNode.hidden = true;
+    networkToastTimer = null;
+  }, 5200);
+}
+
+function updateStudioNetworkStatus(status) {
+  activeNetworkStatus = Object.assign({}, activeNetworkStatus, status || {});
+  const meter = document.querySelector("[data-network-meter]");
+  const label = document.querySelector("[data-network-label]");
+  const route = document.querySelector("[data-network-route]");
+  const level = Math.max(0, Math.min(5, Number(activeNetworkStatus.level) || 0));
+  const labelText = activeNetworkStatus.label || "Checking";
+  if (meter) {
+    meter.dataset.level = String(level);
+    meter.setAttribute("aria-label", "Network quality: " + labelText);
+  }
+  if (label) label.textContent = labelText;
+  if (route) {
+    const connected = Number(activeNetworkStatus.connectedListeners) || 0;
+    route.textContent = connected
+      ? (activeNetworkStatus.route || "Route —") + " · " + connected + (connected === 1 ? " listener" : " listeners")
+      : labelText === "Waiting for listeners" ? "No listeners yet" : activeSignalStatus === "reconnecting" ? "Reconnecting…" : "Measuring";
+  }
+
+  const weakListeners = Number(activeNetworkStatus.weakListeners) || 0;
+  if (level > 0 && level <= 2) {
+    showNetworkToast(
+      "Network " + labelText.toLowerCase(),
+      weakListeners
+        ? weakListeners + (weakListeners === 1 ? " listener has" : " listeners have") + " a weak connection. Reconnecting automatically."
+        : "Audio may pause briefly. The connection is retrying automatically.",
+      "quality-" + level + "-" + weakListeners
+    );
+  } else if (weakListeners > 0) {
+    showNetworkToast(
+      "Some listeners have a weak network",
+      weakListeners + (weakListeners === 1 ? " listener is" : " listeners are") + " reconnecting.",
+      "weak-listeners-" + weakListeners
+    );
+  } else if (level >= 3 || labelText === "Waiting for listeners") {
+    networkAlertKey = "";
+  }
 }
 
 function renderStudioComments(comments) {
@@ -441,8 +500,13 @@ export function renderLiveAudioStudio(program) {
   const duration = formatElapsed(program.liveStartedAt);
   return '<section class="audio-live-studio" aria-label="Live Audio control room">' +
     '<header class="audio-studio-header"><div><p class="audio-studio-kicker">ON AIR CONTROL ROOM</p><h1>Live Audio Studio</h1><p>Monitor your microphone and listener activity while the service is live.</p></div>' +
-    '<div class="audio-studio-header-actions"><button class="button button-secondary" type="button" data-action="audio-admin-back">' + icon("back") + 'Back to broadcasts</button>' +
+    '<div class="audio-studio-header-actions"><div class="audio-network-meter" data-network-meter data-level="' + String(Math.max(0, Math.min(5, Number(activeNetworkStatus.level) || 0))) + '" role="status" aria-label="Network quality: ' + escapeHtml(activeNetworkStatus.label || "Checking") + '">' +
+    '<span class="audio-network-meter-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="audio-network-meter-copy"><strong data-network-label>' +
+    escapeHtml(activeNetworkStatus.label || "Checking") + '</strong><small data-network-route>' + escapeHtml(activeNetworkStatus.route || "Measuring") + '</small></span></div>' +
+    '<button class="button button-secondary" type="button" data-action="audio-admin-back">' + icon("back") + 'Back to broadcasts</button>' +
     '<button class="button audio-studio-end" type="button" data-action="audio-admin-stop-live" data-id="' + escapeHtml(program.id) + '">End broadcast</button></div></header>' +
+    '<div class="audio-network-toast" data-network-toast role="alert" aria-live="assertive" hidden><span class="audio-network-toast-icon" aria-hidden="true">!</span><div>' +
+    '<strong data-network-toast-title>Network needs attention</strong><p data-network-toast-message>The connection is retrying automatically.</p></div></div>' +
     '<div class="audio-studio-layout"><div class="audio-studio-main">' +
     '<section class="audio-studio-stage" aria-label="Live audio programme"><div class="audio-studio-artwork-wrap">' + artwork + '<div class="audio-studio-artwork-shade"></div>' +
     '<div class="audio-studio-stage-content"><span class="audio-studio-live-pill"><i></i> LIVE</span>' +
@@ -723,6 +787,8 @@ async function beginBroadcast(programId, recordBroadcast) {
   activeMicMuted = false;
   activeListenerCount = 0;
   activeSignalStatus = "connecting";
+  activeNetworkStatus = { level: 0, label: "Checking", connectedListeners: 0, listenerCount: 0, weakListeners: 0, route: "—" };
+  networkAlertKey = "";
   studioInteractions = null;
   studioInteractionsError = "";
   let publisher = null;
@@ -742,14 +808,24 @@ async function beginBroadcast(programId, recordBroadcast) {
         activeSignalStatus = status;
         const node = document.querySelector("[data-audio-mic-status]");
         if (node && status === "connected") node.textContent = "Connected. Waiting for listeners…";
-        if (node && status === "disconnected" && activeBroadcaster) node.textContent = "Signaling disconnected; broadcast may no longer reach new listeners.";
+        if (node && (status === "reconnecting" || status === "disconnected") && activeBroadcaster) {
+          node.textContent = "Connection interrupted. Reconnecting automatically…";
+        }
         const connection = document.querySelector("[data-studio-connection]");
         if (connection) {
           connection.textContent = studioConnectionLabel();
           const wrapper = connection.closest(".audio-studio-connection");
-          if (wrapper) wrapper.classList.toggle("is-disconnected", status === "disconnected");
+          if (wrapper) wrapper.classList.toggle("is-disconnected", status === "disconnected" || status === "reconnecting");
+        }
+        if (status === "reconnecting") {
+          showNetworkToast("Reconnecting live audio", "The live connection dropped briefly. Reconnecting automatically.", "signaling-reconnecting");
+        } else if (status === "connected" && networkAlertKey === "signaling-reconnecting") {
+          networkAlertKey = "";
+          const warning = document.querySelector("[data-network-toast]");
+          if (warning) warning.hidden = true;
         }
       },
+      onNetworkStatus: status => updateStudioNetworkStatus(status),
       onListenerCount: count => {
         activeListenerCount = count;
         const node = document.querySelector("[data-audio-listener-count]");
@@ -790,6 +866,8 @@ async function beginBroadcast(programId, recordBroadcast) {
     activeRecording = null;
     activeRecordingSessionId = null;
     activeBroadcastRecordingEnabled = false;
+    activeNetworkStatus = { level: 0, label: "Checking", connectedListeners: 0, listenerCount: 0, weakListeners: 0, route: "—" };
+    networkAlertKey = "";
     throw error;
   }
 }
@@ -829,6 +907,10 @@ async function endBroadcast(programId) {
     activeRecording = null;
     activeRecordingSessionId = null;
     activeBroadcastRecordingEnabled = false;
+    activeNetworkStatus = { level: 0, label: "Checking", connectedListeners: 0, listenerCount: 0, weakListeners: 0, route: "—" };
+    networkAlertKey = "";
+    if (networkToastTimer !== null) window.clearTimeout(networkToastTimer);
+    networkToastTimer = null;
     studioVisible = false;
     activeMicMuted = false;
     activeListenerCount = 0;

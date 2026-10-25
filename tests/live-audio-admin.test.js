@@ -239,6 +239,10 @@ test("live studio renders an audio-first control room and escapes programme cont
     liveStartedAt: "2026-10-20T12:00:00.000Z"
   });
   assert.match(html, /Live Audio Studio/);
+  assert.match(html, /data-network-meter/);
+  assert.match(html, /data-network-label/);
+  assert.match(html, /data-network-toast/);
+  assert.match(html, /audio-network-meter-bars/);
   assert.match(html, /Audio-only broadcast/);
   assert.match(html, /data-audio-waveform/);
   assert.match(html, /Live music-style audio waveform/);
@@ -318,6 +322,7 @@ test("live recording starts before signaling and publication waits for the compl
   const end = source.slice(endStart, source.indexOf("export async function handleLiveAudioAdminAction", endStart));
   const goLiveAction = source.slice(actionStart, actionEnd);
   assert.ok(begin.indexOf("startLiveAudioRecording") < begin.indexOf("startLiveAudioPublisher"));
+  assert.match(begin, /onNetworkStatus/);
   assert.match(goLiveAction, /Record this live programme/);
   const finalization = end.indexOf("endAdminLiveAudioProgram(programId, finalStatus)");
   assert.ok(end.indexOf("uploadAdminLiveAudioRecording") < finalization);

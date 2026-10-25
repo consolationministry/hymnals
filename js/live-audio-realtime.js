@@ -194,92 +194,167 @@ export function connectLiveAudioChannel(programId, sessionId, options) {
   if (!WebSocketClass) return Promise.reject(new Error("This browser does not support live audio connections."));
 
   return new Promise((resolve, reject) => {
-    let socket;
-    try { socket = new WebSocketClass(signalEndpoint()); }
-    catch (error) { reject(new Error("Could not open the live audio signaling connection.")); return; }
     const topic = "realtime:live-audio:" + programId;
     let ref = 0;
     let joined = false;
     let closed = false;
     let heartbeat = null;
+    let reconnectTimer = null;
+    let connectTimeout = null;
+    let socket = null;
+    let joinRef = "";
+    let resolved = false;
     const callbacks = options || {};
-    const sendFrame = (event, payload, frameTopic) => {
-      if (socket.readyState !== 1) return false;
-      ref += 1;
-      socket.send(JSON.stringify({
-        topic: frameTopic || topic,
-        event,
-        payload: payload || {},
-        ref: String(ref),
-        join_ref: "1"
-      }));
-      return true;
+    const baseReconnectDelay = Math.max(25, Number(callbacks.reconnectBaseDelayMs) || 1000);
+    const maxReconnectDelay = Math.max(baseReconnectDelay, Number(callbacks.reconnectMaxDelayMs) || 30000);
+    let reconnectDelay = baseReconnectDelay;
+
+    const stopHeartbeat = () => {
+      if (heartbeat) globalThis.clearInterval(heartbeat);
+      heartbeat = null;
     };
     const cleanup = () => {
-      if (heartbeat) globalThis.clearInterval(heartbeat);
-      heartbeat = null;
-      if (!closed) {
-        closed = true;
-        try { socket.close(1000, "Live audio session closed"); } catch (error) {}
+      if (closed) return;
+      closed = true;
+      joined = false;
+      stopHeartbeat();
+      if (reconnectTimer !== null) globalThis.clearTimeout(reconnectTimer);
+      if (connectTimeout !== null) globalThis.clearTimeout(connectTimeout);
+      reconnectTimer = null;
+      connectTimeout = null;
+      const currentSocket = socket;
+      socket = null;
+      if (currentSocket) {
+        try { currentSocket.close(1000, "Live audio session closed"); } catch (error) {}
       }
     };
-    socket.addEventListener("open", () => {
+
+    const sendFrame = (event, payload, frameTopic) => {
+      if (!joined || !socket || socket.readyState !== 1) return false;
       ref += 1;
-      socket.send(JSON.stringify({
-        topic,
-        event: "phx_join",
-        payload: {
-          config: { broadcast: { ack: false, self: false }, presence: { key: "" }, private: false },
-          access_token: SUPABASE_PUBLISHABLE_KEY
-        },
-        ref: String(ref),
-        join_ref: String(ref)
-      }));
-    });
-    socket.addEventListener("message", event => {
-      let message;
-      try { message = JSON.parse(event.data); } catch (error) { return; }
-      if (message.topic === topic && message.event === "phx_reply") {
-        if (message.payload && message.payload.status === "ok") {
-          joined = true;
-          heartbeat = globalThis.setInterval(() => sendFrame("heartbeat", {}, "phoenix"), 25000);
-          if (callbacks.onStatus) callbacks.onStatus("connected");
-          resolve({
-            send(signal) {
-              if (!joined || closed) return false;
-              return sendFrame("broadcast", { type: "broadcast", event: "rtc-signal", payload: signal });
-            },
-            close: cleanup,
-            get closed() { return closed; }
-          });
-        } else if (!joined) {
-          cleanup();
-          reject(new Error("The live audio signaling room rejected this connection."));
-        }
+      try {
+        socket.send(JSON.stringify({
+          topic: frameTopic || topic,
+          event,
+          payload: payload || {},
+          ref: String(ref),
+          join_ref: joinRef
+        }));
+        return true;
+      } catch (error) {
+        scheduleReconnect();
+        return false;
+      }
+    };
+
+    const scheduleReconnect = () => {
+      if (closed || reconnectTimer !== null) return;
+      joined = false;
+      stopHeartbeat();
+      if (callbacks.onStatus) callbacks.onStatus("reconnecting");
+      const delay = reconnectDelay;
+      reconnectDelay = Math.min(maxReconnectDelay, reconnectDelay * 2);
+      reconnectTimer = globalThis.setTimeout(() => {
+        reconnectTimer = null;
+        openSocket();
+      }, delay);
+    };
+
+    const channel = {
+      send(signal) {
+        if (closed || !joined) return false;
+        return sendFrame("broadcast", { type: "broadcast", event: "rtc-signal", payload: signal });
+      },
+      close: cleanup,
+      get closed() { return closed; },
+      get connected() { return joined && !closed; }
+    };
+
+    const openSocket = () => {
+      if (closed) return;
+      let currentSocket;
+      try {
+        currentSocket = new WebSocketClass(signalEndpoint());
+      } catch (error) {
+        scheduleReconnect();
         return;
       }
-      if (message.topic === topic && message.event === "broadcast" &&
-          message.payload && message.payload.event === "rtc-signal" &&
-          callbacks.onSignal) {
-        callbacks.onSignal(message.payload.payload);
-      }
-      if (message.topic === topic && (message.event === "phx_error" || message.event === "phx_close")) {
-        if (callbacks.onStatus) callbacks.onStatus("disconnected");
-      }
-    });
-    socket.addEventListener("error", () => {
-      if (callbacks.onStatus) callbacks.onStatus("disconnected");
-      if (!joined) {
-        cleanup();
-        reject(new Error("Live audio signaling could not connect. Check your internet connection."));
-      }
-    });
-    socket.addEventListener("close", () => {
-      if (heartbeat) globalThis.clearInterval(heartbeat);
-      heartbeat = null;
-      if (callbacks.onStatus) callbacks.onStatus("disconnected");
-      if (!joined && !closed) reject(new Error("The live audio signaling connection closed before joining."));
-    });
+      socket = currentSocket;
+      currentSocket.addEventListener("open", () => {
+        if (closed || socket !== currentSocket) return;
+        ref += 1;
+        joinRef = String(ref);
+        try {
+          currentSocket.send(JSON.stringify({
+            topic,
+            event: "phx_join",
+            payload: {
+              config: { broadcast: { ack: false, self: false }, presence: { key: "" }, private: false },
+              access_token: SUPABASE_PUBLISHABLE_KEY
+            },
+            ref: joinRef,
+            join_ref: joinRef
+          }));
+        } catch (error) {
+          scheduleReconnect();
+        }
+      });
+      currentSocket.addEventListener("message", event => {
+        if (closed || socket !== currentSocket) return;
+        let message;
+        try { message = JSON.parse(event.data); } catch (error) { return; }
+        if (message.topic === topic && message.event === "phx_reply" && message.ref === joinRef) {
+          if (message.payload && message.payload.status === "ok") {
+            joined = true;
+            reconnectDelay = baseReconnectDelay;
+            stopHeartbeat();
+            heartbeat = globalThis.setInterval(() => sendFrame("heartbeat", {}, "phoenix"), 25000);
+            if (callbacks.onStatus) callbacks.onStatus("connected");
+            if (!resolved) {
+              resolved = true;
+              if (connectTimeout !== null) globalThis.clearTimeout(connectTimeout);
+              connectTimeout = null;
+              resolve(channel);
+            }
+          } else {
+            joined = false;
+            try { currentSocket.close(1011, "Live audio channel could not join"); } catch (error) {}
+            scheduleReconnect();
+          }
+          return;
+        }
+        if (message.topic === topic && message.event === "broadcast" &&
+            message.payload && message.payload.event === "rtc-signal" &&
+            callbacks.onSignal) {
+          callbacks.onSignal(message.payload.payload);
+        }
+        if (message.topic === topic && (message.event === "phx_error" || message.event === "phx_close")) {
+          joined = false;
+          try { currentSocket.close(1011, "Live audio signaling interrupted"); } catch (error) {}
+          scheduleReconnect();
+        }
+      });
+      currentSocket.addEventListener("error", () => {
+        if (closed || socket !== currentSocket) return;
+        joined = false;
+        try { currentSocket.close(); } catch (error) {}
+        scheduleReconnect();
+      });
+      currentSocket.addEventListener("close", () => {
+        if (closed || socket !== currentSocket) return;
+        joined = false;
+        stopHeartbeat();
+        scheduleReconnect();
+      });
+    };
+
+    connectTimeout = globalThis.setTimeout(() => {
+      if (resolved || closed) return;
+      cleanup();
+      reject(new Error("Live audio signaling could not connect. Check your internet connection and try again."));
+    }, Math.max(1000, Number(callbacks.connectTimeoutMs) || 30000));
+
+    openSocket();
   });
 }
 

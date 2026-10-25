@@ -12,18 +12,30 @@ export function createLiveAudioIceCandidateQueue(peer) {
   let remoteDescriptionReady = Boolean(peer && peer.remoteDescription);
   const pendingCandidates = [];
 
+  const flushPendingCandidates = async () => {
+    if (!remoteDescriptionReady) return;
+    const candidates = pendingCandidates.splice(0);
+    for (const candidate of candidates) {
+      try {
+        await peer.addIceCandidate(candidate);
+      } catch (error) {
+        // An obsolete or incompatible candidate should not block the remaining route candidates.
+      }
+    }
+  };
+
   return {
     async setRemoteDescription(description) {
       await peer.setRemoteDescription(description);
       remoteDescriptionReady = true;
-      const candidates = pendingCandidates.splice(0);
-      for (const candidate of candidates) {
-        try {
-          await peer.addIceCandidate(candidate);
-        } catch (error) {
-          // An obsolete or incompatible candidate should not block the remaining route candidates.
-        }
-      }
+      await flushPendingCandidates();
+    },
+    beginRemoteDescription() {
+      remoteDescriptionReady = false;
+    },
+    async restoreRemoteDescription() {
+      remoteDescriptionReady = Boolean(peer && peer.remoteDescription);
+      await flushPendingCandidates();
     },
     async addRemoteCandidate(candidate) {
       if (!candidate) return;
@@ -45,6 +57,94 @@ function serializeIceCandidate(candidate) {
 function clamp(value, min, max) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : 0;
+}
+
+const NETWORK_QUALITY_LABELS = Object.freeze({
+  1: "Very poor",
+  2: "Poor",
+  3: "Good",
+  4: "Better",
+  5: "Excellent"
+});
+
+export function classifyLiveAudioNetworkQuality(metrics) {
+  const values = metrics || {};
+  const metric = key => values[key] === null || values[key] === undefined
+    ? NaN
+    : Number(values[key]);
+  const loss = metric("lossPercent");
+  const jitter = metric("jitterMs");
+  const rtt = metric("rttMs");
+  const bitrate = metric("availableOutgoingBitrate");
+  const known = [
+    Number.isFinite(loss),
+    Number.isFinite(jitter),
+    Number.isFinite(rtt),
+    Number.isFinite(bitrate)
+  ].some(Boolean);
+  if (!known) return { level: 0, label: "Checking" };
+
+  let level = 5;
+  if ((Number.isFinite(loss) && loss > 10) ||
+      (Number.isFinite(jitter) && jitter > 180) ||
+      (Number.isFinite(rtt) && rtt > 700) ||
+      (Number.isFinite(bitrate) && bitrate > 0 && bitrate < 48000)) {
+    level = 1;
+  } else if ((Number.isFinite(loss) && loss > 5) ||
+      (Number.isFinite(jitter) && jitter > 100) ||
+      (Number.isFinite(rtt) && rtt > 450) ||
+      (Number.isFinite(bitrate) && bitrate > 0 && bitrate < 64000)) {
+    level = 2;
+  } else if ((Number.isFinite(loss) && loss > 2) ||
+      (Number.isFinite(jitter) && jitter > 50) ||
+      (Number.isFinite(rtt) && rtt > 280) ||
+      (Number.isFinite(bitrate) && bitrate > 0 && bitrate < 96000)) {
+    level = 3;
+  } else if ((Number.isFinite(loss) && loss > 1) ||
+      (Number.isFinite(jitter) && jitter > 25) ||
+      (Number.isFinite(rtt) && rtt > 160) ||
+      (Number.isFinite(bitrate) && bitrate > 0 && bitrate < 160000)) {
+    level = 4;
+  }
+  return { level, label: NETWORK_QUALITY_LABELS[level] };
+}
+
+export function readLiveAudioPeerStats(report) {
+  const stats = report && typeof report.values === "function"
+    ? Array.from(report.values())
+    : Array.isArray(report) ? report : [];
+  const transport = stats.find(item => item && item.type === "transport" && item.selectedCandidatePairId);
+  const selectedPair = transport
+    ? stats.find(item => item && item.id === transport.selectedCandidatePairId)
+    : stats.find(item => item && item.type === "candidate-pair" &&
+      (item.selected === true || (item.nominated === true && item.state === "succeeded")));
+  const remoteAudio = stats.find(item => item && item.type === "remote-inbound-rtp" &&
+    (item.kind === "audio" || item.mediaType === "audio"));
+  const localCandidate = selectedPair && stats.find(item => item && item.id === selectedPair.localCandidateId);
+  const remoteCandidate = selectedPair && stats.find(item => item && item.id === selectedPair.remoteCandidateId);
+  const fractionLost = remoteAudio ? Number(remoteAudio.fractionLost) : NaN;
+  const packetLoss = Number.isFinite(fractionLost)
+    ? Math.max(0, fractionLost * 100)
+    : NaN;
+  const jitter = remoteAudio ? Number(remoteAudio.jitter) : NaN;
+  const remoteRtt = remoteAudio ? Number(remoteAudio.roundTripTime) : NaN;
+  const pairRtt = selectedPair ? Number(selectedPair.currentRoundTripTime) : NaN;
+  const outgoingBitrate = selectedPair ? Number(selectedPair.availableOutgoingBitrate) : NaN;
+  const quality = classifyLiveAudioNetworkQuality({
+    lossPercent: packetLoss,
+    jitterMs: Number.isFinite(jitter) ? jitter * 1000 : NaN,
+    rttMs: Number.isFinite(remoteRtt) ? remoteRtt * 1000 : Number.isFinite(pairRtt) ? pairRtt * 1000 : NaN,
+    availableOutgoingBitrate: outgoingBitrate
+  });
+  const candidateTypes = [localCandidate && localCandidate.candidateType, remoteCandidate && remoteCandidate.candidateType];
+  const route = candidateTypes.includes("relay") ? "Relay" : selectedPair ? "Direct" : "—";
+  return {
+    ...quality,
+    lossPercent: Number.isFinite(packetLoss) ? packetLoss : null,
+    jitterMs: Number.isFinite(jitter) ? jitter * 1000 : null,
+    rttMs: Number.isFinite(remoteRtt) ? remoteRtt * 1000 : Number.isFinite(pairRtt) ? pairRtt * 1000 : null,
+    route
+  };
 }
 
 export async function createLiveAudioMicEngine(options) {
@@ -204,13 +304,27 @@ export async function startLiveAudioPublisher(options) {
   const peers = new Map();
   const peerIceQueues = new Map();
   const pendingPeerConnections = new Map();
+  const pendingRemoteCandidates = new Map();
+  const peerDisconnectTimers = new Map();
+  const peerRecoveryTimers = new Map();
+  const peerRecoveryAttempts = new Map();
   let channel = null;
   let closed = false;
+  let statsTimer = null;
+  let statsPolling = false;
   let handleSignal = null;
   channel = await connectLiveAudioChannel(opts.programId, opts.sessionId, {
-    onStatus: status => { if (opts.onStatus) opts.onStatus(status); },
+    onStatus: status => {
+      if (opts.onStatus) opts.onStatus(status);
+    },
     onSignal: message => { if (handleSignal) void handleSignal(message); }
   });
+
+  const clearPeerTimer = (timers, clientId) => {
+    const timer = timers.get(clientId);
+    if (timer !== undefined) globalThis.clearTimeout(timer);
+    timers.delete(clientId);
+  };
 
   const closePeer = clientId => {
     const pending = pendingPeerConnections.get(clientId);
@@ -218,13 +332,118 @@ export async function startLiveAudioPublisher(options) {
       pending.cancelled = true;
       pendingPeerConnections.delete(clientId);
     }
+    pendingRemoteCandidates.delete(clientId);
     const peer = peers.get(clientId);
     if (!peer) return;
+    clearPeerTimer(peerDisconnectTimers, clientId);
+    clearPeerTimer(peerRecoveryTimers, clientId);
+    peerRecoveryAttempts.delete(clientId);
     peers.delete(clientId);
     peerIceQueues.delete(clientId);
     peer.onconnectionstatechange = null;
+    peer.onicecandidate = null;
     peer.close();
     if (opts.onListenerCount) opts.onListenerCount(peers.size);
+  };
+
+  const schedulePeerRecovery = (clientId, peer, delayMs) => {
+    if (closed || peers.get(clientId) !== peer || peerRecoveryTimers.has(clientId)) return;
+    const timer = globalThis.setTimeout(async () => {
+      peerRecoveryTimers.delete(clientId);
+      if (closed || peers.get(clientId) !== peer || peer.connectionState === "connected") return;
+      if (!channel.connected) {
+        schedulePeerRecovery(clientId, peer, 1000);
+        return;
+      }
+      const attempts = peerRecoveryAttempts.get(clientId) || 0;
+      if (attempts >= 3) {
+        channel.send({ type: "failed", sessionId: opts.sessionId, from: localClientId, to: clientId });
+        closePeer(clientId);
+        return;
+      }
+      if (peer.signalingState !== "stable") {
+        if (peer.signalingState === "have-local-offer") {
+          try { await peer.setLocalDescription({ type: "rollback" }); } catch (error) {}
+        } else {
+          schedulePeerRecovery(clientId, peer, 1500);
+          return;
+        }
+      }
+
+      const iceQueue = peerIceQueues.get(clientId);
+      if (!iceQueue) return;
+      peerRecoveryAttempts.set(clientId, attempts + 1);
+      iceQueue.beginRemoteDescription();
+      if (!channel.send({ type: "restart-start", sessionId: opts.sessionId, from: localClientId, to: clientId })) {
+        await iceQueue.restoreRemoteDescription();
+        schedulePeerRecovery(clientId, peer, 1500);
+        return;
+      }
+      try {
+        const offer = await peer.createOffer({ iceRestart: true });
+        await peer.setLocalDescription(offer);
+        if (!channel.send({
+          type: "restart-offer",
+          sessionId: opts.sessionId,
+          from: localClientId,
+          to: clientId,
+          description: descriptionToJson(peer.localDescription)
+        })) {
+          throw new Error("The live audio signaling channel is reconnecting.");
+        }
+        if (opts.onStatus) opts.onStatus("reconnecting");
+        schedulePeerRecovery(clientId, peer, 12000);
+      } catch (error) {
+        await iceQueue.restoreRemoteDescription();
+        channel.send({ type: "restart-cancel", sessionId: opts.sessionId, from: localClientId, to: clientId });
+        if (peer.signalingState === "have-local-offer") {
+          try { await peer.setLocalDescription({ type: "rollback" }); } catch (rollbackError) {}
+        }
+        schedulePeerRecovery(clientId, peer, 2000);
+      }
+    }, Math.max(0, Number(delayMs) || 0));
+    peerRecoveryTimers.set(clientId, timer);
+  };
+
+  const reportNetworkStats = async () => {
+    if (closed || statsPolling || !opts.onNetworkStatus) return;
+    statsPolling = true;
+    try {
+      const samples = await Promise.all(Array.from(peers.entries()).map(async ([clientId, peer]) => {
+        if (peer.connectionState !== "connected" || typeof peer.getStats !== "function") return null;
+        try {
+          return { clientId, ...readLiveAudioPeerStats(await peer.getStats()) };
+        } catch (error) {
+          return null;
+        }
+      }));
+      if (closed) return;
+      const connected = samples.filter(Boolean);
+      const measured = connected.filter(sample => sample.level > 0);
+      if (!measured.length) {
+        opts.onNetworkStatus({
+          level: 0,
+          label: connected.length ? "Checking" : peers.size ? "Reconnecting" : "Waiting for listeners",
+          connectedListeners: connected.length,
+          listenerCount: peers.size,
+          weakListeners: 0,
+          route: "—"
+        });
+        return;
+      }
+      const level = Math.round(measured.reduce((sum, sample) => sum + sample.level, 0) / measured.length);
+      const routes = new Set(measured.map(sample => sample.route).filter(route => route !== "—"));
+      opts.onNetworkStatus({
+        level,
+        label: NETWORK_QUALITY_LABELS[level],
+        connectedListeners: connected.length,
+        listenerCount: peers.size,
+        weakListeners: measured.filter(sample => sample.level <= 2).length,
+        route: routes.size > 1 ? "Mixed" : routes.values().next().value || "—"
+      });
+    } finally {
+      statsPolling = false;
+    }
   };
 
   handleSignal = async message => {
@@ -237,6 +456,22 @@ export async function startLiveAudioPublisher(options) {
       const iceQueue = peerIceQueues.get(message.from);
       if (iceQueue && message.candidate) {
         void iceQueue.addRemoteCandidate(message.candidate).catch(() => {});
+      } else if (pendingPeerConnections.has(message.from) && message.candidate) {
+        const candidates = pendingRemoteCandidates.get(message.from) || [];
+        candidates.push(message.candidate);
+        pendingRemoteCandidates.set(message.from, candidates);
+      }
+      return;
+    }
+    if (message.type === "restart-answer" && message.to === localClientId) {
+      const peer = peers.get(message.from);
+      const iceQueue = peerIceQueues.get(message.from);
+      if (peer && iceQueue && peer.signalingState === "have-local-offer") {
+        try {
+          await iceQueue.setRemoteDescription(message.description);
+        } catch (error) {
+          schedulePeerRecovery(message.from, peer, 0);
+        }
       }
       return;
     }
@@ -262,6 +497,11 @@ export async function startLiveAudioPublisher(options) {
       const iceQueue = createLiveAudioIceCandidateQueue(peer);
       peers.set(message.from, peer);
       peerIceQueues.set(message.from, iceQueue);
+      const queuedCandidates = pendingRemoteCandidates.get(message.from) || [];
+      pendingRemoteCandidates.delete(message.from);
+      queuedCandidates.forEach(candidate => {
+        void iceQueue.addRemoteCandidate(candidate).catch(() => {});
+      });
       opts.stream.getAudioTracks().forEach(track => peer.addTrack(track, opts.stream));
       peer.onicecandidate = event => {
         if (!event.candidate) return;
@@ -274,8 +514,26 @@ export async function startLiveAudioPublisher(options) {
         });
       };
       peer.onconnectionstatechange = () => {
-        if (peer.connectionState === "failed" || peer.connectionState === "closed") closePeer(message.from);
-        else if (opts.onListenerCount) opts.onListenerCount(peers.size);
+        if (peers.get(message.from) !== peer) return;
+        if (peer.connectionState === "connected") {
+          clearPeerTimer(peerDisconnectTimers, message.from);
+          clearPeerTimer(peerRecoveryTimers, message.from);
+          peerRecoveryAttempts.delete(message.from);
+          if (opts.onStatus) opts.onStatus("connected");
+          void reportNetworkStats();
+        } else if (peer.connectionState === "disconnected") {
+          if (!peerDisconnectTimers.has(message.from)) {
+            peerDisconnectTimers.set(message.from, globalThis.setTimeout(() => {
+              peerDisconnectTimers.delete(message.from);
+              schedulePeerRecovery(message.from, peer, 0);
+            }, 5000));
+          }
+        } else if (peer.connectionState === "failed") {
+          schedulePeerRecovery(message.from, peer, 0);
+        } else if (peer.connectionState === "closed") {
+          closePeer(message.from);
+        }
+        if (opts.onListenerCount) opts.onListenerCount(peers.size);
       };
       await iceQueue.setRemoteDescription(message.description);
       const answer = await peer.createAnswer();
@@ -288,8 +546,10 @@ export async function startLiveAudioPublisher(options) {
         description: descriptionToJson(peer.localDescription)
       });
       if (opts.onListenerCount) opts.onListenerCount(peers.size);
+      void reportNetworkStats();
     } catch (error) {
       pendingPeerConnections.delete(message.from);
+      pendingRemoteCandidates.delete(message.from);
       closePeer(message.from);
       if (!closed && !pending.cancelled) {
         channel.send({ type: "failed", sessionId: opts.sessionId, from: localClientId, to: message.from });
@@ -297,11 +557,16 @@ export async function startLiveAudioPublisher(options) {
     }
   };
 
+  statsTimer = globalThis.setInterval(() => { void reportNetworkStats(); }, 3000);
+  void reportNetworkStats();
+
   return {
     get listenerCount() { return peers.size; },
     async stop() {
       if (closed) return;
       closed = true;
+      if (statsTimer !== null) globalThis.clearInterval(statsTimer);
+      statsTimer = null;
       channel.send({ type: "ended", sessionId: opts.sessionId, from: localClientId });
       pendingPeerConnections.forEach(pending => { pending.cancelled = true; });
       pendingPeerConnections.clear();
@@ -315,125 +580,278 @@ export async function startLiveAudioPublisher(options) {
 export async function startLiveAudioListener(options) {
   const opts = options || {};
   if (!opts.programId || !opts.sessionId || !opts.audioElement) throw new Error("This broadcast is missing its live player.");
-  const clientId = createLiveAudioId();
+  let clientId = createLiveAudioId();
   let peer = null;
   let channel = null;
   let iceQueue = null;
-  const earlyRemoteCandidates = [];
-  const earlyLocalCandidates = [];
-  let offerSent = false;
+  let earlyRemoteCandidates = [];
   let closed = false;
+  let peerGeneration = 0;
+  let startingPeer = false;
+  let reconnectTimer = null;
+  let handshakeTimer = null;
+  let startupTimer = null;
+  let reconnectAttempts = 0;
+  let hasConnected = false;
   let resolveConnected;
   let rejectConnected;
   const connected = new Promise((resolve, reject) => {
     resolveConnected = resolve;
     rejectConnected = reject;
   });
+
+  const clearTimer = key => {
+    if (key === "reconnect" && reconnectTimer !== null) globalThis.clearTimeout(reconnectTimer);
+    if (key === "handshake" && handshakeTimer !== null) globalThis.clearTimeout(handshakeTimer);
+    if (key === "startup" && startupTimer !== null) globalThis.clearTimeout(startupTimer);
+    if (key === "reconnect") reconnectTimer = null;
+    if (key === "handshake") handshakeTimer = null;
+    if (key === "startup") startupTimer = null;
+  };
+
+  const finishConnected = () => {
+    if (hasConnected) return;
+    hasConnected = true;
+    clearTimer("startup");
+    resolveConnected(true);
+  };
+
+  const failInitialConnection = error => {
+    if (hasConnected) return;
+    hasConnected = true;
+    clearTimer("startup");
+    rejectConnected(error);
+  };
+
+  const scheduleReconnect = delayMs => {
+    if (closed || reconnectTimer !== null) return;
+    if (opts.onStatus) opts.onStatus("reconnecting");
+    const delay = Number.isFinite(Number(delayMs))
+      ? Math.max(0, Number(delayMs))
+      : Math.min(30000, 750 * Math.pow(2, reconnectAttempts));
+    reconnectAttempts = Math.min(reconnectAttempts + 1, 6);
+    reconnectTimer = globalThis.setTimeout(() => {
+      reconnectTimer = null;
+      void startPeer(true);
+    }, delay);
+  };
+
+  let handleSignal = null;
   channel = await connectLiveAudioChannel(opts.programId, opts.sessionId, {
-    onStatus: status => { if (opts.onStatus) opts.onStatus(status); },
-    onSignal: async message => {
-      if (!message || message.sessionId !== opts.sessionId || message.to !== clientId) {
-        if (message && message.sessionId === opts.sessionId && message.type === "ended" && opts.onStatus) {
-          opts.onStatus("ended");
+    onStatus: status => {
+      if (opts.onStatus) opts.onStatus(status);
+      if (status === "connected" && peer &&
+          (peer.connectionState === "failed" || peer.connectionState === "disconnected")) {
+        scheduleReconnect(0);
+      }
+    },
+    onSignal: message => { if (handleSignal) void handleSignal(message); }
+  });
+
+  const startPeer = async retry => {
+    if (closed || startingPeer) return;
+    startingPeer = true;
+    clearTimer("handshake");
+    const previousClientId = clientId;
+    if (retry) {
+      if (peer) {
+        channel.send({ type: "leave", sessionId: opts.sessionId, from: previousClientId, to: "host-" + opts.sessionId });
+        peer.onconnectionstatechange = null;
+        peer.onicecandidate = null;
+        peer.ontrack = null;
+        peer.close();
+      }
+      peer = null;
+      iceQueue = null;
+      earlyRemoteCandidates = [];
+      clientId = createLiveAudioId();
+    }
+    const attemptClientId = clientId;
+    const generation = ++peerGeneration;
+    try {
+      if (!channel.connected) throw new Error("The live audio signaling channel is reconnecting.");
+      const nextPeer = await makeAudioPeerConnection({
+        programId: opts.programId,
+        sessionId: opts.sessionId
+      });
+      if (closed || generation !== peerGeneration) {
+        nextPeer.close();
+        return;
+      }
+      peer = nextPeer;
+      iceQueue = createLiveAudioIceCandidateQueue(nextPeer);
+      earlyRemoteCandidates.splice(0).forEach(candidate => {
+        void iceQueue.addRemoteCandidate(candidate).catch(() => {});
+      });
+      const earlyLocalCandidates = [];
+      let offerSent = false;
+      const sendCandidate = candidate => channel.send({
+        type: "candidate",
+        sessionId: opts.sessionId,
+        from: attemptClientId,
+        to: "host-" + opts.sessionId,
+        candidate: serializeIceCandidate(candidate)
+      });
+      nextPeer.onicecandidate = event => {
+        if (!event.candidate) return;
+        if (offerSent) sendCandidate(event.candidate);
+        else earlyLocalCandidates.push(event.candidate);
+      };
+      nextPeer.ontrack = event => {
+        const stream = event.streams && event.streams[0]
+          ? event.streams[0]
+          : new MediaStream([event.track]);
+        opts.audioElement.srcObject = stream;
+        opts.audioElement.play().catch(() => {
+          if (opts.onStatus) opts.onStatus("tap-to-play");
+        });
+        if (opts.onStatus) opts.onStatus("live");
+      };
+      nextPeer.onconnectionstatechange = () => {
+        if (peer !== nextPeer) return;
+        if (nextPeer.connectionState === "connected") {
+          clearTimer("reconnect");
+          clearTimer("handshake");
+          reconnectAttempts = 0;
+          finishConnected();
+          if (opts.onStatus) opts.onStatus("live");
+        } else if (nextPeer.connectionState === "disconnected") {
+          scheduleReconnect(5000);
+        } else if (nextPeer.connectionState === "failed") {
+          scheduleReconnect(750);
         }
-        return;
+      };
+      nextPeer.addTransceiver("audio", { direction: "recvonly" });
+      const offer = await nextPeer.createOffer();
+      await nextPeer.setLocalDescription(offer);
+      if (!channel.send({
+        type: "offer",
+        sessionId: opts.sessionId,
+        from: attemptClientId,
+        to: "host-" + opts.sessionId,
+        description: descriptionToJson(nextPeer.localDescription)
+      })) {
+        throw new Error("The live audio signaling channel is reconnecting.");
       }
-      if (message.type === "candidate") {
-        if (message.candidate) {
-          if (iceQueue) {
-            void iceQueue.addRemoteCandidate(message.candidate).catch(() => {});
-          } else {
-            earlyRemoteCandidates.push(message.candidate);
-          }
-        }
-        return;
+      offerSent = true;
+      earlyLocalCandidates.splice(0).forEach(sendCandidate);
+      handshakeTimer = globalThis.setTimeout(() => {
+        if (peer === nextPeer && nextPeer.connectionState !== "connected") scheduleReconnect(0);
+      }, 16000);
+    } catch (error) {
+      if (peer && clientId === attemptClientId) {
+        peer.onconnectionstatechange = null;
+        peer.onicecandidate = null;
+        peer.ontrack = null;
+        peer.close();
+        peer = null;
+        iceQueue = null;
       }
-      if (message.type === "full") {
-        rejectConnected(new Error("The broadcast has reached its listener limit. Please try again later."));
-        return;
+      scheduleReconnect();
+    } finally {
+      startingPeer = false;
+    }
+  };
+
+  handleSignal = async message => {
+    if (!message || message.sessionId !== opts.sessionId) return;
+    if (message.type === "ended") {
+      if (opts.onStatus) opts.onStatus("ended");
+      return;
+    }
+    if (message.to !== clientId) return;
+    if (message.type === "candidate") {
+      if (message.candidate) {
+        if (iceQueue) void iceQueue.addRemoteCandidate(message.candidate).catch(() => {});
+        else earlyRemoteCandidates.push(message.candidate);
       }
-      if (message.type === "failed") {
-        rejectConnected(new Error("This network could not establish a direct WebRTC connection."));
-        return;
+      return;
+    }
+    if (message.type === "full") {
+      failInitialConnection(new Error("The broadcast has reached its listener limit. Please try again later."));
+      return;
+    }
+    if (message.type === "failed") {
+      scheduleReconnect(500);
+      return;
+    }
+    if (message.type === "restart-start" && peer && iceQueue &&
+        message.from === "host-" + opts.sessionId) {
+      iceQueue.beginRemoteDescription();
+      return;
+    }
+    if (message.type === "restart-cancel" && peer && iceQueue &&
+        message.from === "host-" + opts.sessionId) {
+      await iceQueue.restoreRemoteDescription();
+      return;
+    }
+    if (message.type === "restart-offer" && peer && iceQueue &&
+        message.from === "host-" + opts.sessionId) {
+      try {
+        if (peer.signalingState !== "stable") return;
+        await iceQueue.setRemoteDescription(message.description);
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
+        channel.send({
+          type: "restart-answer",
+          sessionId: opts.sessionId,
+          from: clientId,
+          to: "host-" + opts.sessionId,
+          description: descriptionToJson(peer.localDescription)
+        });
+      } catch (error) {
+        scheduleReconnect(500);
       }
-      if (message.type === "answer" && peer && peer.signalingState === "have-local-offer") {
-        try {
-          await iceQueue.setRemoteDescription(message.description);
-          resolveConnected(true);
-        } catch (error) {
-          rejectConnected(new Error("The live audio connection could not complete."));
-        }
+      return;
+    }
+    if (message.type === "answer" && peer && iceQueue && peer.signalingState === "have-local-offer") {
+      try {
+        await iceQueue.setRemoteDescription(message.description);
+        clearTimer("handshake");
+        reconnectAttempts = 0;
+        finishConnected();
+      } catch (error) {
+        scheduleReconnect(500);
       }
     }
-  });
+  };
+
   try {
-    peer = await makeAudioPeerConnection({
-      programId: opts.programId,
-      sessionId: opts.sessionId
-    });
-    iceQueue = createLiveAudioIceCandidateQueue(peer);
-    earlyRemoteCandidates.splice(0).forEach(candidate => {
-      void iceQueue.addRemoteCandidate(candidate).catch(() => {});
-    });
-    const sendCandidate = candidate => channel.send({
-      type: "candidate",
-      sessionId: opts.sessionId,
-      from: clientId,
-      to: "host-" + opts.sessionId,
-      candidate: serializeIceCandidate(candidate)
-    });
-    peer.onicecandidate = event => {
-      if (!event.candidate) return;
-      if (offerSent) sendCandidate(event.candidate);
-      else earlyLocalCandidates.push(event.candidate);
-    };
-    peer.ontrack = event => {
-      const stream = event.streams && event.streams[0]
-        ? event.streams[0]
-        : new MediaStream([event.track]);
-      opts.audioElement.srcObject = stream;
-      opts.audioElement.play().catch(() => {
-        if (opts.onStatus) opts.onStatus("tap-to-play");
-      });
-      if (opts.onStatus) opts.onStatus("live");
-    };
-    peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "failed") {
-        if (opts.onStatus) opts.onStatus("failed");
-        rejectConnected(new Error("The direct audio connection failed on this network."));
-      } else if (peer.connectionState === "connected" && opts.onStatus) {
-        opts.onStatus("live");
-      }
-    };
-    peer.addTransceiver("audio", { direction: "recvonly" });
-    const offer = await peer.createOffer();
-    await peer.setLocalDescription(offer);
-    channel.send({
-      type: "offer",
-      sessionId: opts.sessionId,
-      from: clientId,
-      to: "host-" + opts.sessionId,
-      description: descriptionToJson(peer.localDescription)
-    });
-    offerSent = true;
-    earlyLocalCandidates.splice(0).forEach(sendCandidate);
-    await Promise.race([
-      connected,
-      new Promise((_, reject) => setTimeout(() => reject(new Error("No response from the broadcaster. Check whether the programme is still live.")), 20000))
-    ]);
+    startupTimer = globalThis.setTimeout(() => {
+      failInitialConnection(new Error("Live audio could not reconnect. Check your internet connection and try again."));
+    }, 60000);
+    await startPeer(false);
+    await connected;
   } catch (error) {
-    if (peer) peer.close();
+    closed = true;
+    clearTimer("reconnect");
+    clearTimer("handshake");
+    clearTimer("startup");
+    if (peer) {
+      peer.onconnectionstatechange = null;
+      peer.onicecandidate = null;
+      peer.ontrack = null;
+      peer.close();
+    }
     channel.close();
     throw error;
   }
 
   return {
-    clientId,
+    get clientId() { return clientId; },
     async stop() {
       if (closed) return;
       closed = true;
+      clearTimer("reconnect");
+      clearTimer("handshake");
+      clearTimer("startup");
       channel.send({ type: "leave", sessionId: opts.sessionId, from: clientId, to: "host-" + opts.sessionId });
-      if (peer) peer.close();
+      if (peer) {
+        peer.onconnectionstatechange = null;
+        peer.onicecandidate = null;
+        peer.ontrack = null;
+        peer.close();
+      }
       channel.close();
       opts.audioElement.pause();
       opts.audioElement.srcObject = null;

@@ -4,6 +4,7 @@ const LIVE_AUDIO_STATUS_MESSAGES = Object.freeze({
   "tap-to-play": "Tap play on the audio player to hear the broadcast.",
   ended: "This broadcast has ended.",
   failed: "We couldn't connect to the live broadcast. Please try again or switch networks.",
+  reconnecting: "The connection dropped briefly. Reconnecting to live audio…",
   disconnected: "The live audio connection was interrupted."
 });
 
