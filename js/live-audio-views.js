@@ -81,7 +81,7 @@ function audioLibraryProgramRow(program, data, isSaved, isSavedFilter) {
   return '<article class="audio-library-row" data-testid="audio-program-' + escapeHtml(program.id) + '">' +
     audioLibraryArtwork(program, "audio-library-row-art") +
     '<div class="audio-library-row-copy"><div class="audio-library-row-kicker"><span>' + escapeHtml(program.category) + '</span>' +
-    (isLive ? '<span class="audio-library-live-label"><i></i> Live</span>' : program.recordingUrl || isSaved ? '<span class="audio-library-recorded-label">' + (isSaved ? "Saved offline" : "Recording") + '</span>' : "") + '</div>' +
+    (isLive ? '<span class="audio-library-live-label"><i></i> Live</span>' : program.recordingUrl || isSaved ? '<span class="audio-library-recorded-label">' + (isSaved ? "Saved offline" : "Recorded") + '</span>' : "") + '</div>' +
     '<h3>' + escapeHtml(program.title) + '</h3>' +
     (meta.length ? '<p class="audio-library-row-meta">' + meta.map(escapeHtml).join(' <span aria-hidden="true">·</span> ') + '</p>' : "") +
     '</div>' + audioLibrarySaveControl(program, data, isSaved, isSavedFilter) +
