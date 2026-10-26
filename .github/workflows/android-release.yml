@@ -130,10 +130,6 @@ jobs:
           npm test
           npm run build
 
-      - name: Package web bundle for in-app Android updates
-        run: |
-          cd dist
-          zip -qr ../consolation-hymnal-android-web.zip .
 
       - name: Package shared app for Android
         run: |
@@ -184,11 +180,10 @@ jobs:
         run: |
           set -euo pipefail
           apk="android/app/build/outputs/apk/release/consolation-hymnal-android.apk"
-          bundle="consolation-hymnal-android-web.zip"
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "$apk" "$bundle" --clobber
+            gh release upload "$RELEASE_TAG" "$apk" --clobber
           else
-            gh release create "$RELEASE_TAG" "$apk" "$bundle" \
+            gh release create "$RELEASE_TAG" "$apk" \
               --title "Consolation Hymnal $RELEASE_TAG" \
               --notes "Signed Android update for version ${RELEASE_TAG#v}."
           fi
