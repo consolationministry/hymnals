@@ -14,6 +14,7 @@ test("broadcast recording captures audio chunks and returns a web-ready recordin
       this.state = "inactive";
       this.listeners = {};
       this.timeslice = 0;
+      FakeMediaRecorder.latest = this;
     }
 
     addEventListener(type, listener) {
@@ -41,6 +42,7 @@ test("broadcast recording captures audio chunks and returns a web-ready recordin
   assert.equal(saved.blob.type, "audio/webm");
   assert.equal(saved.blob.size, "captured audio".length);
   assert.ok(saved.durationSeconds >= 1);
+  assert.equal(FakeMediaRecorder.latest.timeslice, undefined);
 });
 
 test("broadcast recording fails clearly when the browser lacks MediaRecorder", () => {
@@ -101,4 +103,47 @@ test("live recording uploads playable rewind segments while keeping the full arc
   ));
   assert.equal(saved.segmentCount, uploaded.length);
   assert.deepEqual(saved.segmentErrors, []);
+});
+
+test("archive duration stops at recorder completion instead of waiting for segment uploads", async () => {
+  class DelayedUploadRecorder {
+    static isTypeSupported(type) {
+      return type === "audio/webm;codecs=opus";
+    }
+
+    constructor(stream, options) {
+      this.stream = stream;
+      this.mimeType = options.mimeType;
+      this.state = "inactive";
+      this.listeners = {};
+    }
+
+    addEventListener(type, listener) {
+      this.listeners[type] = listener;
+    }
+
+    start() {
+      this.state = "recording";
+    }
+
+    stop() {
+      this.state = "inactive";
+      this.listeners.dataavailable({ data: new Blob(["captured audio"], { type: this.mimeType }) });
+      this.listeners.stop();
+    }
+  }
+
+  const recording = startLiveAudioRecording(
+    { getAudioTracks: () => [{}] },
+    DelayedUploadRecorder,
+    {
+      segmentDurationMs: 5,
+      onSegment: () => new Promise(resolve => setTimeout(resolve, 1600))
+    }
+  );
+  await new Promise(resolve => setTimeout(resolve, 20));
+
+  const saved = await recording.stop();
+
+  assert.equal(saved.durationSeconds, 1);
 });

@@ -175,6 +175,7 @@ test("published recordings get temporary public playback URLs and an archive pla
   const listener = renderLiveAudioListener(data, PROGRAM_ID);
   assert.match(listener, /data-recorded-audio-player/);
   assert.match(listener, /src="https:\/\/.+token=test-token/);
+  assert.match(listener, /data-recording-duration-seconds="42"/);
   assert.match(listener, /data-audio-seek="recorded"/);
   assert.match(listener, /data-audio-current-time="recorded"/);
   assert.match(listener, /data-audio-duration="recorded"/);

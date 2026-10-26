@@ -198,6 +198,10 @@ export function renderLiveAudioListener(data, programId, options) {
   const isSavedOffline = savedProgramIds.has(program.id);
   const offlinePlayback = Boolean(opts.offlinePlayback);
   const listenerCount = Math.max(0, Number(program.listenCount) || 0);
+  const recordingDuration = Number(program.recordingDurationSeconds);
+  const recordingDurationSeconds = Number.isFinite(recordingDuration) && recordingDuration > 0
+    ? recordingDuration
+    : 0;
   const liveSegments = (Array.isArray(program.liveSegments) ? program.liveSegments : [])
     .filter(function (segment) { return segment && segment.url; })
     .map(function (segment) {
@@ -230,7 +234,7 @@ export function renderLiveAudioListener(data, programId, options) {
       '</section>'
     : program.recordingUrl
       ? '<section class="audio-player audio-listener-player" aria-label="Recorded audio player"><div class="audio-listener-player-heading"><span class="audio-listener-recorded">RECORDED BROADCAST</span><span class="audio-listener-player-caption">Listen to the full service</span></div>' +
-        '<audio class="audio-listener-audio-source" crossorigin="anonymous" playsinline preload="metadata" data-recorded-audio-player data-audio-player="recorded" src="' + escapeHtml(program.recordingUrl) + '" aria-hidden="true" tabindex="-1" aria-label="Play recording of ' + escapeHtml(program.title) + '"></audio>' +
+        '<audio class="audio-listener-audio-source" crossorigin="anonymous" playsinline preload="metadata" data-recorded-audio-player data-audio-player="recorded" data-recording-duration-seconds="' + recordingDurationSeconds + '" src="' + escapeHtml(program.recordingUrl) + '" aria-hidden="true" tabindex="-1" aria-label="Play recording of ' + escapeHtml(program.title) + '"></audio>' +
         '<div class="audio-listener-controls" data-audio-player-controls="recorded">' +
         '<div class="audio-listener-waveform" data-audio-waveform="recorded" data-audio-waveform-seek role="img" aria-label="Recording waveform; highlighted bars show playback progress">' + audioWaveformBars() + '</div>' +
         '<input class="audio-listener-seek" type="range" min="0" max="1000" step="1" value="0" data-audio-seek="recorded" aria-label="Seek through recording" disabled>' +

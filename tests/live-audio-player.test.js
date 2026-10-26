@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   formatAudioTime,
+  getAudioPlayerDuration,
   getAudioWaveformHeights,
   getAudioWaveformPosition,
   getLiveAudioSeekTarget,
   getLiveAudioTimelinePosition,
+  getRecordedAudioTimeState,
   seekAudioPlayer
 } from "../js/live-audio-player.js";
 
@@ -60,4 +62,39 @@ test("recording seek positions are clamped and synchronized to duration", () => 
   seekAudioPlayer(audio, 1500);
   assert.equal(audio.currentTime, 80);
   seekAudioPlayer({ duration: Number.POSITIVE_INFINITY, currentTime: 4 }, 500);
+});
+
+test("recorded players use the saved duration when browser metadata is missing", () => {
+  const audio = {
+    duration: Number.POSITIVE_INFINITY,
+    currentTime: 12,
+    ended: false,
+    dataset: { recordingDurationSeconds: "42" }
+  };
+
+  assert.equal(getAudioPlayerDuration(audio), 42);
+  assert.deepEqual(getRecordedAudioTimeState(audio), {
+    duration: 42,
+    hasDuration: true,
+    currentTime: 12,
+    progress: 12 / 42
+  });
+
+  seekAudioPlayer(audio, 500);
+  assert.equal(audio.currentTime, 21);
+
+  audio.ended = true;
+  assert.deepEqual(getRecordedAudioTimeState(audio), {
+    duration: 42,
+    hasDuration: true,
+    currentTime: 42,
+    progress: 1
+  });
+});
+
+test("browser media duration takes precedence over the saved fallback", () => {
+  assert.equal(getAudioPlayerDuration({
+    duration: 40,
+    dataset: { recordingDurationSeconds: "42" }
+  }), 40);
 });

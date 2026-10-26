@@ -12,6 +12,31 @@ export function formatAudioTime(value) {
     : minutes + ":" + String(remainder).padStart(2, "0");
 }
 
+export function getAudioPlayerDuration(audio) {
+  const mediaDuration = Number(audio && audio.duration);
+  if (Number.isFinite(mediaDuration) && mediaDuration > 0) return mediaDuration;
+  const recordingDuration = Number(audio && audio.dataset && audio.dataset.recordingDurationSeconds);
+  return Number.isFinite(recordingDuration) && recordingDuration > 0
+    ? recordingDuration
+    : mediaDuration;
+}
+
+export function getRecordedAudioTimeState(audio) {
+  const duration = getAudioPlayerDuration(audio);
+  const hasDuration = Number.isFinite(duration) && duration > 0;
+  const currentTime = audio && audio.ended && hasDuration
+    ? duration
+    : Number.isFinite(Number(audio && audio.currentTime))
+      ? Number(audio.currentTime)
+      : 0;
+  return {
+    duration,
+    hasDuration,
+    currentTime,
+    progress: hasDuration ? Math.max(0, Math.min(1, currentTime / duration)) : 0
+  };
+}
+
 export function getAudioWaveformPosition(clientX, left, width) {
   const x = Number(clientX);
   const start = Number(left);
@@ -114,16 +139,17 @@ function updatePlayerControls(audio, controller) {
     ? controller.liveSegments.reduce((sum, segment) => sum + Math.max(0, Number(segment.durationSeconds) || 0), 0)
     : 0;
   const isLiveArchive = isLive && controller.livePlayback;
-  const duration = Number(audio.duration);
+  const recordedTime = isLive ? null : getRecordedAudioTimeState(audio);
+  const duration = isLive ? Number(audio.duration) : recordedTime.duration;
   const hasDuration = isLive
     ? Number.isFinite(liveDuration) && liveDuration > 0
-    : Number.isFinite(duration) && duration > 0;
+    : recordedTime.hasDuration;
   const displayDuration = isLive ? liveDuration : duration;
   const currentTime = isLive
     ? isLiveArchive
       ? getLiveAudioTimelinePosition(controller.liveSegments, controller.currentSegmentIndex, audio.currentTime)
       : liveDuration
-    : Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+    : recordedTime.currentTime;
   const ratio = hasDuration ? Math.max(0, Math.min(1, currentTime / displayDuration)) : 0;
   const playButton = root.querySelector('[data-action="toggle-audio-playback"]');
   const playIcon = playButton && playButton.querySelector("[data-audio-control-icon]");
@@ -342,7 +368,7 @@ function attachWaveformSeek(audio, controller) {
     if (event.button !== undefined && event.button !== 0) return;
     const canSeek = audio.dataset.audioPlayer === "live"
       ? controller.liveSegments.length > 0
-      : Number.isFinite(Number(audio.duration)) && Number(audio.duration) > 0;
+      : getRecordedAudioTimeState(audio).hasDuration;
     if (!canSeek) return;
     activePointerId = event.pointerId;
     if (typeof waveform.setPointerCapture === "function" && event.pointerId !== undefined) {
@@ -368,13 +394,13 @@ function attachWaveformSeek(audio, controller) {
     const isLive = audio.dataset.audioPlayer === "live";
     const duration = isLive
       ? controller.liveSegments.reduce((sum, segment) => sum + Number(segment.durationSeconds), 0)
-      : Number(audio.duration);
+      : getAudioPlayerDuration(audio);
     if (!Number.isFinite(duration) || duration <= 0) return;
     const currentTime = isLive && !controller.livePlayback
       ? duration
       : isLive
         ? getLiveAudioTimelinePosition(controller.liveSegments, controller.currentSegmentIndex, audio.currentTime)
-        : Number(audio.currentTime) || 0;
+        : getRecordedAudioTimeState(audio).currentTime;
     const step = Math.max(1, duration * 0.01);
     let nextTime = currentTime;
     if (event.key === "ArrowLeft" || event.key === "ArrowDown") nextTime -= step;
@@ -473,7 +499,7 @@ export function seekAudioPlayer(audio, value) {
     loadLiveAudioSegment(audio, controller, target.index, target.offsetSeconds, shouldPlay);
     return;
   }
-  const duration = Number(audio.duration);
+  const duration = getAudioPlayerDuration(audio);
   if (!Number.isFinite(duration) || duration <= 0) return;
   const position = Math.max(0, Math.min(1000, Number(value) || 0));
   audio.currentTime = duration * position / 1000;
