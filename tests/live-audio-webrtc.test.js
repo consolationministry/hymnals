@@ -6,6 +6,9 @@ import {
   createLiveAudioIceCandidateQueue,
   readLiveAudioPeerStats,
   getLiveAudioListenerStatus,
+  configureLiveAudioReceiver,
+  LIVE_AUDIO_PLAYOUT_DELAY_SECONDS,
+  LIVE_AUDIO_JITTER_BUFFER_TARGET_MS,
   startLiveAudioListener
 } from "../js/live-audio-webrtc.js";
 
@@ -136,6 +139,7 @@ test("publisher and listener trickle ICE candidates instead of waiting for gathe
 test("live audio status waits for playback and preserves tap-to-play failures", () => {
   assert.equal(getLiveAudioListenerStatus("connected", "connecting"), "connected");
   assert.equal(getLiveAudioListenerStatus("connected", "blocked"), "tap-to-play");
+  assert.equal(getLiveAudioListenerStatus("connected", "buffering"), "buffering");
   assert.equal(getLiveAudioListenerStatus("connected", "playing"), "live");
 });
 
@@ -143,6 +147,8 @@ test("listener retries native media playback when the remote audio track unmutes
   let channelCallbacks;
   let peer;
   const statuses = [];
+  const playoutTargets = [];
+  const receiver = { jitterBufferTarget: 0 };
   const trackListeners = new Map();
   const track = {
     muted: true,
@@ -192,6 +198,8 @@ test("listener retries native media playback when the remote audio track unmutes
       return true;
     },
     onStatus(status) { statuses.push(status); },
+    onPlayoutDelay(seconds, jitterBufferTargetMs) { playoutTargets.push({ seconds, jitterBufferTargetMs }); },
+    playoutReadyMs: 0,
     async connectChannel(programId, sessionId, callbacks) {
       channelCallbacks = callbacks;
       return channel;
@@ -200,7 +208,7 @@ test("listener retries native media playback when the remote audio track unmutes
       peer = {
         connectionState: "new",
         signalingState: "stable",
-        addTransceiver() {},
+        addTransceiver() { return { receiver }; },
         async createOffer() { return { type: "offer", sdp: "offer" }; },
         async setLocalDescription(description) {
           this.localDescription = description;
@@ -218,8 +226,9 @@ test("listener retries native media playback when the remote audio track unmutes
     }
   });
 
-  peer.ontrack({ streams: [stream], track });
+  peer.ontrack({ streams: [stream], track, receiver });
   await Promise.resolve();
+  assert.deepEqual(playoutTargets.at(-1), { seconds: 1, jitterBufferTargetMs: 4000 });
   assert.equal(audioElement.playCalls, 1);
   assert.notEqual(statuses.at(-1), "live");
 
@@ -227,6 +236,7 @@ test("listener retries native media playback when the remote audio track unmutes
   track.dispatch("unmute");
   await Promise.resolve();
   await Promise.resolve();
+  await new Promise(resolve => setTimeout(resolve, 0));
 
   assert.equal(audioElement.playCalls, 2);
   assert.equal(statuses.at(-1), "live");
@@ -305,4 +315,18 @@ test("listener does not replace archive playback when a new live stream arrives"
   assert.equal(audioElement.srcObject, null);
   assert.equal(playbackCalls, 0);
   await listener.stop();
+});
+
+test("listener requests the maximum supported jitter buffer and fills the remaining five-second delay", () => {
+  const receiver = { jitterBufferTarget: 0 };
+  const targetMs = configureLiveAudioReceiver(receiver);
+  assert.equal(LIVE_AUDIO_PLAYOUT_DELAY_SECONDS, 5);
+  assert.equal(targetMs, LIVE_AUDIO_JITTER_BUFFER_TARGET_MS);
+  assert.equal(receiver.jitterBufferTarget, 4000);
+  assert.equal(LIVE_AUDIO_PLAYOUT_DELAY_SECONDS - targetMs / 1000, 1);
+
+  const legacyReceiver = { playoutDelayHint: 0 };
+  assert.equal(configureLiveAudioReceiver(legacyReceiver), 4000);
+  assert.equal(legacyReceiver.playoutDelayHint, 4);
+  assert.equal(configureLiveAudioReceiver({}), 0);
 });

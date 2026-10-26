@@ -32,6 +32,8 @@ import { startLiveAudioListener } from "./live-audio-webrtc.js";
 import {
   mountAudioPlayer,
   prepareAudioPlayer,
+  prepareLiveAudioDelay,
+  setLiveAudioOutputDelay,
   preserveRecordedAudioPlayer,
   isWaitingForLiveAudioSegment,
   getNextLiveAudioSegmentIndex,
@@ -107,7 +109,7 @@ function applyPreferences() {
 }
 
 function languageLabel(language) {
-  return { english: "English", yoruba: "Yorùbá" }[language] || "English";
+  return { english: "English", yoruba: "YorÃ¹bÃ¡" }[language] || "English";
 }
 
 function languageToggle() {
@@ -146,7 +148,7 @@ function renderNav() {
 }
 
 function renderSearchBar() {
-  return '<div class="search-panel"><form class="search-form" role="search" data-search-form><label class="sr-only" for="hymn-search">Search by hymn number, title, keyword, or first line</label>' + icon("search", "search-icon") + '<input id="hymn-search" type="search" inputmode="search" autocomplete="off" value="' + escapeHtml(state.query) + '" placeholder="Search number, title, first line…" data-testid="input-hymn-search"><button class="search-submit" type="submit" aria-label="Search hymns" data-testid="button-search-hymns">' + icon("arrowRight") + '</button></form></div>';
+  return '<div class="search-panel"><form class="search-form" role="search" data-search-form><label class="sr-only" for="hymn-search">Search by hymn number, title, keyword, or first line</label>' + icon("search", "search-icon") + '<input id="hymn-search" type="search" inputmode="search" autocomplete="off" value="' + escapeHtml(state.query) + '" placeholder="Search number, title, first lineâ¦" data-testid="input-hymn-search"><button class="search-submit" type="submit" aria-label="Search hymns" data-testid="button-search-hymns">' + icon("arrowRight") + '</button></form></div>';
 }
 
 function renderHomeSearch() {
@@ -179,7 +181,7 @@ function currentHymnTitle(hymn) {
 }
 
 function pendingYorubaMarkup() {
-  return '<span class="yoruba-pending" lang="en">Yorùbá text pending</span>';
+  return '<span class="yoruba-pending" lang="en">YorÃ¹bÃ¡ text pending</span>';
 }
 
 function titleMarkup(hymn) {
@@ -240,7 +242,7 @@ function renderHome() {
   const visibleHymns = matchingHymns.filter(state.settings.language === "yoruba" ? hasYorubaText : hasEnglishText);
   let collection;
   if (!visibleHymns.length && state.settings.language === "yoruba") {
-    collection = '<section class="empty-state home-empty" aria-live="polite"><h2>No matching Yorùbá hymns</h2><p>Try another number, title, keyword, or first line.</p><button class="button-secondary" type="button" data-action="clear-home-search" data-testid="button-clear-home-search">Clear search</button></section>';
+    collection = '<section class="empty-state home-empty" aria-live="polite"><h2>No matching YorÃ¹bÃ¡ hymns</h2><p>Try another number, title, keyword, or first line.</p><button class="button-secondary" type="button" data-action="clear-home-search" data-testid="button-clear-home-search">Clear search</button></section>';
   } else if (!visibleHymns.length) {
     collection = '<section class="empty-state home-empty" aria-live="polite"><h2>No matching hymns</h2><p>Try another number, title, word, or first line.</p><button class="button-secondary" type="button" data-action="clear-home-search" data-testid="button-clear-home-search">Clear search</button></section>';
   } else {
@@ -251,7 +253,7 @@ function renderHome() {
 function renderHymnLibrary() {
   const results = searchHymns(state.hymns, state.query, state.category).filter(state.settings.language === "yoruba" ? hasYorubaText : hasEnglishText);
   const caption = state.category ? displayCollectionLabel(state.category) : (state.query ? "Search results" : "All hymns");
-  const emptyTitle = state.settings.language === "yoruba" ? "No matching Yorùbá hymns" : "No matching hymns";
+  const emptyTitle = state.settings.language === "yoruba" ? "No matching YorÃ¹bÃ¡ hymns" : "No matching hymns";
   const emptyMessage = state.settings.language === "yoruba"
     ? "Try another number, title, word, or first line."
     : (state.query ? "Try another number, title, word, or first line." : "No hymns are available.");
@@ -263,9 +265,9 @@ function renderFavorites() {
   const saved = state.hymns.filter(function (hymn) {
     return ids.has(String(hymn.hymn_number)) && (state.settings.language === "yoruba" ? hasYorubaText(hymn) : hasEnglishText(hymn));
   });
-  const emptyTitle = state.settings.language === "yoruba" ? "No Yorùbá favorites" : "No favorites yet";
+  const emptyTitle = state.settings.language === "yoruba" ? "No YorÃ¹bÃ¡ favorites" : "No favorites yet";
   const emptyMessage = state.settings.language === "yoruba"
-    ? "Save a Yorùbá hymn with the heart button."
+    ? "Save a YorÃ¹bÃ¡ hymn with the heart button."
     : "Tap the heart beside a hymn to keep it here for quick access.";
   return '<section class="page">' + pageHeading("Favorites", "Your saved hymns stay on this device.") + renderLanguageArea() + hymnList(saved, emptyTitle, emptyMessage) + '</section>';
 }
@@ -333,15 +335,15 @@ function renderProgrammeInteractions(program) {
   const interaction = state.programmeInteractions[programId] || { voteYesCount: 0, voteNoCount: 0, myVote: null };
   const votesAvailable = state.programmeVotesAvailable === true;
   const question = String(program && program.response_question || "Will you be available for this programme?").trim();
-  const yesLabel = String(program && program.yes_label || "Yes, I’ll be there").trim();
+  const yesLabel = String(program && program.yes_label || "Yes, Iâll be there").trim();
   const noLabel = String(program && program.no_label || "Not this time").trim();
   const votePending = Boolean(state.programmeVotePending[programId]);
   const disabled = !votesAvailable || votePending;
-  const yesCount = votesAvailable ? escapeHtml(Math.max(0, Number(interaction.voteYesCount) || 0)) : "—";
-  const noCount = votesAvailable ? escapeHtml(Math.max(0, Number(interaction.voteNoCount) || 0)) : "—";
+  const yesCount = votesAvailable ? escapeHtml(Math.max(0, Number(interaction.voteYesCount) || 0)) : "â";
+  const noCount = votesAvailable ? escapeHtml(Math.max(0, Number(interaction.voteNoCount) || 0)) : "â";
   const voteStatus = votesAvailable
     ? (interaction.myVote ? "Your response is saved. You can change it any time." : "Choose one response. Votes are anonymous.")
-    : (state.programmeInteractionsAvailable === null ? "Loading voting…" : "Voting is temporarily unavailable.");
+    : (state.programmeInteractionsAvailable === null ? "Loading votingâ¦" : "Voting is temporarily unavailable.");
   return '<section class="programme-interactions" aria-label="Programme voting"><div class="programme-voting"><h3>' + escapeHtml(question) + '</h3><div class="programme-vote-options">' +
     '<button class="programme-vote-button" type="button" data-action="cast-programme-vote" data-choice="yes" data-program-id="' + safeProgramId + '" aria-pressed="' + (interaction.myVote === "yes") + '"' + (disabled ? " disabled" : "") + '><span>' + escapeHtml(yesLabel) + '</span><strong>' + yesCount + '</strong></button>' +
     '<button class="programme-vote-button" type="button" data-action="cast-programme-vote" data-choice="no" data-program-id="' + safeProgramId + '" aria-pressed="' + (interaction.myVote === "no") + '"' + (disabled ? " disabled" : "") + '><span>' + escapeHtml(noLabel) + '</span><strong>' + noCount + '</strong></button>' +
@@ -360,7 +362,7 @@ function renderPublicPrograms(programs, available) {
     const endDate = publicDate(program.end_date);
     const status = publicStatus(program.start_date, program.end_date);
     const dateLabel = startDate && endDate && String(program.end_date).slice(0, 10) !== startDateValue
-      ? startDate + " – " + endDate
+      ? startDate + " â " + endDate
       : startDate;
     const flyer = typeof program.flyer_data_url === "string"
       && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(program.flyer_data_url)
@@ -475,22 +477,22 @@ function renderReader() {
     : '<span lang="yo">' + escapeHtml(hymn.first_line_yoruba) + '</span>';
   let sections = hasEnglish
     ? poemSection("English", hymn.verses_en, hymn.chorus_en, "en", showEnglishGospelMeterHeading)
-    : poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo", false, hymn.hymnal_note);
+    : poemSection("YorÃ¹bÃ¡", hymn.verses_yoruba, hymn.chorus_yoruba, "yo", false, hymn.hymnal_note);
   let translationNote = "";
   const hasYoruba = hasYorubaText(hymn);
   if (state.settings.language === "yoruba") {
     if (hasYoruba) {
       title = '<span lang="yo">' + escapeHtml(hymn.title_yoruba) + '</span>';
       firstLine = '<span lang="yo">' + escapeHtml(hymn.first_line_yoruba) + '</span>';
-      sections = poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo");
+      sections = poemSection("YorÃ¹bÃ¡", hymn.verses_yoruba, hymn.chorus_yoruba, "yo");
     } else {
       title = '<span lang="en">' + escapeHtml(hymn.title_en) + '</span>';
       firstLine = "";
       sections = "";
-      translationNote = '<p class="translation-note" role="note">This hymn has no Yorùbá text. Switch to the English view to read it.</p>';
+      translationNote = '<p class="translation-note" role="note">This hymn has no YorÃ¹bÃ¡ text. Switch to the English view to read it.</p>';
     }
   }
-  return '<section class="page reader-page"><div class="reader-topbar"><button class="reader-back" type="button" data-action="back" data-testid="button-reader-back">' + icon("arrow") + ' Back</button><div class="reader-actions">' + favoriteButton(hymn) + '<button class="icon-button" type="button" data-action="share" data-number="' + hymn.hymn_number + '" aria-label="Share hymn ' + number + '" data-testid="button-share-hymn">' + icon("share") + '</button></div></div><header class="reader-heading"><div class="reader-edition"><span class="hymn-number">' + number + '</span><span>' + escapeHtml(displayHymnalName(hymn)) + '</span></div><h1>' + title + '</h1><p class="reader-first-line">' + firstLine + '</p><span class="hymn-category">' + escapeHtml(displayCollectionLabel(hymn.category, hymn.source_hymnal)) + '</span></header><div class="reader-meta">' + languageToggle() + '<div class="reading-size" role="group" aria-label="Change hymn text size"><button type="button" data-action="font-decrease" aria-label="Decrease hymn text size" data-testid="button-font-decrease">A−</button><output id="reader-font-size">' + state.settings.fontSize + ' px</output><button type="button" data-action="font-increase" aria-label="Increase hymn text size" data-testid="button-font-increase">A+</button></div></div><div class="hymn-reading">' + translationNote + sections + '</div><footer class="reader-footer"><button class="text-link" type="button" data-action="share" data-number="' + hymn.hymn_number + '">' + icon("share") + ' Share hymn</button></footer></section>';
+  return '<section class="page reader-page"><div class="reader-topbar"><button class="reader-back" type="button" data-action="back" data-testid="button-reader-back">' + icon("arrow") + ' Back</button><div class="reader-actions">' + favoriteButton(hymn) + '<button class="icon-button" type="button" data-action="share" data-number="' + hymn.hymn_number + '" aria-label="Share hymn ' + number + '" data-testid="button-share-hymn">' + icon("share") + '</button></div></div><header class="reader-heading"><div class="reader-edition"><span class="hymn-number">' + number + '</span><span>' + escapeHtml(displayHymnalName(hymn)) + '</span></div><h1>' + title + '</h1><p class="reader-first-line">' + firstLine + '</p><span class="hymn-category">' + escapeHtml(displayCollectionLabel(hymn.category, hymn.source_hymnal)) + '</span></header><div class="reader-meta">' + languageToggle() + '<div class="reading-size" role="group" aria-label="Change hymn text size"><button type="button" data-action="font-decrease" aria-label="Decrease hymn text size" data-testid="button-font-decrease">Aâ</button><output id="reader-font-size">' + state.settings.fontSize + ' px</output><button type="button" data-action="font-increase" aria-label="Increase hymn text size" data-testid="button-font-increase">A+</button></div></div><div class="hymn-reading">' + translationNote + sections + '</div><footer class="reader-footer"><button class="text-link" type="button" data-action="share" data-number="' + hymn.hymn_number + '">' + icon("share") + ' Share hymn</button></footer></section>';
 }
 
 function themeChoice(theme, label, iconName) {
@@ -506,9 +508,9 @@ function renderSettings() {
   return '<section class="page">' + pageHeading("Settings", "Make the hymn book comfortable for you.") +
     '<section class="settings-group"><h2>Appearance</h2><p class="settings-description">Choose how the app looks on this device.</p><div class="preference-choices">' + themeChoice("light", "Light", "sun") + themeChoice("dark", "Dark", "moon") + themeChoice("system", "System", "settings") + '</div></section>' +
     '<section class="settings-group"><h2>Accent colour</h2><p class="settings-description">Choose from six colours. Your choice works with light and dark mode.</p><div class="accent-grid">' + accentChoices + '</div></section>' +
-    '<section class="settings-group"><h2>Reading</h2><p class="settings-description">Set your preferred hymn language and text size. English and Yorùbá are available as separate hymn collections.</p><div class="setting-row"><span><strong>Language</strong><small>Choose which hymn text to show.</small></span>' + languageToggle() + '</div><div class="setting-row"><span><strong>Text size</strong><small id="settings-font-value">' + size + ' px</small></span><input class="setting-range" id="settings-font-size" type="range" min="17" max="32" step="1" value="' + size + '" aria-label="Text size across the app" data-testid="input-font-size"></div><p class="verse-text setting-preview" style="--hymn-size:' + size + 'px">The hymn text will use this size.</p></section>' +
+    '<section class="settings-group"><h2>Reading</h2><p class="settings-description">Set your preferred hymn language and text size. English and YorÃ¹bÃ¡ are available as separate hymn collections.</p><div class="setting-row"><span><strong>Language</strong><small>Choose which hymn text to show.</small></span>' + languageToggle() + '</div><div class="setting-row"><span><strong>Text size</strong><small id="settings-font-value">' + size + ' px</small></span><input class="setting-range" id="settings-font-size" type="range" min="17" max="32" step="1" value="' + size + '" aria-label="Text size across the app" data-testid="input-font-size"></div><p class="verse-text setting-preview" style="--hymn-size:' + size + 'px">The hymn text will use this size.</p></section>' +
     '<div class="settings-actions"><button class="button-primary settings-save" type="button" data-action="save-settings" data-testid="button-save-settings">' + icon("check") + ' Save settings</button></div>' +
-    '<section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal · Version ' + APP_VERSION + '</small></span></div><p class="about-copy">The catalog contains 128 English hymns and 122 user-provided Yorùbá hymns in separate collections. Printed numbers are preserved, and matching numbers are not treated as translations. See data/SOURCES.md for catalog notes.</p><div class="setting-note" style="margin-top:14px"><strong>Publishing and attribution</strong><br>Hymns marked Published in the admin workspace appear in the public catalog. Confirm the source attribution and publishing permission before publishing additional material.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
+    '<section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal Â· Version ' + APP_VERSION + '</small></span></div><p class="about-copy">The catalog contains 128 English hymns and 122 user-provided YorÃ¹bÃ¡ hymns in separate collections. Printed numbers are preserved, and matching numbers are not treated as translations. See data/SOURCES.md for catalog notes.</p><div class="setting-note" style="margin-top:14px"><strong>Publishing and attribution</strong><br>Hymns marked Published in the admin workspace appear in the public catalog. Confirm the source attribution and publishing permission before publishing additional material.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
 }
 
 function finishSplash() {
@@ -618,7 +620,7 @@ function render() {
     mountAudioPlayer(audio, audio.closest(".audio-listener-player"));
   });
   renderNav();
-  document.title = state.view === "reader" ? "Hymn " + String(state.selectedNumber).padStart(2, "0") + " · Consolation Hymnal" : state.view === "listen" ? "Listen · Consolation Hymnal" : "Consolation Hymnal";
+  document.title = state.view === "reader" ? "Hymn " + String(state.selectedNumber).padStart(2, "0") + " Â· Consolation Hymnal" : state.view === "listen" ? "Listen Â· Consolation Hymnal" : "Consolation Hymnal";
 }
 
 function setSettings(changes, persist = true) {
@@ -694,7 +696,7 @@ function updateLiveAudioTimer() {
   const elapsed = Math.max(0, Math.floor((Date.now() - state.liveAudioStartedAt) / 1000));
   const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const seconds = String(elapsed % 60).padStart(2, "0");
-  label.textContent = "Listening · " + minutes + ":" + seconds;
+  label.textContent = "Listening Â· " + minutes + ":" + seconds;
 }
 
 function beginLiveAudioTimer() {
@@ -877,7 +879,7 @@ async function connectLiveAudioProgram(programId) {
 
   const connectToken = ++state.liveAudioConnectToken;
   state.liveAudioConnecting = true;
-  state.liveAudioConnectionStatus = "Connecting to live audio…";
+  state.liveAudioConnectionStatus = "Connecting to live audioâ¦";
   state.liveAudioStatusCode = "connecting";
   state.liveAudioCountRecorded = false;
   state.liveAudioListenEventId = createLiveAudioId();
@@ -890,6 +892,8 @@ async function connectLiveAudioProgram(programId) {
     return;
   }
   void prepareAudioPlayer(audioElement);
+  await prepareLiveAudioDelay(audioElement);
+  if (connectToken !== state.liveAudioConnectToken || state.view !== "listen") return;
 
   try {
     const listener = await startLiveAudioListener({
@@ -897,6 +901,7 @@ async function connectLiveAudioProgram(programId) {
       sessionId: program.liveSessionId,
       audioElement,
       onStream: stream => setLiveAudioStream(audioElement, stream),
+      onPlayoutDelay: seconds => setLiveAudioOutputDelay(audioElement, seconds),
       onStatus: status => updateLiveAudioConnectionStatus(connectToken, status)
     });
     if (connectToken !== state.liveAudioConnectToken || state.view !== "listen" ||
@@ -1073,7 +1078,7 @@ function showUpdateNotice(update) {
 async function installAvailableUpdate() {
   updateInstallButton.disabled = true;
   updateStatus.hidden = false;
-  updateStatus.textContent = "Preparing the update…";
+  updateStatus.textContent = "Preparing the updateâ¦";
   try {
     const result = await applyAvailableUpdate(function (message) {
       updateStatus.textContent = message;
@@ -1082,7 +1087,7 @@ async function installAvailableUpdate() {
       window.open(result.releaseUrl, "_blank", "noopener,noreferrer");
       updateDialog.close();
     } else if (result && result.reload) {
-      updateStatus.textContent = "Restarting with the new version…";
+      updateStatus.textContent = "Restarting with the new versionâ¦";
     } else {
       updateStatus.textContent = "The installer is ready. Follow the Android prompts to finish.";
     }

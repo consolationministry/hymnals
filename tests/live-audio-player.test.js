@@ -6,6 +6,8 @@ import {
   mountAudioPlayer,
   preserveRecordedAudioPlayer,
   prepareAudioPlayer,
+  prepareLiveAudioDelay,
+  setLiveAudioOutputDelay,
   getAudioPlayerDuration,
   getAudioWaveformHeights,
   getAudioWaveformPosition,
@@ -16,7 +18,8 @@ import {
   isWaitingForLiveAudioSegment,
   returnToLiveAudio,
   seekAudioPlayer,
-  setLiveAudioStream
+  setLiveAudioStream,
+  stopAudioPlayer
 } from "../js/live-audio-player.js";
 
 test("audio timestamps are formatted as minutes or hours", () => {
@@ -266,4 +269,94 @@ test("failed return-to-live playback shows a live-only tap-to-play message", asy
   await Promise.resolve();
 
   assert.equal(status.textContent, "Tap play on the audio player to hear the broadcast.");
+});
+
+test("live delay routes WebRTC audio through a stable delayed media stream", async () => {
+  const originalWindow = globalThis.window;
+  const contexts = [];
+  class FakeAudioContext {
+    constructor() {
+      this.state = "suspended";
+      this.currentTime = 0;
+      this.delay = { delayTime: { value: 0 }, connect(node) { this.destination = node; } };
+      this.destination = { stream: { id: "delayed-output", active: true } };
+      this.sources = [];
+      contexts.push(this);
+    }
+    createDelay(maxDelayTime) { this.maxDelayTime = maxDelayTime; return this.delay; }
+    createMediaStreamDestination() { return this.destination; }
+    createMediaStreamSource(stream) {
+      const source = { stream, connect(node) { this.connectedTo = node; }, disconnect() { this.disconnected = true; } };
+      this.sources.push(source);
+      return source;
+    }
+    async resume() { this.state = "running"; }
+    async close() { this.state = "closed"; }
+  }
+  globalThis.window = { AudioContext: FakeAudioContext };
+  const audio = { dataset: { audioPlayer: "live" }, srcObject: null, pause() {} };
+  try {
+    assert.equal(await prepareLiveAudioDelay(audio), true);
+    const context = contexts[0];
+    assert.equal(context.maxDelayTime, 6);
+    assert.equal(context.delay.delayTime.value, 5);
+    assert.equal(context.state, "running");
+    assert.equal(setLiveAudioOutputDelay(audio, 1), true);
+    assert.equal(context.delay.delayTime.value, 1);
+
+    const remoteStream = { id: "remote", active: true };
+    assert.equal(setLiveAudioStream(audio, remoteStream), true);
+    assert.strictEqual(audio.srcObject, context.destination.stream);
+    assert.strictEqual(context.sources[0].stream, remoteStream);
+    assert.strictEqual(context.sources[0].connectedTo, context.delay);
+
+    stopAudioPlayer(audio);
+    assert.equal(context.state, "closed");
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
+
+test("reconnecting while rewound keeps the newest stream behind the delay graph", async () => {
+  const originalWindow = globalThis.window;
+  const contexts = [];
+  class FakeAudioContext {
+    constructor() {
+      this.state = "running";
+      this.delay = { delayTime: { value: 5 }, connect() {} };
+      this.destination = { stream: { id: "delayed-output", active: true } };
+      this.sources = [];
+      contexts.push(this);
+    }
+    createDelay() { return this.delay; }
+    createMediaStreamDestination() { return this.destination; }
+    createMediaStreamSource(stream) {
+      const source = { stream, connect() {}, disconnect() { this.disconnected = true; } };
+      this.sources.push(source);
+      return source;
+    }
+    async resume() {}
+    async close() { this.state = "closed"; }
+  }
+  globalThis.window = { AudioContext: FakeAudioContext };
+  const firstStream = { id: "first", active: true };
+  const reconnectedStream = { id: "reconnected", active: true };
+  const { audio } = createLiveAudioReturnFixture(firstStream);
+  try {
+    await prepareLiveAudioDelay(audio);
+    setLiveAudioStream(audio, firstStream);
+    seekAudioPlayer(audio, 500);
+    assert.equal(setLiveAudioStream(audio, reconnectedStream), false);
+    audio.ended = true;
+    audio.dispatch("ended");
+
+    assert.strictEqual(audio.srcObject, contexts[0].destination.stream);
+    assert.strictEqual(contexts[0].sources.at(-1).stream, reconnectedStream);
+    assert.strictEqual(audio.lastPlayedStream, contexts[0].destination.stream);
+  } finally {
+    stopAudioPlayer(audio);
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
 });

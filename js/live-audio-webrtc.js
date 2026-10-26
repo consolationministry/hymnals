@@ -8,9 +8,34 @@ export const DEFAULT_AUDIO_SETTINGS = Object.freeze({
   gain: 0
 });
 
+export const LIVE_AUDIO_PLAYOUT_DELAY_SECONDS = 5;
+export const LIVE_AUDIO_JITTER_BUFFER_TARGET_MS = 4000;
+
+export function configureLiveAudioReceiver(receiver) {
+  if (!receiver) return 0;
+  try {
+    if ("jitterBufferTarget" in receiver) {
+      receiver.jitterBufferTarget = LIVE_AUDIO_JITTER_BUFFER_TARGET_MS;
+      if (Number(receiver.jitterBufferTarget) >= LIVE_AUDIO_JITTER_BUFFER_TARGET_MS) {
+        return LIVE_AUDIO_JITTER_BUFFER_TARGET_MS;
+      }
+    }
+  } catch (error) {}
+  try {
+    if ("playoutDelayHint" in receiver) {
+      receiver.playoutDelayHint = LIVE_AUDIO_JITTER_BUFFER_TARGET_MS / 1000;
+      if (Number(receiver.playoutDelayHint) >= LIVE_AUDIO_JITTER_BUFFER_TARGET_MS / 1000) {
+        return LIVE_AUDIO_JITTER_BUFFER_TARGET_MS;
+      }
+    }
+  } catch (error) {}
+  return 0;
+}
+
 export function getLiveAudioListenerStatus(connectionState, playbackStatus) {
   if (playbackStatus === "blocked") return "tap-to-play";
   if (connectionState !== "connected") return "connecting";
+  if (playbackStatus === "buffering") return "buffering";
   return playbackStatus === "playing" ? "live" : "connected";
 }
 export function createLiveAudioIceCandidateQueue(peer) {
@@ -142,7 +167,7 @@ export function readLiveAudioPeerStats(report) {
     availableOutgoingBitrate: outgoingBitrate
   });
   const candidateTypes = [localCandidate && localCandidate.candidateType, remoteCandidate && remoteCandidate.candidateType];
-  const route = candidateTypes.includes("relay") ? "Relay" : selectedPair ? "Direct" : "—";
+  const route = candidateTypes.includes("relay") ? "Relay" : selectedPair ? "Direct" : "â";
   return {
     ...quality,
     lossPercent: Number.isFinite(packetLoss) ? packetLoss : null,
@@ -432,19 +457,19 @@ export async function startLiveAudioPublisher(options) {
           connectedListeners: connected.length,
           listenerCount: peers.size,
           weakListeners: 0,
-          route: "—"
+          route: "â"
         });
         return;
       }
       const level = Math.round(measured.reduce((sum, sample) => sum + sample.level, 0) / measured.length);
-      const routes = new Set(measured.map(sample => sample.route).filter(route => route !== "—"));
+      const routes = new Set(measured.map(sample => sample.route).filter(route => route !== "â"));
       opts.onNetworkStatus({
         level,
         label: NETWORK_QUALITY_LABELS[level],
         connectedListeners: connected.length,
         listenerCount: peers.size,
         weakListeners: measured.filter(sample => sample.level <= 2).length,
-        route: routes.size > 1 ? "Mixed" : routes.values().next().value || "—"
+        route: routes.size > 1 ? "Mixed" : routes.values().next().value || "â"
       });
     } finally {
       statsPolling = false;
@@ -602,6 +627,7 @@ export async function startLiveAudioListener(options) {
   let reconnectTimer = null;
   let handshakeTimer = null;
   let startupTimer = null;
+  let playoutTimer = null;
   let reconnectAttempts = 0;
   let hasConnected = false;
   let audioPlaybackStatus = "connecting";
@@ -616,12 +642,24 @@ export async function startLiveAudioListener(options) {
     if (key === "reconnect" && reconnectTimer !== null) globalThis.clearTimeout(reconnectTimer);
     if (key === "handshake" && handshakeTimer !== null) globalThis.clearTimeout(handshakeTimer);
     if (key === "startup" && startupTimer !== null) globalThis.clearTimeout(startupTimer);
+    if (key === "playout" && playoutTimer !== null) globalThis.clearTimeout(playoutTimer);
     if (key === "reconnect") reconnectTimer = null;
     if (key === "handshake") handshakeTimer = null;
     if (key === "startup") startupTimer = null;
+    if (key === "playout") playoutTimer = null;
+  };
+
+  const configureReceiverPlayout = receiver => {
+    const jitterBufferTargetMs = configureLiveAudioReceiver(receiver);
+    if (typeof opts.onPlayoutDelay === "function") {
+      const outputDelaySeconds = Math.max(0, LIVE_AUDIO_PLAYOUT_DELAY_SECONDS - jitterBufferTargetMs / 1000);
+      try { opts.onPlayoutDelay(outputDelaySeconds, jitterBufferTargetMs); } catch (error) {}
+    }
+    return jitterBufferTargetMs;
   };
 
   const clearRemoteTrackHandlers = () => {
+    clearTimer("playout");
     if (remoteAudioTrack && remoteTrackUnmuteHandler) {
       if (typeof remoteAudioTrack.removeEventListener === "function") {
         remoteAudioTrack.removeEventListener("unmute", remoteTrackUnmuteHandler);
@@ -681,6 +719,7 @@ export async function startLiveAudioListener(options) {
     if (closed || startingPeer) return;
     startingPeer = true;
     audioPlaybackStatus = "connecting";
+    clearTimer("playout");
     clearTimer("handshake");
     const previousClientId = clientId;
     if (retry) {
@@ -730,32 +769,62 @@ export async function startLiveAudioListener(options) {
       };
       nextPeer.ontrack = event => {
         clearRemoteTrackHandlers();
+        configureReceiverPlayout(event.receiver);
         const stream = event.streams && event.streams[0]
           ? event.streams[0]
           : new MediaStream([event.track]);
         remoteAudioTrack = event.track || null;
+        let streamAttached = false;
+        const notifyPlaybackStatus = () => {
+          if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+        };
         const attachStream = () => {
           if (typeof opts.onStream === "function") return opts.onStream(stream) !== false;
           opts.audioElement.srcObject = stream;
           return true;
         };
+        const beginBufferedPlayback = () => {
+          if (audioPlaybackStatus === "buffering" || audioPlaybackStatus === "playing") return;
+          audioPlaybackStatus = "buffering";
+          notifyPlaybackStatus();
+          clearTimer("playout");
+          const requestedReadyMs = Number(opts.playoutReadyMs);
+          const readyMs = Number.isFinite(requestedReadyMs) && requestedReadyMs >= 0
+            ? requestedReadyMs
+            : LIVE_AUDIO_PLAYOUT_DELAY_SECONDS * 1000;
+          playoutTimer = globalThis.setTimeout(() => {
+            playoutTimer = null;
+            if (closed || peer !== nextPeer) return;
+            audioPlaybackStatus = remoteAudioTrack && remoteAudioTrack.muted
+              ? "connecting"
+              : "playing";
+            notifyPlaybackStatus();
+          }, readyMs);
+        };
         playRemoteAudioTrack = () => {
-          if (closed || peer !== nextPeer || !attachStream()) return;
+          if (closed || peer !== nextPeer) return;
+          streamAttached = attachStream();
+          if (!streamAttached) return;
           try {
             Promise.resolve(opts.audioElement.play()).then(() => {
               if (closed || peer !== nextPeer) return;
-              audioPlaybackStatus = remoteAudioTrack && remoteAudioTrack.muted
-                ? "connecting"
-                : "playing";
-              if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+              if (remoteAudioTrack && remoteAudioTrack.muted) {
+                clearTimer("playout");
+                audioPlaybackStatus = "connecting";
+              } else {
+                beginBufferedPlayback();
+              }
+              notifyPlaybackStatus();
             }, () => {
               if (closed || peer !== nextPeer) return;
+              clearTimer("playout");
               audioPlaybackStatus = "blocked";
-              if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+              notifyPlaybackStatus();
             });
           } catch (error) {
+            clearTimer("playout");
             audioPlaybackStatus = "blocked";
-            if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+            notifyPlaybackStatus();
           }
         };
         if (remoteAudioTrack && typeof remoteAudioTrack.addEventListener === "function") {
@@ -763,9 +832,10 @@ export async function startLiveAudioListener(options) {
             if (playRemoteAudioTrack) playRemoteAudioTrack();
           };
           remoteTrackMuteHandler = () => {
-            if (closed || peer !== nextPeer || opts.audioElement.srcObject !== stream) return;
+            if (closed || peer !== nextPeer || !streamAttached) return;
+            clearTimer("playout");
             audioPlaybackStatus = "connecting";
-            if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+            notifyPlaybackStatus();
           };
           remoteAudioTrack.addEventListener("unmute", remoteTrackUnmuteHandler);
           remoteAudioTrack.addEventListener("mute", remoteTrackMuteHandler);
@@ -787,7 +857,8 @@ export async function startLiveAudioListener(options) {
           scheduleReconnect(750);
         }
       };
-      nextPeer.addTransceiver("audio", { direction: "recvonly" });
+      const audioTransceiver = nextPeer.addTransceiver("audio", { direction: "recvonly" });
+      configureReceiverPlayout(audioTransceiver && audioTransceiver.receiver);
       const offer = await nextPeer.createOffer();
       await nextPeer.setLocalDescription(offer);
       if (!channel.send({

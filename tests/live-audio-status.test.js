@@ -15,7 +15,11 @@ test("public live audio failure message gives listeners a simple next step", () 
 test("public live audio status messages preserve the connected and ended states", () => {
   assert.equal(
     publicLiveAudioConnectionMessage("live"),
-    "Live audio is connected."
+    "Playing about five seconds behind the broadcast."
+  );
+  assert.equal(
+    publicLiveAudioConnectionMessage("buffering"),
+    "Buffering the five-second listener delayâ¦"
   );
   assert.equal(
     publicLiveAudioConnectionMessage("ended"),
@@ -23,10 +27,10 @@ test("public live audio status messages preserve the connected and ended states"
   );
   assert.equal(
     publicLiveAudioConnectionMessage("reconnecting"),
-    "The connection dropped briefly. Reconnecting to live audio…"
+    "The connection dropped briefly. Reconnecting to live audioâ¦"
   );
   assert.equal(
     publicLiveAudioConnectionMessage("unknown"),
-    "Connecting to live audio…"
+    "Connecting to live audioâ¦"
   );
 });

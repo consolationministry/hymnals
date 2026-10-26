@@ -137,7 +137,8 @@ test("public audio loads published Supabase programmes and shared listener inter
   assert.doesNotMatch(listener, /<audio[^>]*\scontrols(?:\s|>|=)/);
   assert.match(listener, /data-audio-waveform="live"/);
   assert.match(listener, /data-audio-seek="live"/);
-  assert.match(listener, /data-action="return-to-live-audio"/);
+  assert.match(listener, /BUFFERED LIVE Â· ~5 SEC/);
+  assert.doesNotMatch(listener, /data-action="return-to-live-audio"/);
   assert.match(listener, /data-action="toggle-audio-playback" data-player-type="live"/);
   assert.match(listener, /data-action="toggle-audio-mute" data-player-type="live"/);
   assert.doesNotMatch(listener, /data-action="connect-live-audio"|data-action="disconnect-live-audio"|Stop listening/);

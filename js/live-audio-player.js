@@ -131,6 +131,13 @@ function getController(audio) {
     preparing: null,
     liveSegments: [],
     liveStream: null,
+    liveDelayContext: null,
+    liveDelayNode: null,
+    liveDelayDestination: null,
+    liveDelaySource: null,
+    liveDelaySourceStream: null,
+    liveDelayedStream: null,
+    liveDelayPreparing: null,
     livePlayback: false,
     currentSegmentIndex: -1,
     waitingForLiveSegment: false,
@@ -180,13 +187,13 @@ function updatePlayerControls(audio, controller) {
   if (playButton) {
     const playing = !audio.paused && !audio.ended;
     playButton.setAttribute("aria-label", (playing ? "Pause " : "Play ") + (isLive ? "live audio" : "recording"));
-    if (playIcon) playIcon.textContent = playing ? "Ⅱ" : "▶";
+    if (playIcon) playIcon.textContent = playing ? "â¡" : "â¶";
     playButton.classList.toggle("is-playing", playing);
   }
   if (muteButton) {
     const muted = audio.muted || audio.volume === 0;
     muteButton.setAttribute("aria-label", muted ? "Unmute audio" : "Mute audio");
-    if (muteIcon) muteIcon.textContent = muted ? "◖×" : "◖))";
+    if (muteIcon) muteIcon.textContent = muted ? "âÃ" : "â))";
   }
   if (seek) {
     seek.disabled = !hasDuration;
@@ -204,7 +211,7 @@ function updatePlayerControls(audio, controller) {
     waveform.setAttribute("aria-valuenow", String(Math.round(ratio * 1000)));
     waveform.setAttribute("aria-valuetext", formatAudioTime(currentTime) + " of " +
       (hasDuration ? formatAudioTime(displayDuration) : "unknown duration") +
-      (isLive && !isLiveArchive && hasDuration ? " · live" : ""));
+      (isLive && !isLiveArchive && hasDuration ? " Â· live" : ""));
     waveform.setAttribute("aria-disabled", String(!hasDuration));
     waveform.tabIndex = hasDuration ? 0 : -1;
     waveform.style.cursor = hasDuration ? "pointer" : "default";
@@ -259,10 +266,36 @@ function animateWaveform(audio, controller) {
   controller.frame = window.requestAnimationFrame(draw);
 }
 
+function disconnectLiveAudioDelaySource(controller) {
+  if (!controller || !controller.liveDelaySource) return;
+  try { controller.liveDelaySource.disconnect(); } catch (error) {}
+  controller.liveDelaySource = null;
+  controller.liveDelaySourceStream = null;
+}
+
+function getLiveAudioPlaybackStream(audio, controller, stream) {
+  if (!stream || !controller.liveDelayContext || !controller.liveDelayNode ||
+      !controller.liveDelayDestination) return stream;
+  if (controller.liveDelaySource && controller.liveDelaySourceStream === stream) {
+    return controller.liveDelayedStream || controller.liveDelayDestination.stream;
+  }
+  disconnectLiveAudioDelaySource(controller);
+  try {
+    controller.liveDelaySource = controller.liveDelayContext.createMediaStreamSource(stream);
+    controller.liveDelaySource.connect(controller.liveDelayNode);
+    controller.liveDelaySourceStream = stream;
+    controller.liveDelayedStream = controller.liveDelayDestination.stream;
+    return controller.liveDelayedStream;
+  } catch (error) {
+    disconnectLiveAudioDelaySource(controller);
+    return stream;
+  }
+}
+
 function loadLiveAudioSegment(audio, controller, index, offsetSeconds, shouldPlay) {
   const segment = controller.liveSegments[index];
   if (!segment || !segment.url) return;
-  if (audio.srcObject) controller.liveStream = audio.srcObject;
+  if (audio.srcObject === controller.liveDelayedStream) disconnectLiveAudioDelaySource(controller);
   controller.livePlayback = true;
   controller.currentSegmentIndex = index;
   controller.waitingForLiveSegment = false;
@@ -287,15 +320,73 @@ function loadLiveAudioSegment(audio, controller, index, offsetSeconds, shouldPla
   updatePlayerControls(audio, controller);
 }
 
+export async function prepareLiveAudioDelay(audio) {
+  if (!audio) return false;
+  const controller = getController(audio);
+  if (controller.liveDelayContext && controller.liveDelayContext.state !== "closed") {
+    try {
+      if (controller.liveDelayContext.state === "suspended") await controller.liveDelayContext.resume();
+      return controller.liveDelayContext.state !== "closed";
+    } catch (error) {
+      return false;
+    }
+  }
+  if (controller.liveDelayPreparing) return controller.liveDelayPreparing;
+  controller.liveDelayPreparing = (async () => {
+    const AudioContextClass = typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext);
+    if (!AudioContextClass) return false;
+    let context = null;
+    try {
+      context = new AudioContextClass({ latencyHint: "playback" });
+      const delay = context.createDelay(6);
+      const destination = context.createMediaStreamDestination();
+      delay.delayTime.value = 5;
+      delay.connect(destination);
+      controller.liveDelayContext = context;
+      controller.liveDelayNode = delay;
+      controller.liveDelayDestination = destination;
+      controller.liveDelayedStream = destination.stream;
+      if (context.state === "suspended") await context.resume();
+      if (context.state === "closed") throw new Error("The audio delay context closed before playback.");
+      return true;
+    } catch (error) {
+      if (context && context.state !== "closed") void context.close().catch(() => {});
+      controller.liveDelayContext = null;
+      controller.liveDelayNode = null;
+      controller.liveDelayDestination = null;
+      controller.liveDelayedStream = null;
+      return false;
+    } finally {
+      controller.liveDelayPreparing = null;
+    }
+  })();
+  return controller.liveDelayPreparing;
+}
+
+export function setLiveAudioOutputDelay(audio, seconds) {
+  if (!audio) return false;
+  const controller = getController(audio);
+  if (!controller.liveDelayNode || !controller.liveDelayNode.delayTime) return false;
+  const delaySeconds = Math.max(0, Math.min(5, Number(seconds) || 0));
+  try {
+    controller.liveDelayNode.delayTime.value = delaySeconds;
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 export function setLiveAudioStream(audio, stream) {
   if (!audio || !stream) return false;
   const controller = getController(audio);
   controller.liveStream = stream;
   if (controller.livePlayback) {
-    if (audio.srcObject === stream) audio.srcObject = null;
+    disconnectLiveAudioDelaySource(controller);
+    if (audio.srcObject === stream || audio.srcObject === controller.liveDelayedStream) audio.srcObject = null;
     return false;
   }
-  audio.srcObject = stream;
+  const playbackStream = getLiveAudioPlaybackStream(audio, controller, stream);
+  audio.srcObject = playbackStream;
   return true;
 }
 
@@ -321,7 +412,7 @@ function advanceLiveAudioSegment(audio, controller) {
     return;
   }
   const attachedStream = audio.srcObject;
-  const hasActiveLiveStream = stream => Boolean(stream && stream.active !== false);
+  const hasActiveLiveStream = stream => Boolean(stream && stream !== controller.liveDelayedStream && stream.active !== false);
   if (hasActiveLiveStream(attachedStream) || hasActiveLiveStream(controller.liveStream)) {
     returnToLiveAudio(audio);
     return;
@@ -549,7 +640,9 @@ export function seekAudioPlayer(audio, value) {
     const target = getLiveAudioSeekTarget(controller.liveSegments, value);
     if (!target) return;
     const shouldPlay = !audio.paused && !audio.ended;
-    if (audio.srcObject) controller.liveStream = audio.srcObject;
+    if (audio.srcObject && audio.srcObject !== controller.liveDelayedStream) {
+      controller.liveStream = audio.srcObject;
+    }
     controller.archiveAutoplay = shouldPlay;
     loadLiveAudioSegment(audio, controller, target.index, target.offsetSeconds, shouldPlay);
     return;
@@ -565,12 +658,12 @@ export function returnToLiveAudio(audio) {
   const controller = audioPlayerControllers.get(audio);
   if (!controller || !controller.livePlayback) return false;
   const attachedStream = audio.srcObject;
-  const isActiveStream = stream => Boolean(stream && stream.active !== false);
-  const stream = isActiveStream(attachedStream)
-    ? attachedStream
-    : isActiveStream(controller.liveStream)
-      ? controller.liveStream
-      : attachedStream || controller.liveStream;
+  const isActiveStream = stream => Boolean(stream && stream !== controller.liveDelayedStream && stream.active !== false);
+  const stream = isActiveStream(controller.liveStream)
+    ? controller.liveStream
+    : isActiveStream(attachedStream)
+      ? attachedStream
+      : null;
   controller.segmentLoadToken += 1;
   controller.waitingForLiveSegment = false;
   controller.archiveAutoplay = false;
@@ -581,7 +674,7 @@ export function returnToLiveAudio(audio) {
   audio.load();
   if (stream) {
     controller.liveStream = stream;
-    audio.srcObject = stream;
+    audio.srcObject = getLiveAudioPlaybackStream(audio, controller, stream);
     const showTapToPlay = () => {
       const status = controller.root && controller.root.querySelector("[data-live-audio-status]");
       if (status) status.textContent = "Tap play on the audio player to hear the broadcast.";
@@ -621,6 +714,13 @@ export function stopAudioPlayer(audio) {
     audio.removeAttribute("src");
     audio.load();
   }
+  disconnectLiveAudioDelaySource(controller);
+  const liveDelayContext = controller.liveDelayContext;
+  controller.liveDelayContext = null;
+  controller.liveDelayNode = null;
+  controller.liveDelayDestination = null;
+  controller.liveDelayedStream = null;
+  controller.liveDelayPreparing = null;
   const context = controller.context;
   controller.context = null;
   controller.analyser = null;
@@ -637,4 +737,5 @@ export function stopAudioPlayer(audio) {
   controller.timelineElement = null;
   controller.liveSeekPreview = null;
   if (context && context.state !== "closed") void context.close().catch(() => {});
+  if (liveDelayContext && liveDelayContext.state !== "closed") void liveDelayContext.close().catch(() => {});
 }
