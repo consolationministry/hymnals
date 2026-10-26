@@ -536,7 +536,13 @@ export function returnToLiveAudio(audio) {
   if (!audio) return false;
   const controller = audioPlayerControllers.get(audio);
   if (!controller || !controller.livePlayback) return false;
-  const stream = controller.liveStream || audio.srcObject;
+  const attachedStream = audio.srcObject;
+  const isActiveStream = stream => Boolean(stream && stream.active !== false);
+  const stream = isActiveStream(attachedStream)
+    ? attachedStream
+    : isActiveStream(controller.liveStream)
+      ? controller.liveStream
+      : attachedStream || controller.liveStream;
   controller.segmentLoadToken += 1;
   controller.waitingForLiveSegment = false;
   controller.archiveAutoplay = false;
@@ -546,8 +552,20 @@ export function returnToLiveAudio(audio) {
   audio.removeAttribute("src");
   audio.load();
   if (stream) {
+    controller.liveStream = stream;
     audio.srcObject = stream;
-    void audio.play().catch(() => {});
+    const showTapToPlay = () => {
+      const status = controller.root && controller.root.querySelector("[data-live-audio-status]");
+      if (status) status.textContent = "Tap play on the audio player to hear the broadcast.";
+    };
+    try {
+      const playback = audio.play();
+      if (playback && typeof playback.catch === "function") {
+        void playback.catch(showTapToPlay);
+      }
+    } catch (error) {
+      showTapToPlay();
+    }
   }
   updatePlayerControls(audio, controller);
   return Boolean(stream);
