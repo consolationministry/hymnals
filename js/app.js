@@ -31,6 +31,7 @@ import { startLiveAudioListener } from "./live-audio-webrtc.js";
 import {
   mountAudioPlayer,
   prepareAudioPlayer,
+  preserveRecordedAudioPlayer,
   seekAudioPlayer,
   returnToLiveAudio,
   setAudioPlayerVolume,
@@ -565,10 +566,15 @@ function render() {
   document.body.classList.toggle("audio-listener-mode", state.view === "listen" && Boolean(state.selectedLiveAudioProgramId));
   applyPreferences();
   renderHeader();
-  const preservedAudioPlayer = state.view === "listen" && state.selectedLiveAudioProgramId &&
-    (state.liveAudioConnecting || state.liveAudioListener)
+  const isPreservingLiveAudioPlayer = state.view === "listen" && state.selectedLiveAudioProgramId &&
+    (state.liveAudioConnecting || state.liveAudioListener);
+  const isPreservingRecordedAudioPlayer = state.view === "listen" && state.selectedLiveAudioProgramId &&
+    !state.liveAudioConnecting && !state.liveAudioListener;
+  const preservedAudioPlayer = isPreservingLiveAudioPlayer
     ? main.querySelector("[data-live-audio-player]")
-    : null;
+    : isPreservingRecordedAudioPlayer
+      ? main.querySelector("[data-recorded-audio-player]")
+      : null;
   const liveAudioViewData = getLiveAudioViewData();
   if (state.view === "home") main.innerHTML = renderHome();
   else if (state.view === "listen") main.innerHTML = state.selectedLiveAudioProgramId
@@ -594,7 +600,9 @@ function render() {
   else if (state.view === "recent") main.innerHTML = renderRecentlyViewed();
   else if (state.view === "settings") main.innerHTML = renderSettings();
   else main.innerHTML = renderReader();
-  if (preservedAudioPlayer) {
+  if (preservedAudioPlayer && preservedAudioPlayer.dataset.audioPlayer === "recorded") {
+    preserveRecordedAudioPlayer(preservedAudioPlayer, main);
+  } else if (preservedAudioPlayer) {
     const nextAudioPlayer = main.querySelector("[data-live-audio-player]");
     if (nextAudioPlayer) {
       const liveSegments = nextAudioPlayer.dataset.liveAudioSegments;
