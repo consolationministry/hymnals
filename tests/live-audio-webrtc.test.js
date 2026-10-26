@@ -5,7 +5,8 @@ import {
   classifyLiveAudioNetworkQuality,
   createLiveAudioIceCandidateQueue,
   readLiveAudioPeerStats,
-  getLiveAudioListenerStatus
+  getLiveAudioListenerStatus,
+  startLiveAudioListener
 } from "../js/live-audio-webrtc.js";
 
 test("trickle ICE buffers remote candidates until the SDP description is installed", async () => {
@@ -136,4 +137,172 @@ test("live audio status waits for playback and preserves tap-to-play failures", 
   assert.equal(getLiveAudioListenerStatus("connected", "connecting"), "connected");
   assert.equal(getLiveAudioListenerStatus("connected", "blocked"), "tap-to-play");
   assert.equal(getLiveAudioListenerStatus("connected", "playing"), "live");
+});
+
+test("listener retries native media playback when the remote audio track unmutes", async () => {
+  let channelCallbacks;
+  let peer;
+  const statuses = [];
+  const trackListeners = new Map();
+  const track = {
+    muted: true,
+    addEventListener(name, handler) {
+      if (!trackListeners.has(name)) trackListeners.set(name, new Set());
+      trackListeners.get(name).add(handler);
+    },
+    removeEventListener(name, handler) {
+      trackListeners.get(name)?.delete(handler);
+    },
+    dispatch(name) {
+      (trackListeners.get(name) || []).forEach(handler => handler());
+    }
+  };
+  const audioElement = {
+    srcObject: null,
+    playCalls: 0,
+    play() {
+      this.playCalls += 1;
+      return Promise.resolve();
+    },
+    pause() { this.paused = true; }
+  };
+  const stream = { id: "remote-audio" };
+  const channel = {
+    connected: true,
+    send(message) {
+      if (message.type === "offer") {
+        queueMicrotask(() => channelCallbacks.onSignal({
+          type: "answer",
+          sessionId: "session",
+          to: message.from,
+          description: { type: "answer", sdp: "answer" }
+        }));
+      }
+      return true;
+    },
+    close() {}
+  };
+
+  const listener = await startLiveAudioListener({
+    programId: "program",
+    sessionId: "session",
+    audioElement,
+    onStream(nextStream) {
+      audioElement.srcObject = nextStream;
+      return true;
+    },
+    onStatus(status) { statuses.push(status); },
+    async connectChannel(programId, sessionId, callbacks) {
+      channelCallbacks = callbacks;
+      return channel;
+    },
+    async createPeerConnection() {
+      peer = {
+        connectionState: "new",
+        signalingState: "stable",
+        addTransceiver() {},
+        async createOffer() { return { type: "offer", sdp: "offer" }; },
+        async setLocalDescription(description) {
+          this.localDescription = description;
+          this.signalingState = "have-local-offer";
+          this.connectionState = "connected";
+          this.onconnectionstatechange();
+        },
+        async setRemoteDescription(description) {
+          this.remoteDescription = description;
+          this.signalingState = "stable";
+        },
+        close() {}
+      };
+      return peer;
+    }
+  });
+
+  peer.ontrack({ streams: [stream], track });
+  await Promise.resolve();
+  assert.equal(audioElement.playCalls, 1);
+  assert.notEqual(statuses.at(-1), "live");
+
+  track.muted = false;
+  track.dispatch("unmute");
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(audioElement.playCalls, 2);
+  assert.equal(statuses.at(-1), "live");
+  assert.strictEqual(audioElement.srcObject, stream);
+  await listener.stop();
+});
+
+test("listener does not replace archive playback when a new live stream arrives", async () => {
+  let channelCallbacks;
+  let peer;
+  let playbackCalls = 0;
+  const channel = {
+    connected: true,
+    send(message) {
+      if (message.type === "offer") {
+        queueMicrotask(() => channelCallbacks.onSignal({
+          type: "answer",
+          sessionId: "session",
+          to: message.from,
+          description: { type: "answer", sdp: "answer" }
+        }));
+      }
+      return true;
+    },
+    close() {}
+  };
+  const audioElement = {
+    srcObject: null,
+    play() {
+      playbackCalls += 1;
+      return Promise.resolve();
+    },
+    pause() { this.paused = true; }
+  };
+  const stream = { id: "reconnected-live" };
+  let storedStream;
+
+  const listener = await startLiveAudioListener({
+    programId: "program",
+    sessionId: "session",
+    audioElement,
+    onStream(nextStream) {
+      storedStream = nextStream;
+      return false;
+    },
+    async connectChannel(programId, sessionId, callbacks) {
+      channelCallbacks = callbacks;
+      return channel;
+    },
+    async createPeerConnection() {
+      peer = {
+        connectionState: "new",
+        signalingState: "stable",
+        addTransceiver() {},
+        async createOffer() { return { type: "offer", sdp: "offer" }; },
+        async setLocalDescription(description) {
+          this.localDescription = description;
+          this.signalingState = "have-local-offer";
+          this.connectionState = "connected";
+          this.onconnectionstatechange();
+        },
+        async setRemoteDescription(description) {
+          this.remoteDescription = description;
+          this.signalingState = "stable";
+        },
+        close() {}
+      };
+      return peer;
+    }
+  });
+
+  peer.ontrack({ streams: [stream], track: { muted: false } });
+  await Promise.resolve();
+
+  assert.strictEqual(storedStream, stream);
+  assert.equal(audioElement.srcObject, null);
+  assert.equal(playbackCalls, 0);
+  await listener.stop();
 });

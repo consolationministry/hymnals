@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { afterEach, test } from "node:test";
 import { liveAudioReactionSelected } from "../js/live-audio-data.js";
 import {
+  loadPublicLiveAudioSegment,
   loadPublicLiveAudioData,
   recordPublicLiveAudioListen,
   submitPublicLiveAudioComment,
@@ -37,7 +38,12 @@ function installBackend(options) {
   globalThis.fetch = async (input, options) => {
     const url = new URL(input);
     const body = options && options.body ? JSON.parse(options.body) : null;
-    calls.push({ path: url.pathname, method: options && options.method || "GET", body });
+    calls.push({
+      path: url.pathname,
+      search: url.search,
+      method: options && options.method || "GET",
+      body
+    });
     if (opts.missingRecordingColumns && !recordingSchemaRejected &&
         url.pathname.endsWith("/live_audio_programs") &&
         url.searchParams.get("select").includes("recording_path")) {
@@ -224,6 +230,27 @@ test("live programmes expose signed rewind segments in timeline order", async ()
   assert.equal(calls.filter(call => call.path.includes("/storage/v1/object/sign/live-audio-recordings/")).length, 2);
   const listener = renderLiveAudioListener(data, PROGRAM_ID);
   assert.match(listener, /data-live-audio-segments=/);
+});
+
+test("live-edge waiting fetches only the next expected segment", async () => {
+  const calls = installBackend({
+    segmentRows: [{
+      segment_index: 1,
+      started_at: "2026-10-25T10:00:15.000Z",
+      duration_seconds: 15,
+      storage_path: PROGRAM_ID + "/" + SESSION_ID + "/segments/000001.webm"
+    }]
+  });
+
+  const segment = await loadPublicLiveAudioSegment(PROGRAM_ID, SESSION_ID, 1);
+  const request = calls.find(call => call.path.endsWith("/live_audio_segments"));
+
+  assert.equal(segment.index, 1);
+  assert.equal(segment.durationSeconds, 15);
+  assert.ok(segment.url.includes("token=test-token"));
+  assert.match(request.search, /segment_index=eq\.1/);
+  assert.equal(await loadPublicLiveAudioSegment("bad-id", SESSION_ID, 1), null);
+  assert.equal(await loadPublicLiveAudioSegment(PROGRAM_ID, SESSION_ID, -1), null);
 });
 
 test("Cloudinary live rewind segments resolve to protected URLs in order", async () => {

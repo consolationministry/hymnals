@@ -14,6 +14,7 @@ import { remainingSplashMs } from "./splash-timing.js";
 import { displayCollectionLabel, displayHymnalName } from "./hymnal-labels.js";
 import {
   emptyLiveAudioData,
+  loadPublicLiveAudioSegment,
   loadPublicLiveAudioData,
   recordPublicLiveAudioListen,
   submitPublicLiveAudioComment,
@@ -32,8 +33,11 @@ import {
   mountAudioPlayer,
   prepareAudioPlayer,
   preserveRecordedAudioPlayer,
+  isWaitingForLiveAudioSegment,
+  getNextLiveAudioSegmentIndex,
   seekAudioPlayer,
   returnToLiveAudio,
+  setLiveAudioStream,
   setAudioPlayerVolume,
   stopAudioPlayer,
   toggleAudioMute,
@@ -57,7 +61,7 @@ const updateMessage = document.getElementById("update-message");
 const updateVersion = document.getElementById("update-version");
 const updateStatus = document.getElementById("update-status");
 const updateInstallButton = document.getElementById("update-install");
-const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
+const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioSegmentPollTimer: null, liveAudioSegmentRequest: false, liveAudioSegmentRequestToken: 0, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
@@ -730,7 +734,61 @@ async function refreshLiveAudioData() {
   } finally {
     if (requestToken === state.liveAudioRequestToken) {
       state.liveAudioLoading = false;
-      if (state.view === "listen") render();
+      if (state.view === "listen") {
+        if (state.selectedLiveAudioProgramId && state.liveAudioListener &&
+            state.liveAudioStatusCode !== "ended") {
+          const program = state.liveAudioData.programs.find(item =>
+            item.id === state.selectedLiveAudioProgramId
+          );
+          const audio = main.querySelector("[data-live-audio-player]");
+          if (program && audio) {
+            audio.dataset.liveAudioSegments = JSON.stringify(program.liveSegments || []);
+            mountAudioPlayer(audio, audio.closest(".audio-listener-player"));
+          }
+        } else {
+          render();
+        }
+      }
+    }
+  }
+}
+
+async function refreshWaitingLiveAudioSegment() {
+  if (state.liveAudioSegmentRequest || state.view !== "listen" ||
+      !state.selectedLiveAudioProgramId || !state.liveAudioListener ||
+      navigator.onLine === false) return;
+  const audio = main.querySelector("[data-live-audio-player]");
+  const segmentIndex = getNextLiveAudioSegmentIndex(audio);
+  if (segmentIndex === null) return;
+  const program = state.liveAudioData.programs.find(item =>
+    item.id === state.selectedLiveAudioProgramId
+  );
+  if (!program || !program.liveSessionId) return;
+
+  state.liveAudioSegmentRequest = true;
+  const requestToken = ++state.liveAudioSegmentRequestToken;
+  try {
+    const segment = await loadPublicLiveAudioSegment(
+      program.id,
+      program.liveSessionId,
+      segmentIndex
+    );
+    if (requestToken !== state.liveAudioSegmentRequestToken ||
+        !segment || state.view !== "listen" || !state.liveAudioListener ||
+        state.selectedLiveAudioProgramId !== program.id ||
+        main.querySelector("[data-live-audio-player]") !== audio ||
+        !isWaitingForLiveAudioSegment(audio)) return;
+    const segments = JSON.parse(audio.dataset.liveAudioSegments || "[]");
+    if (segments.some(item => Number(item.index) === segment.index)) return;
+    segments.push(segment);
+    segments.sort((left, right) => Number(left.index) - Number(right.index));
+    audio.dataset.liveAudioSegments = JSON.stringify(segments);
+    mountAudioPlayer(audio, audio.closest(".audio-listener-player"));
+  } catch (error) {
+    // Keep the waiting player alive; the next short poll retries this one segment.
+  } finally {
+    if (requestToken === state.liveAudioSegmentRequestToken) {
+      state.liveAudioSegmentRequest = false;
     }
   }
 }
@@ -740,11 +798,18 @@ function startLiveAudioRefresh() {
   state.liveAudioPollTimer = window.setInterval(function () {
     if (state.view === "listen" && navigator.onLine !== false) void refreshLiveAudioData();
   }, 25000);
+  state.liveAudioSegmentPollTimer = window.setInterval(function () {
+    void refreshWaitingLiveAudioSegment();
+  }, 2500);
 }
 
 function stopLiveAudioRefresh() {
   if (state.liveAudioPollTimer) window.clearInterval(state.liveAudioPollTimer);
+  if (state.liveAudioSegmentPollTimer) window.clearInterval(state.liveAudioSegmentPollTimer);
   state.liveAudioPollTimer = null;
+  state.liveAudioSegmentPollTimer = null;
+  state.liveAudioSegmentRequest = false;
+  state.liveAudioSegmentRequestToken += 1;
   state.liveAudioRequestToken += 1;
 }
 
@@ -831,6 +896,7 @@ async function connectLiveAudioProgram(programId) {
       programId: program.id,
       sessionId: program.liveSessionId,
       audioElement,
+      onStream: stream => setLiveAudioStream(audioElement, stream),
       onStatus: status => updateLiveAudioConnectionStatus(connectToken, status)
     });
     if (connectToken !== state.liveAudioConnectToken || state.view !== "listen" ||
