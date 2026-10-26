@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import {
   formatAudioTime,
+  mountAudioPlayer,
   preserveRecordedAudioPlayer,
   prepareAudioPlayer,
   getAudioPlayerDuration,
@@ -11,6 +12,7 @@ import {
   getLiveAudioSeekTarget,
   getLiveAudioTimelinePosition,
   getRecordedAudioTimeState,
+  returnToLiveAudio,
   seekAudioPlayer
 } from "../js/live-audio-player.js";
 
@@ -158,4 +160,67 @@ test("Android live audio uses the native media output path", async () => {
     if (originalWindow === undefined) delete globalThis.window;
     else globalThis.window = originalWindow;
   }
+});
+
+function createLiveAudioReturnFixture(stream) {
+  const status = { textContent: "" };
+  const audio = {
+    dataset: {
+      audioPlayer: "live",
+      liveAudioSegments: JSON.stringify([
+        { index: 0, durationSeconds: 10, url: "https://audio.example.org/live-buffer.webm" }
+      ])
+    },
+    srcObject: stream,
+    paused: false,
+    ended: false,
+    readyState: 1,
+    currentTime: 0,
+    duration: 10,
+    volume: 1,
+    muted: false,
+    addEventListener() {},
+    pause() { this.paused = true; },
+    load() {},
+    removeAttribute(name) { if (name === "src") this.src = ""; },
+    play() {
+      this.paused = false;
+      this.lastPlayedStream = this.srcObject;
+      return Promise.resolve();
+    }
+  };
+  const root = {
+    isConnected: true,
+    style: { setProperty() {} },
+    querySelector(selector) {
+      return selector === "[data-live-audio-status]" ? status : null;
+    },
+    querySelectorAll() { return []; }
+  };
+  mountAudioPlayer(audio, root);
+  return { audio, status };
+}
+
+test("returning from live rewind uses the newest attached live stream", () => {
+  const originalStream = { active: true };
+  const reconnectedStream = { active: true };
+  const { audio } = createLiveAudioReturnFixture(originalStream);
+
+  seekAudioPlayer(audio, 500);
+  audio.srcObject = reconnectedStream;
+
+  assert.equal(returnToLiveAudio(audio), true);
+  assert.strictEqual(audio.srcObject, reconnectedStream);
+  assert.strictEqual(audio.lastPlayedStream, reconnectedStream);
+});
+
+test("failed return-to-live playback shows a live-only tap-to-play message", async () => {
+  const { audio, status } = createLiveAudioReturnFixture({ active: true });
+  seekAudioPlayer(audio, 500);
+  audio.play = () => Promise.reject(new Error("NotAllowedError"));
+
+  assert.equal(returnToLiveAudio(audio), true);
+  await Promise.resolve();
+
+  assert.equal(status.textContent, "Tap play on the audio player to hear the broadcast.");
 });
