@@ -441,8 +441,21 @@ export function mountAudioPlayer(audio, root) {
   if (controller.analyser && !audio.paused) animateWaveform(audio, controller);
 }
 
+function usesNativeAndroidLiveAudio(audio) {
+  if (!audio || !audio.dataset || audio.dataset.audioPlayer !== "live" ||
+      typeof window === "undefined" || !window.Capacitor) return false;
+  try {
+    return typeof window.Capacitor.isNativePlatform === "function" &&
+      window.Capacitor.isNativePlatform() &&
+      typeof window.Capacitor.getPlatform === "function" &&
+      window.Capacitor.getPlatform() === "android";
+  } catch (error) {
+    return false;
+  }
+}
 export async function prepareAudioPlayer(audio) {
   if (!audio) return false;
+  if (usesNativeAndroidLiveAudio(audio)) return false;
   const controller = getController(audio);
   if (!controller.preparing) {
     controller.preparing = (async () => {
