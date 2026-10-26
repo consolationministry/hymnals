@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   formatAudioTime,
   preserveRecordedAudioPlayer,
+  prepareAudioPlayer,
   getAudioPlayerDuration,
   getAudioWaveformHeights,
   getAudioWaveformPosition,
@@ -139,4 +140,22 @@ test("Listen rerenders use the recorded-player preservation helper", async () =>
   const source = await readFile(new URL("../js/app.js", import.meta.url), "utf8");
   assert.ok(source.includes('main.querySelector("[data-recorded-audio-player]")'));
   assert.ok(source.includes("preserveRecordedAudioPlayer(preservedAudioPlayer, main)"));
+});
+
+test("Android live audio uses the native media output path", async () => {
+  const originalWindow = globalThis.window;
+  let contextsCreated = 0;
+  class FakeAudioContext { constructor() { contextsCreated += 1; } }
+  globalThis.window = {
+    AudioContext: FakeAudioContext,
+    Capacitor: { isNativePlatform() { return true; }, getPlatform() { return "android"; } }
+  };
+  try {
+    const audio = { paused: true, dataset: { audioPlayer: "live" } };
+    assert.equal(await prepareAudioPlayer(audio), false);
+    assert.equal(contextsCreated, 0);
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
 });

@@ -8,6 +8,11 @@ export const DEFAULT_AUDIO_SETTINGS = Object.freeze({
   gain: 0
 });
 
+export function getLiveAudioListenerStatus(connectionState, playbackStatus) {
+  if (playbackStatus === "blocked") return "tap-to-play";
+  if (connectionState !== "connected") return "connecting";
+  return playbackStatus === "playing" ? "live" : "connected";
+}
 export function createLiveAudioIceCandidateQueue(peer) {
   let remoteDescriptionReady = Boolean(peer && peer.remoteDescription);
   const pendingCandidates = [];
@@ -593,6 +598,7 @@ export async function startLiveAudioListener(options) {
   let startupTimer = null;
   let reconnectAttempts = 0;
   let hasConnected = false;
+  let audioPlaybackStatus = "connecting";
   let resolveConnected;
   let rejectConnected;
   const connected = new Promise((resolve, reject) => {
@@ -651,6 +657,7 @@ export async function startLiveAudioListener(options) {
   const startPeer = async retry => {
     if (closed || startingPeer) return;
     startingPeer = true;
+    audioPlaybackStatus = "connecting";
     clearTimer("handshake");
     const previousClientId = clientId;
     if (retry) {
@@ -702,10 +709,20 @@ export async function startLiveAudioListener(options) {
           ? event.streams[0]
           : new MediaStream([event.track]);
         opts.audioElement.srcObject = stream;
-        opts.audioElement.play().catch(() => {
-          if (opts.onStatus) opts.onStatus("tap-to-play");
-        });
-        if (opts.onStatus) opts.onStatus("live");
+        try {
+          Promise.resolve(opts.audioElement.play()).then(() => {
+            if (closed || peer !== nextPeer) return;
+            audioPlaybackStatus = "playing";
+            if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+          }, () => {
+            if (closed || peer !== nextPeer) return;
+            audioPlaybackStatus = "blocked";
+            if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+          });
+        } catch (error) {
+          audioPlaybackStatus = "blocked";
+          if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+        }
       };
       nextPeer.onconnectionstatechange = () => {
         if (peer !== nextPeer) return;
@@ -714,7 +731,7 @@ export async function startLiveAudioListener(options) {
           clearTimer("handshake");
           reconnectAttempts = 0;
           finishConnected();
-          if (opts.onStatus) opts.onStatus("live");
+          if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
         } else if (nextPeer.connectionState === "disconnected") {
           scheduleReconnect(5000);
         } else if (nextPeer.connectionState === "failed") {

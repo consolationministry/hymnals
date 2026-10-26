@@ -4,7 +4,8 @@ import { test } from "node:test";
 import {
   classifyLiveAudioNetworkQuality,
   createLiveAudioIceCandidateQueue,
-  readLiveAudioPeerStats
+  readLiveAudioPeerStats,
+  getLiveAudioListenerStatus
 } from "../js/live-audio-webrtc.js";
 
 test("trickle ICE buffers remote candidates until the SDP description is installed", async () => {
@@ -129,4 +130,10 @@ test("publisher and listener trickle ICE candidates instead of waiting for gathe
   assert.match(source, /iceRestart:\s*true/);
   assert.match(source, /scheduleReconnect/);
   assert.doesNotMatch(source, /waitForIceGatheringComplete/);
+});
+
+test("live audio status waits for playback and preserves tap-to-play failures", () => {
+  assert.equal(getLiveAudioListenerStatus("connected", "connecting"), "connected");
+  assert.equal(getLiveAudioListenerStatus("connected", "blocked"), "tap-to-play");
+  assert.equal(getLiveAudioListenerStatus("connected", "playing"), "live");
 });
