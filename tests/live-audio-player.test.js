@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import {
   formatAudioTime,
+  preserveRecordedAudioPlayer,
   getAudioPlayerDuration,
   getAudioWaveformHeights,
   getAudioWaveformPosition,
@@ -97,4 +99,44 @@ test("browser media duration takes precedence over the saved fallback", () => {
     duration: 40,
     dataset: { recordingDurationSeconds: "42" }
   }), 40);
+});
+
+
+function fakeRecordedAudio(src, currentTime = 0) {
+  return {
+    dataset: { audioPlayer: "recorded" },
+    currentTime,
+    getAttribute(name) { return name === "src" ? src : null; },
+    replaceWith(replacement) { this.replacedWith = replacement; }
+  };
+}
+
+test("same-source recorded audio element is reused across a Listen rerender", () => {
+  const currentAudio = fakeRecordedAudio("https://audio.example.org/recording.webm", 27);
+  const nextAudio = fakeRecordedAudio("https://audio.example.org/recording.webm");
+  const nextRoot = {
+    querySelector(selector) {
+      assert.equal(selector, "[data-recorded-audio-player]");
+      return nextAudio;
+    }
+  };
+
+  assert.equal(preserveRecordedAudioPlayer(currentAudio, nextRoot), true);
+  assert.strictEqual(nextAudio.replacedWith, currentAudio);
+  assert.equal(currentAudio.currentTime, 27);
+});
+
+test("recorded audio is not reused when a rerender changes its source", () => {
+  const currentAudio = fakeRecordedAudio("https://audio.example.org/old.webm", 27);
+  const nextAudio = fakeRecordedAudio("https://audio.example.org/new.webm");
+  const nextRoot = { querySelector() { return nextAudio; } };
+
+  assert.equal(preserveRecordedAudioPlayer(currentAudio, nextRoot), false);
+  assert.equal(nextAudio.replacedWith, undefined);
+});
+
+test("Listen rerenders use the recorded-player preservation helper", async () => {
+  const source = await readFile(new URL("../js/app.js", import.meta.url), "utf8");
+  assert.ok(source.includes('main.querySelector("[data-recorded-audio-player]")'));
+  assert.ok(source.includes("preserveRecordedAudioPlayer(preservedAudioPlayer, main)"));
 });

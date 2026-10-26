@@ -12,6 +12,20 @@ export function formatAudioTime(value) {
     : minutes + ":" + String(remainder).padStart(2, "0");
 }
 
+export function preserveRecordedAudioPlayer(currentAudio, nextRoot) {
+  if (!currentAudio || !nextRoot || currentAudio.dataset?.audioPlayer !== "recorded" ||
+      typeof nextRoot.querySelector !== "function") return false;
+  const nextAudio = nextRoot.querySelector("[data-recorded-audio-player]");
+  if (!nextAudio || nextAudio.dataset?.audioPlayer !== "recorded" ||
+      typeof currentAudio.getAttribute !== "function" ||
+      typeof nextAudio.getAttribute !== "function" ||
+      typeof nextAudio.replaceWith !== "function") return false;
+  const currentSource = currentAudio.getAttribute("src");
+  if (!currentSource || currentSource !== nextAudio.getAttribute("src")) return false;
+  nextAudio.replaceWith(currentAudio);
+  return true;
+}
+
 export function getAudioPlayerDuration(audio) {
   const mediaDuration = Number(audio && audio.duration);
   if (Number.isFinite(mediaDuration) && mediaDuration > 0) return mediaDuration;
