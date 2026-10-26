@@ -31,7 +31,11 @@ export async function saveCloudinarySettings(values) {
   if (Boolean(apiKey) !== Boolean(apiSecret)) {
     throw new Error("Enter both the Cloudinary API key and API secret to replace the saved credentials.");
   }
-  return cloudinaryRequest("save-config", { cloudName, apiKey, apiSecret });
+  const result = await cloudinaryRequest("save-config", { cloudName, apiKey, apiSecret });
+  if (!result || result.configured !== true || result.cloudName !== cloudName) {
+    throw new Error("Supabase did not confirm that the Cloudinary settings were stored.");
+  }
+  return result;
 }
 
 export async function removeCloudinarySettings() {

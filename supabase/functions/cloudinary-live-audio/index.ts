@@ -14,6 +14,13 @@ type CloudinaryConfig = {
   api_secret: string;
 };
 
+class SafeCloudinaryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SafeCloudinaryError";
+  }
+}
+
 function getAllowedOrigins() {
   const configured = Deno.env.get("CLOUDINARY_ALLOWED_ORIGINS");
   const origins = configured
@@ -107,7 +114,12 @@ async function getCloudinaryConfig(supabaseUrl: string, serviceRoleKey: string) 
     cache: "no-store",
     headers: serviceHeaders(serviceRoleKey)
   });
-  if (!response.ok) throw new Error("Cloudinary settings are not available.");
+  if (!response.ok) {
+    throw new SafeCloudinaryError(
+      "Supabase could not read Cloudinary settings (HTTP " + response.status +
+        "). Check that the Cloudinary credentials migration is applied."
+    );
+  }
   const rows = await response.json();
   return Array.isArray(rows) && rows.length ? rows[0] as CloudinaryConfig : null;
 }
@@ -123,11 +135,22 @@ async function saveCloudinaryConfig(
     cache: "no-store",
     headers: new Headers({
       ...Object.fromEntries(serviceHeaders(serviceRoleKey, true)),
-      prefer: "resolution=merge-duplicates,return=minimal"
+      prefer: "resolution=merge-duplicates,return=representation"
     }),
     body: JSON.stringify({ id: "global", ...config, updated_at: new Date().toISOString() })
   });
-  if (!response.ok) throw new Error("Cloudinary settings could not be saved.");
+  if (!response.ok) {
+    throw new SafeCloudinaryError(
+      "Supabase could not store Cloudinary credentials (HTTP " + response.status +
+        "). Check that the Cloudinary credentials migration is applied."
+    );
+  }
+  const rows = await response.json();
+  const saved = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+  if (!saved || saved.id !== "global" || saved.cloud_name !== config.cloud_name ||
+      saved.api_key !== config.api_key || saved.api_secret !== config.api_secret) {
+    throw new SafeCloudinaryError("Supabase did not confirm that the Cloudinary credentials were stored.");
+  }
 }
 
 async function removeCloudinaryConfig(supabaseUrl: string, serviceRoleKey: string) {
@@ -204,10 +227,10 @@ async function verifyCloudinaryCredentials(config: CloudinaryConfig) {
       { method: "GET", cache: "no-store", headers: { authorization: "Basic " + credentials } }
     );
   } catch (error) {
-    throw new Error("Cloudinary could not be reached. Check the connection and try again.");
+    throw new SafeCloudinaryError("Cloudinary could not be reached. Check the connection and try again.");
   }
   if (!response.ok) {
-    throw new Error("Cloudinary rejected those credentials. Check the cloud name, API key and API secret.");
+    throw new SafeCloudinaryError("Cloudinary rejected those credentials. Check the cloud name, API key and API secret.");
   }
 }
 
@@ -402,6 +425,9 @@ Deno.serve(async request => {
 
     return jsonResponse({ error: "Unsupported Cloudinary action." }, 400, origin);
   } catch (error) {
-    return jsonResponse({ error: "Cloudinary audio storage could not complete this request." }, 500, origin);
+    const message = error instanceof SafeCloudinaryError
+      ? error.message
+      : "Cloudinary audio storage could not complete this request. Check the Supabase Edge Function logs.";
+    return jsonResponse({ error: message }, 500, origin);
   }
 });

@@ -5,7 +5,7 @@ import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "./admin
 import { ACTIVE_HYMNALS, isActiveHymnalId, normalizeActiveHymnal } from "../../js/hymnal-selection.js";
 import { GROQ_API_KEY_STORAGE_KEY, requestGroqHymnEdit, validateGroqApiKey } from "./groq-hymn-editor.js?v=1";
 import { handleLiveAudioAdminAction, handleLiveAudioAdminSubmit, renderLiveAudioAdmin, stopAdminAudioMicTest } from "./live-audio-admin.js?v=10";
-import { getCloudinarySettings, renderCloudinarySettingsPanel, removeCloudinarySettings, saveCloudinarySettings } from "./cloudinary-settings.js?v=1";
+import { getCloudinarySettings, renderCloudinarySettingsPanel, removeCloudinarySettings, saveCloudinarySettings } from "./cloudinary-settings.js?v=2";
 
 const root = document.getElementById("admin-root");
 const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null, hymnRowsCache: { hymns: null, drafts: null }, hymnRowsLoading: { hymns: null, drafts: null }, hymnRowsVersion: { hymns: 0, drafts: 0 }, selectedHymnIds: new Set() };
@@ -848,6 +848,10 @@ async function saveCloudinarySettingsForm() {
   const status = document.getElementById("cloudinary-settings-status");
   const button = form.querySelector('button[type="submit"]');
   if (button) { button.disabled = true; button.setAttribute("aria-busy", "true"); }
+  if (status) {
+    status.textContent = "Verifying credentials and saving Cloudinary settings…";
+    status.classList.remove("is-error");
+  }
   try {
     await saveCloudinarySettings({
       cloudName: form.elements.cloudName.value,
@@ -855,11 +859,14 @@ async function saveCloudinarySettingsForm() {
       apiSecret: form.elements.apiSecret.value
     });
     await renderSettingsWorkspace();
-    showToast("Cloudinary settings saved. New broadcasts will store audio in Cloudinary.");
+    showToast("Cloudinary settings saved and confirmed in Supabase.");
   } catch (error) {
-    if (status) status.textContent = error && error.message
-      ? error.message
-      : "Cloudinary settings could not be saved.";
+    if (status) {
+      status.textContent = error && error.message
+        ? error.message
+        : "Cloudinary settings could not be saved.";
+      status.classList.add("is-error");
+    }
   } finally {
     if (button && button.isConnected) { button.disabled = false; button.removeAttribute("aria-busy"); }
   }
