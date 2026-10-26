@@ -62,7 +62,7 @@ async function resolveRecordingUrl(program) {
   return url;
 }
 
-async function resolveLiveAudioSegments(program) {
+async function resolveLiveAudioSegments(program, segmentIndex) {
   if (!program || !program.onAir || !UUID_PATTERN.test(program.id) ||
       !UUID_PATTERN.test(program.liveSessionId)) return [];
   try {
@@ -70,6 +70,9 @@ async function resolveLiveAudioSegments(program) {
       "live_audio_segments?select=segment_index,started_at,duration_seconds,storage_path" +
       "&program_id=eq." + encodeURIComponent(program.id) +
       "&session_id=eq." + encodeURIComponent(program.liveSessionId) +
+      (Number.isInteger(segmentIndex) && segmentIndex >= 0
+        ? "&segment_index=eq." + String(segmentIndex)
+        : "") +
       "&order=segment_index.asc"
     ));
     const segments = rows.map(row => {
@@ -119,6 +122,18 @@ async function resolveLiveAudioSegments(program) {
   } catch (error) {
     return [];
   }
+}
+
+export async function loadPublicLiveAudioSegment(programId, sessionId, segmentIndex) {
+  if (!UUID_PATTERN.test(String(programId || "")) ||
+      !UUID_PATTERN.test(String(sessionId || "")) ||
+      !Number.isInteger(Number(segmentIndex)) || Number(segmentIndex) < 0) return null;
+  const segments = await resolveLiveAudioSegments({
+    id: String(programId),
+    liveSessionId: String(sessionId),
+    onAir: true
+  }, Number(segmentIndex));
+  return segments[0] || null;
 }
 
 export function emptyLiveAudioData() {

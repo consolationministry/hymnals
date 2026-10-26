@@ -287,6 +287,32 @@ function loadLiveAudioSegment(audio, controller, index, offsetSeconds, shouldPla
   updatePlayerControls(audio, controller);
 }
 
+export function setLiveAudioStream(audio, stream) {
+  if (!audio || !stream) return false;
+  const controller = getController(audio);
+  controller.liveStream = stream;
+  if (controller.livePlayback) {
+    if (audio.srcObject === stream) audio.srcObject = null;
+    return false;
+  }
+  audio.srcObject = stream;
+  return true;
+}
+
+export function isWaitingForLiveAudioSegment(audio) {
+  const controller = audio && audioPlayerControllers.get(audio);
+  return Boolean(controller && controller.livePlayback &&
+    controller.waitingForLiveSegment && controller.archiveAutoplay);
+}
+
+export function getNextLiveAudioSegmentIndex(audio) {
+  const controller = audio && audioPlayerControllers.get(audio);
+  if (!controller || !isWaitingForLiveAudioSegment(audio)) return null;
+  const current = controller.liveSegments[controller.currentSegmentIndex];
+  const currentIndex = Number(current && current.index);
+  return Number.isInteger(currentIndex) && currentIndex >= 0 ? currentIndex + 1 : null;
+}
+
 function advanceLiveAudioSegment(audio, controller) {
   if (!controller.livePlayback || !controller.archiveAutoplay) return;
   const nextIndex = controller.currentSegmentIndex + 1;
@@ -294,7 +320,9 @@ function advanceLiveAudioSegment(audio, controller) {
     loadLiveAudioSegment(audio, controller, nextIndex, 0, true);
     return;
   }
-  if (controller.liveStream && controller.liveStream.active !== false) {
+  const attachedStream = audio.srcObject;
+  const hasActiveLiveStream = stream => Boolean(stream && stream.active !== false);
+  if (hasActiveLiveStream(attachedStream) || hasActiveLiveStream(controller.liveStream)) {
     returnToLiveAudio(audio);
     return;
   }

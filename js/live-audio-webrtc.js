@@ -585,10 +585,16 @@ export async function startLiveAudioPublisher(options) {
 export async function startLiveAudioListener(options) {
   const opts = options || {};
   if (!opts.programId || !opts.sessionId || !opts.audioElement) throw new Error("This broadcast is missing its live player.");
+  const connectChannel = opts.connectChannel || connectLiveAudioChannel;
+  const createPeerConnection = opts.createPeerConnection || makeAudioPeerConnection;
   let clientId = createLiveAudioId();
   let peer = null;
   let channel = null;
   let iceQueue = null;
+  let remoteAudioTrack = null;
+  let remoteTrackUnmuteHandler = null;
+  let remoteTrackMuteHandler = null;
+  let playRemoteAudioTrack = null;
   let earlyRemoteCandidates = [];
   let closed = false;
   let peerGeneration = 0;
@@ -613,6 +619,23 @@ export async function startLiveAudioListener(options) {
     if (key === "reconnect") reconnectTimer = null;
     if (key === "handshake") handshakeTimer = null;
     if (key === "startup") startupTimer = null;
+  };
+
+  const clearRemoteTrackHandlers = () => {
+    if (remoteAudioTrack && remoteTrackUnmuteHandler) {
+      if (typeof remoteAudioTrack.removeEventListener === "function") {
+        remoteAudioTrack.removeEventListener("unmute", remoteTrackUnmuteHandler);
+      }
+    }
+    if (remoteAudioTrack && remoteTrackMuteHandler) {
+      if (typeof remoteAudioTrack.removeEventListener === "function") {
+        remoteAudioTrack.removeEventListener("mute", remoteTrackMuteHandler);
+      }
+    }
+    remoteAudioTrack = null;
+    remoteTrackUnmuteHandler = null;
+    remoteTrackMuteHandler = null;
+    playRemoteAudioTrack = null;
   };
 
   const finishConnected = () => {
@@ -643,7 +666,7 @@ export async function startLiveAudioListener(options) {
   };
 
   let handleSignal = null;
-  channel = await connectLiveAudioChannel(opts.programId, opts.sessionId, {
+  channel = await connectChannel(opts.programId, opts.sessionId, {
     onStatus: status => {
       if (opts.onStatus) opts.onStatus(status);
       if (status === "connected" && peer &&
@@ -662,6 +685,7 @@ export async function startLiveAudioListener(options) {
     const previousClientId = clientId;
     if (retry) {
       if (peer) {
+        clearRemoteTrackHandlers();
         channel.send({ type: "leave", sessionId: opts.sessionId, from: previousClientId, to: "host-" + opts.sessionId });
         peer.onconnectionstatechange = null;
         peer.onicecandidate = null;
@@ -677,7 +701,7 @@ export async function startLiveAudioListener(options) {
     const generation = ++peerGeneration;
     try {
       if (!channel.connected) throw new Error("The live audio signaling channel is reconnecting.");
-      const nextPeer = await makeAudioPeerConnection({
+      const nextPeer = await createPeerConnection({
         programId: opts.programId,
         sessionId: opts.sessionId
       });
@@ -705,24 +729,48 @@ export async function startLiveAudioListener(options) {
         else earlyLocalCandidates.push(event.candidate);
       };
       nextPeer.ontrack = event => {
+        clearRemoteTrackHandlers();
         const stream = event.streams && event.streams[0]
           ? event.streams[0]
           : new MediaStream([event.track]);
-        opts.audioElement.srcObject = stream;
-        try {
-          Promise.resolve(opts.audioElement.play()).then(() => {
-            if (closed || peer !== nextPeer) return;
-            audioPlaybackStatus = "playing";
-            if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
-          }, () => {
-            if (closed || peer !== nextPeer) return;
+        remoteAudioTrack = event.track || null;
+        const attachStream = () => {
+          if (typeof opts.onStream === "function") return opts.onStream(stream) !== false;
+          opts.audioElement.srcObject = stream;
+          return true;
+        };
+        playRemoteAudioTrack = () => {
+          if (closed || peer !== nextPeer || !attachStream()) return;
+          try {
+            Promise.resolve(opts.audioElement.play()).then(() => {
+              if (closed || peer !== nextPeer) return;
+              audioPlaybackStatus = remoteAudioTrack && remoteAudioTrack.muted
+                ? "connecting"
+                : "playing";
+              if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+            }, () => {
+              if (closed || peer !== nextPeer) return;
+              audioPlaybackStatus = "blocked";
+              if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+            });
+          } catch (error) {
             audioPlaybackStatus = "blocked";
             if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
-          });
-        } catch (error) {
-          audioPlaybackStatus = "blocked";
-          if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+          }
+        };
+        if (remoteAudioTrack && typeof remoteAudioTrack.addEventListener === "function") {
+          remoteTrackUnmuteHandler = () => {
+            if (playRemoteAudioTrack) playRemoteAudioTrack();
+          };
+          remoteTrackMuteHandler = () => {
+            if (closed || peer !== nextPeer || opts.audioElement.srcObject !== stream) return;
+            audioPlaybackStatus = "connecting";
+            if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+          };
+          remoteAudioTrack.addEventListener("unmute", remoteTrackUnmuteHandler);
+          remoteAudioTrack.addEventListener("mute", remoteTrackMuteHandler);
         }
+        playRemoteAudioTrack();
       };
       nextPeer.onconnectionstatechange = () => {
         if (peer !== nextPeer) return;
@@ -732,6 +780,7 @@ export async function startLiveAudioListener(options) {
           reconnectAttempts = 0;
           finishConnected();
           if (opts.onStatus) opts.onStatus(getLiveAudioListenerStatus(nextPeer.connectionState, audioPlaybackStatus));
+          if (playRemoteAudioTrack) playRemoteAudioTrack();
         } else if (nextPeer.connectionState === "disconnected") {
           scheduleReconnect(5000);
         } else if (nextPeer.connectionState === "failed") {
@@ -757,6 +806,7 @@ export async function startLiveAudioListener(options) {
       }, 16000);
     } catch (error) {
       if (peer && clientId === attemptClientId) {
+        clearRemoteTrackHandlers();
         peer.onconnectionstatechange = null;
         peer.onicecandidate = null;
         peer.ontrack = null;
@@ -844,6 +894,7 @@ export async function startLiveAudioListener(options) {
     clearTimer("reconnect");
     clearTimer("handshake");
     clearTimer("startup");
+    clearRemoteTrackHandlers();
     if (peer) {
       peer.onconnectionstatechange = null;
       peer.onicecandidate = null;
@@ -862,6 +913,7 @@ export async function startLiveAudioListener(options) {
       clearTimer("reconnect");
       clearTimer("handshake");
       clearTimer("startup");
+      clearRemoteTrackHandlers();
       channel.send({ type: "leave", sessionId: opts.sessionId, from: clientId, to: "host-" + opts.sessionId });
       if (peer) {
         peer.onconnectionstatechange = null;

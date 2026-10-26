@@ -12,8 +12,11 @@ import {
   getLiveAudioSeekTarget,
   getLiveAudioTimelinePosition,
   getRecordedAudioTimeState,
+  getNextLiveAudioSegmentIndex,
+  isWaitingForLiveAudioSegment,
   returnToLiveAudio,
-  seekAudioPlayer
+  seekAudioPlayer,
+  setLiveAudioStream
 } from "../js/live-audio-player.js";
 
 test("audio timestamps are formatted as minutes or hours", () => {
@@ -164,6 +167,7 @@ test("Android live audio uses the native media output path", async () => {
 
 function createLiveAudioReturnFixture(stream) {
   const status = { textContent: "" };
+  const listeners = new Map();
   const audio = {
     dataset: {
       audioPlayer: "live",
@@ -179,13 +183,23 @@ function createLiveAudioReturnFixture(stream) {
     duration: 10,
     volume: 1,
     muted: false,
-    addEventListener() {},
-    pause() { this.paused = true; },
+    addEventListener(name, handler) {
+      if (!listeners.has(name)) listeners.set(name, []);
+      listeners.get(name).push(handler);
+    },
+    dispatch(name) {
+      (listeners.get(name) || []).forEach(handler => handler());
+    },
+    pause() {
+      this.paused = true;
+      this.dispatch("pause");
+    },
     load() {},
     removeAttribute(name) { if (name === "src") this.src = ""; },
     play() {
       this.paused = false;
       this.lastPlayedStream = this.srcObject;
+      this.dispatch("play");
       return Promise.resolve();
     }
   };
@@ -212,6 +226,35 @@ test("returning from live rewind uses the newest attached live stream", () => {
   assert.equal(returnToLiveAudio(audio), true);
   assert.strictEqual(audio.srcObject, reconnectedStream);
   assert.strictEqual(audio.lastPlayedStream, reconnectedStream);
+});
+
+test("a new live stream is held off the rewind source and resumes at the live edge", () => {
+  const originalStream = { active: true };
+  const reconnectedStream = { active: true };
+  const { audio } = createLiveAudioReturnFixture(originalStream);
+
+  seekAudioPlayer(audio, 500);
+
+  assert.equal(setLiveAudioStream(audio, reconnectedStream), false);
+  assert.equal(audio.srcObject, null);
+  assert.equal(audio.src, "https://audio.example.org/live-buffer.webm");
+
+  audio.ended = true;
+  audio.dispatch("ended");
+
+  assert.strictEqual(audio.srcObject, reconnectedStream);
+  assert.strictEqual(audio.lastPlayedStream, reconnectedStream);
+});
+
+test("archive playback waits on the exact next segment when its live stream is unavailable", () => {
+  const { audio } = createLiveAudioReturnFixture({ active: false });
+
+  seekAudioPlayer(audio, 500);
+  audio.ended = true;
+  audio.dispatch("ended");
+
+  assert.equal(isWaitingForLiveAudioSegment(audio), true);
+  assert.equal(getNextLiveAudioSegmentIndex(audio), 1);
 });
 
 test("failed return-to-live playback shows a live-only tap-to-play message", async () => {
