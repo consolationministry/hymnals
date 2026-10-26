@@ -50,13 +50,17 @@ export function startLiveAudioRecording(stream, Recorder = globalThis.MediaRecor
   const segmentUploads = [];
   const segmentErrors = [];
   let resolveStopped;
+  let recorderStoppedAt = null;
   const stopped = new Promise(resolve => { resolveStopped = resolve; });
 
   recorder.addEventListener("dataavailable", event => {
     if (event.data && event.data.size > 0) chunks.push(event.data);
   });
-  recorder.addEventListener("stop", resolveStopped, { once: true });
-  recorder.start(10000);
+  recorder.addEventListener("stop", () => {
+    recorderStoppedAt = Date.now();
+    resolveStopped();
+  }, { once: true });
+  recorder.start();
 
   function createSegmentRecorder() {
     const segmentRecorder = new Recorder(stream, recorderOptions);
@@ -161,11 +165,12 @@ export function startLiveAudioRecording(stream, Recorder = globalThis.MediaRecor
           const format = normalizeMimeType(recorder.mimeType || mimeType);
           const blob = new Blob(chunks, { type: format.contentType });
           if (!blob.size) throw new Error("The broadcast ended without any audio to save.");
+          const completedAt = recorderStoppedAt === null ? Date.now() : recorderStoppedAt;
           return {
             blob,
             contentType: format.contentType,
             extension: format.extension,
-            durationSeconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
+            durationSeconds: Math.max(1, Math.round((completedAt - startedAt) / 1000)),
             segmentCount: segmentIndex,
             segmentErrors: segmentErrors.slice()
           };
