@@ -12,6 +12,14 @@ import {
 const PROGRAM_ID = "123e4567-e89b-42d3-a456-426614174000";
 const SESSION_ID = "123e4567-e89b-42d3-a456-426614174001";
 
+function response(body, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    async text() { return body === null ? "" : JSON.stringify(body); }
+  };
+}
+
 test("Cloudinary audio references validate recording and segment identifiers", () => {
   const recording = parseCloudinaryLiveAudioReference(
     "cloudinary:video:authenticated:live-audio/" + PROGRAM_ID + "/" + SESSION_ID + "/recording:webm"
@@ -58,6 +66,70 @@ test("Cloudinary settings reject partial replacement credentials before making a
   );
 });
 
+test("Cloudinary settings save only succeeds after Supabase confirms the saved account", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  const requests = [];
+  globalThis.window = {
+    localStorage: {
+      getItem() { return null; },
+      setItem() {},
+      removeItem() {}
+    }
+  };
+  globalThis.fetch = async function (url, init) {
+    requests.push({ url: String(url), method: init.method, body: JSON.parse(init.body) });
+    return response({ configured: true, cloudName: "test-cloud" });
+  };
+
+  try {
+    const result = await saveCloudinarySettings({
+      cloudName: "test-cloud",
+      apiKey: "test-api-key",
+      apiSecret: "test-api-secret"
+    });
+    assert.deepEqual(result, { configured: true, cloudName: "test-cloud" });
+    assert.match(requests[0].url, /\/functions\/v1\/cloudinary-live-audio$/);
+    assert.equal(requests[0].method, "POST");
+    assert.deepEqual(requests[0].body, {
+      action: "save-config",
+      cloudName: "test-cloud",
+      apiKey: "test-api-key",
+      apiSecret: "test-api-secret"
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
+
+test("Cloudinary settings reject a response that does not confirm persistence", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  globalThis.window = {
+    localStorage: {
+      getItem() { return null; },
+      setItem() {},
+      removeItem() {}
+    }
+  };
+  globalThis.fetch = async function () {
+    return response({ configured: false, cloudName: "" });
+  };
+
+  try {
+    await assert.rejects(
+      saveCloudinarySettings({ cloudName: "test-cloud", apiKey: "test-api-key", apiSecret: "test-api-secret" }),
+      /Supabase did not confirm that the Cloudinary settings were stored/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
+
 test("Cloudinary secrets are service-role-only and playback signing stays server-side", async () => {
   const migration = await readFile(new URL("../supabase/migrations/202610250003_cloudinary_live_audio.sql", import.meta.url), "utf8");
   const functionSource = await readFile(new URL("../supabase/functions/cloudinary-live-audio/index.ts", import.meta.url), "utf8");
@@ -69,6 +141,10 @@ test("Cloudinary secrets are service-role-only and playback signing stays server
   assert.match(migration, /grant all on public\.cloudinary_credentials to service_role/);
   assert.match(functionSource, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(functionSource, /api_secret/);
+  assert.match(functionSource, /resolution=merge-duplicates,return=representation/);
+  assert.match(functionSource, /Supabase did not confirm that the Cloudinary credentials were stored/);
+  assert.match(functionSource, /error instanceof SafeCloudinaryError/);
+  assert.doesNotMatch(functionSource, /jsonResponse\(\{ error: error\.message/);
   assert.match(functionSource, /action === "resolve-playback-url"/);
   assert.match(functionSource, /status: "eq\.published"/);
   assert.doesNotMatch(publicClient, /api_secret|apiSecret/);
