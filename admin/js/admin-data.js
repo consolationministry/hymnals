@@ -19,6 +19,13 @@ async function adminRequest(path, options) {
 
 function asArray(value) { return Array.isArray(value) ? value : []; }
 function firstRow(value) { return asArray(value)[0] || null; }
+function requireUpdatedGlobalSettings(rows, label) {
+  const row = firstRow(rows);
+  if (!row || row.id !== GLOBAL_ROW_ID) {
+    throw new Error((label || "Settings") + " were not saved because Supabase did not update the global settings row.");
+  }
+  return row;
+}
 function copy(value) { return JSON.parse(JSON.stringify(value)); }
 function nowIso() { return new Date().toISOString(); }
 
@@ -362,11 +369,12 @@ export async function updateAdminSettings(value) {
   if (!isActiveHymnalId(activeHymnal)) throw new Error("Choose one of the available hymn collections.");
   const settingsUpdate = { default_hymn_category: category || null, default_theme: theme };
   if (data.activeHymnal !== undefined) settingsUpdate.active_hymnal = activeHymnal;
-  await adminRequest("rest/v1/admin_settings?id=eq." + GLOBAL_ROW_ID, {
+  const rows = await adminRequest("rest/v1/admin_settings?id=eq." + GLOBAL_ROW_ID, {
     method: "PATCH",
     prefer: "return=representation",
     body: settingsUpdate
   });
+  requireUpdatedGlobalSettings(rows, "Workspace settings");
   return "remote";
 }
 
@@ -389,11 +397,12 @@ export async function updateDailyQuoteSettings(value) {
   if (!books.length) throw new Error("Choose Psalms, Proverbs, or both as quote sources.");
   if (!["on-open", "daily"].includes(data.refreshMode)) throw new Error("Choose when a new quote should be generated.");
   if (typeof data.enabled !== "boolean") throw new Error("Choose whether the daily quote feature is enabled.");
-  await adminRequest("rest/v1/daily_quote_settings?id=eq." + GLOBAL_ROW_ID, {
+  const rows = await adminRequest("rest/v1/daily_quote_settings?id=eq." + GLOBAL_ROW_ID, {
     method: "PATCH",
     prefer: "return=representation",
     body: { enabled: data.enabled, books, refresh_mode: data.refreshMode }
   });
+  requireUpdatedGlobalSettings(rows, "Quote settings");
   return "remote";
 }
 
