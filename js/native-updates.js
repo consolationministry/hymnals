@@ -1,14 +1,14 @@
 import { App } from "@capacitor/app";
-import { CapacitorUpdater } from "@capgo/capacitor-updater";
-import { ANDROID_RELEASES_API, APP_VERSION, getAndroidWebBundle, isNewerVersion } from "./version.js";
+import { FileTransfer } from "@capacitor/file-transfer";
+import { Directory, Filesystem } from "@capacitor/filesystem";
+import { FileOpener } from "@capawesome-team/capacitor-file-opener";
+import { ANDROID_RELEASES_API, APP_VERSION, getAndroidApkRelease } from "./version.js";
 
 let availableUpdate = null;
 let onUpdateAvailable = null;
-let checkInProgress = false;
 
 async function checkAndroidRelease() {
-  if (!navigator.onLine || checkInProgress) return;
-  checkInProgress = true;
+  if (!navigator.onLine) return;
   try {
     const response = await fetch(ANDROID_RELEASES_API, {
       headers: { Accept: "application/vnd.github+json" },
@@ -17,62 +17,52 @@ async function checkAndroidRelease() {
     if (!response.ok) return;
     const release = await response.json();
     const appInfo = await App.getInfo();
-    const active = await CapacitorUpdater.current();
-    const activeVersion = active.bundle.id !== "builtin" && active.bundle.version
-      ? active.bundle.version
-      : active.native || appInfo.version || APP_VERSION;
-    const update = getAndroidWebBundle(release);
-    if (!update || !isNewerVersion(update.version, activeVersion)) return;
+    const update = getAndroidApkRelease(release, appInfo.version || APP_VERSION);
+    if (!update) return;
     availableUpdate = update;
     if (onUpdateAvailable) {
       onUpdateAvailable({ kind: "android", version: availableUpdate.version, releaseUrl: availableUpdate.releaseUrl });
     }
   } catch (error) {
-    // Offline launches are expected. A later online or foreground event retries.
-  } finally {
-    checkInProgress = false;
+    // Offline launches are expected. A later online event retries the check.
   }
-}
-
-export function confirmNativeAppReady() {
-  return CapacitorUpdater.notifyAppReady();
 }
 
 export async function initializeNativeUpdates(onAvailable) {
   onUpdateAvailable = onAvailable;
-  await checkAndroidRelease();
+  checkAndroidRelease();
   window.addEventListener("online", checkAndroidRelease);
-  App.addListener("appStateChange", function (state) {
-    if (state.isActive) checkAndroidRelease();
-  }).catch(function () {});
 }
 
 export async function applyNativeUpdate(onProgress) {
   if (!availableUpdate) throw new Error("There is no update ready to install.");
-  const update = availableUpdate;
-  availableUpdate = null;
-  let progressListener;
+  const filename = "consolation-hymnal-update-" + availableUpdate.version + ".apk";
+  const destination = await Filesystem.getUri({ directory: Directory.Cache, path: filename });
+  const progressListener = await FileTransfer.addListener("progress", function (progress) {
+    if (onProgress && progress.contentLength > 0) {
+      const percent = Math.min(100, Math.round((progress.bytes / progress.contentLength) * 100));
+      onProgress("Downloading update… " + percent + "%");
+    } else if (onProgress) {
+      onProgress("Downloading the update…");
+    }
+  });
 
   try {
-    progressListener = await CapacitorUpdater.addListener("download", function (progress) {
-      if (onProgress) {
-        onProgress("Downloading the in-app update… " + Math.round(progress.percent) + "%");
-      }
+    await FileTransfer.downloadFile({
+      url: availableUpdate.apkUrl,
+      path: destination.uri,
+      progress: true,
+      connectTimeout: 30000,
+      readTimeout: 120000
     });
-    const bundle = await CapacitorUpdater.download({
-      url: update.bundleUrl,
-      version: update.version
-    });
-    await CapacitorUpdater.next({ id: bundle.id });
-    if (onProgress) onProgress("Applying the update inside the app…");
-    await CapacitorUpdater.reload();
-    return { reload: true };
-  } catch (error) {
-    availableUpdate = update;
-    throw error;
   } finally {
-    if (progressListener) {
-      await progressListener.remove().catch(function () {});
-    }
+    await progressListener.remove();
   }
+
+  if (onProgress) onProgress("Opening Android's installer…");
+  await FileOpener.openFile({
+    path: destination.uri,
+    mimeType: "application/vnd.android.package-archive"
+  });
+  return { installerOpened: true };
 }
