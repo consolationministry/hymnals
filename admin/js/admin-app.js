@@ -1,5 +1,5 @@
 import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js?v=31";
-import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteHymns, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, setHymnsStatus, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=43";
+import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteHymns, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, setHymnsStatus, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=44";
 
 import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "./admin-hymn-display.js?v=1";
 import { ACTIVE_HYMNALS, isActiveHymnalId, normalizeActiveHymnal } from "../../js/hymnal-selection.js";
@@ -797,7 +797,7 @@ async function saveSettingsForm() {
     const mode = await updateAdminSettings({ defaultHymnCategory: select.value });
     state.settingsFormStart = null;
     await renderSettingsWorkspace();
-    showToast(mode === "browser" ? "Workspace preference saved in this browser." : "Preference saved for this open session only; browser storage is unavailable.");
+    showToast(mode === "remote" ? "Workspace preference saved to Supabase." : "Workspace preference could not be confirmed as saved.");
   } catch (error) {
     showSettingsErrors(error && error.message ? error.message : "The preference could not be saved.");
   }
@@ -837,7 +837,7 @@ async function saveDailyQuoteSettings() {
     const mode = await updateDailyQuoteSettings(data);
     state.quoteSettingsFormStart = null;
     await renderSettingsWorkspace();
-    showToast(mode === "browser" ? "Quote settings saved in this browser preview." : "Quote settings saved for this open session only; browser storage is unavailable.");
+    showToast(mode === "remote" ? "Quote settings saved to Supabase." : "Quote settings could not be confirmed as saved.");
   } catch (error) {
     if (errors) { errors.textContent = error && error.message ? error.message : "Quote settings could not be saved."; errors.hidden = false; }
   }
