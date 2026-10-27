@@ -103,10 +103,11 @@ export async function getMemberContent() {
   const [programResult, planResult] = await Promise.all([
     fetchRows(
       "programs",
-      "id,title,minister,description,venue,start_date,end_date,flyer_data_url,created_at,response_question,yes_label,no_label",
+      "id,title,minister,category,description,venue,start_date,end_date,flyer_data_url,created_at,response_question,yes_label,no_label",
       "created_at.desc",
       PROGRAMS_CACHE_KEY,
       [
+        { select: "id,title,minister,description,venue,start_date,end_date,flyer_data_url,created_at,response_question,yes_label,no_label", order: "created_at.desc" },
         { select: "id,title,description,venue,start_date,end_date,flyer_data_url,created_at,response_question,yes_label,no_label", order: "created_at.desc" },
         { select: "id,title,venue,start_date,end_date,flyer_data_url,created_at", order: "created_at.desc" },
         { select: "id,title,venue,start_date,end_date,flyer_data_url", order: "start_date.desc" }

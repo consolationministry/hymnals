@@ -578,6 +578,26 @@ async function renderProgramForm() {
     .replace("Program changes stay in this browser preview and are not published to the public app in this phase.", "Programmes for all dates appear in the member app after the public-content migrations are applied; past programmes are labeled. Members can answer the attendance question after the response migration is applied.")
     .replace("Leave this blank for a one-day program.", "Leave this blank for a one-day programme.")
     .replace("Large images are resized proportionally for this browser preview. A server-backed upload will be added later.", "Large images are resized proportionally before they are stored with this programme.");
+  const categoryField = make("div", "admin-field");
+  const categoryLabel = make("label", "", "Programme category");
+  categoryLabel.htmlFor = "program-category";
+  const categoryInput = document.createElement("input");
+  categoryInput.className = "form-input";
+  categoryInput.id = "program-category";
+  categoryInput.name = "category";
+  categoryInput.type = "text";
+  categoryInput.maxLength = 60;
+  categoryInput.placeholder = "e.g. Bible Study or Youth Programme";
+  categoryInput.value = program.category || "";
+  categoryField.append(
+    categoryLabel,
+    categoryInput,
+    make("p", "field-hint", "This appears as the category badge on the programme post.")
+  );
+  const titleInput = panel.querySelector("#program-title");
+  const detailsGrid = titleInput && titleInput.closest(".hymn-fields-grid");
+  const titleField = titleInput && titleInput.closest(".admin-field");
+  if (detailsGrid && titleField) titleField.after(categoryField);
   const descriptionField = make("div", "admin-field program-description-field");
   const descriptionLabel = make("label", "", "Programme description");
   descriptionLabel.htmlFor = "program-description";
@@ -592,7 +612,7 @@ async function renderProgramForm() {
   descriptionField.append(
     descriptionLabel,
     descriptionInput,
-    make("p", "field-hint", "Optional. This appears below the programme flyer in the member feed.")
+    make("p", "field-hint", "Optional. This appears above the programme flyer in the member feed.")
   );
   const flyerSection = panel.querySelector(".program-flyer-section");
   if (flyerSection) flyerSection.before(descriptionField);
@@ -604,7 +624,7 @@ async function renderProgramForm() {
 function currentProgramFormData() {
   const form = document.getElementById("program-form"); if (!form) return null;
   return {
-    title: form.elements.title.value.trim(), minister: form.elements.minister.value.trim(), venue: form.elements.venue.value.trim(),
+    title: form.elements.title.value.trim(), category: form.elements.category.value.trim(), minister: form.elements.minister.value.trim(), venue: form.elements.venue.value.trim(),
     description: form.elements.description.value.trim(),
     startDate: form.elements.startDate.value, endDate: form.elements.endDate.value,
     flyerDataUrl: state.programFlyerUrl,
