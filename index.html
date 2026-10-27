@@ -44,9 +44,9 @@
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span class="button-label"><strong>Proceed to the hymnal</strong><small>Open it in your browser</small></span>
             </a>
-            <button id="pwa-install" class="button button-secondary" type="button" hidden>
+            <button id="pwa-install" class="button button-secondary" type="button">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm3 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-              How to add to Home Screen
+              <span id="pwa-install-label">Install web app</span>
             </button>
           </div>
           <p class="hero-note"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Android will ask you to confirm the APK installation. App permissions are requested by Android only when a feature needs them.</span></p>
@@ -80,10 +80,10 @@
           <ol class="steps"><li><span class="step-no">1</span><span>Tap <strong>Download Android app</strong> above to download the signed APK from this website.</span></li><li><span class="step-no">2</span><span>Open the downloaded APK. If Android asks, allow this browser to install apps.</span></li><li><span class="step-no">3</span><span>Review Android’s installer prompt and tap <strong>Install</strong>.</span></li></ol>
           <p class="safety"><strong>Android keeps the final say.</strong> The browser cannot silently install an APK; Android shows its own confirmation before installation.</p>
         </article>
-        <article class="install-card" id="iphone-steps">
-          <div class="install-head"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M10 18.2h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><h2>Use on iPhone or iPad</h2><p>Add the web app from Safari.</p></div></div>
-          <ol class="steps"><li><span class="step-no">1</span><span>Open this page in <strong>Safari</strong>, then tap the Share button.</span></li><li><span class="step-no">2</span><span>Choose <strong>Add to Home Screen</strong>.</span></li><li><span class="step-no">3</span><span>Tap <strong>Add</strong>. The hymnal opens from its new Home Screen icon.</span></li></ol>
-          <p class="safety"><strong>No iPhone APK needed.</strong> The web app is the installable option on iPhone; an Android APK cannot be installed on iOS.</p>
+        <article class="install-card" id="pwa-steps">
+          <div class="install-head"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M10 18.2h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><h2>Install the web app</h2><p>Standalone home-screen version, separate from the native APK.</p></div></div>
+          <ol class="steps"><li><span class="step-no">1</span><span>On Android, tap <strong>Install web app</strong> above when the browser offers it. If no prompt appears, use Chrome’s menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</span></li><li><span class="step-no">2</span><span>On iPhone or iPad, open this page in <strong>Safari</strong>, tap Share, then choose <strong>Add to Home Screen</strong>.</span></li><li><span class="step-no">3</span><span>Launch the new icon to open the hymnal without the usual browser controls.</span></li></ol>
+          <p class="safety"><strong>This is the web app, not the APK.</strong> Installation options vary by browser. The native Android app remains available through the APK download above.</p>
         </article>
       </section>
       <aside class="update-note">
@@ -97,24 +97,95 @@
   <script>
     (function(){
       var installButton = document.getElementById("pwa-install");
+      var installLabel = document.getElementById("pwa-install-label");
       var status = document.getElementById("status");
-      function announce(message){status.textContent=message;status.hidden=false;window.setTimeout(function(){status.hidden=true;},4200);}
-      installButton.addEventListener("click",function(){
-        document.getElementById("install-help").scrollIntoView({behavior:"smooth",block:"start"});
-        announce("In Safari, tap Share, then Add to Home Screen.");
+      var deferredPrompt = null;
+      var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      var isAndroid = /Android/i.test(navigator.userAgent);
+      var isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+
+      function announce(message) {
+        status.textContent = message;
+        status.hidden = false;
+        window.setTimeout(function(){ status.hidden = true; }, 5200);
+      }
+
+      function showInstallInstructions() {
+        document.getElementById("install-help").scrollIntoView({behavior:"smooth", block:"start"});
+        if (isIOS) {
+          announce("In Safari, tap Share, then Add to Home Screen.");
+        } else if (isAndroid) {
+          announce("In Chrome, open the ⋮ menu and choose Install app or Add to Home screen.");
+        } else {
+          announce("Use your browser’s Install app option or menu to add this site to your device.");
+        }
+      }
+
+      installButton.hidden = isStandalone;
+      if (isIOS) installLabel.textContent = "How to add to Home Screen";
+      installButton.addEventListener("click", async function(){
+        if (!deferredPrompt) {
+          showInstallInstructions();
+          return;
+        }
+        var promptEvent = deferredPrompt;
+        deferredPrompt = null;
+        await promptEvent.prompt();
+        var choice = await promptEvent.userChoice;
+        if (choice.outcome === "accepted") {
+          installButton.hidden = true;
+          announce("Consolation Hymnal is installed. Open it from your Home Screen or app list.");
+        } else {
+          announce("Installation was cancelled. You can try again from your browser menu.");
+        }
       });
-      var isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
-      if(isIOS){var androidDownload=document.getElementById("android-download");var hymnalOpen=document.getElementById("hymnal-open");androidDownload.hidden=true;hymnalOpen.classList.remove("button-secondary");hymnalOpen.classList.add("button-primary");hymnalOpen.querySelector("strong").textContent="Open the hymnal";hymnalOpen.querySelector("small").textContent="Continue in your browser";installButton.hidden=false;installButton.textContent="How to add to Home Screen";}
-      if("serviceWorker" in navigator){navigator.serviceWorker.register("./service-worker.js",{scope:"./"}).catch(function(){});}
-      fetch("https://api.github.com/repos/consolationministry/hymnals/releases/latest",{headers:{Accept:"application/vnd.github+json"},cache:"force-cache"}).then(function(response){if(!response.ok)throw new Error("Release information unavailable");return response.json();}).then(function(release){
-        if(!release||release.draft||release.prerelease)return;
-        var apk=(release.assets||[]).find(function(asset){
-          if(asset.name!=="consolation-hymnal-android.apk")return false;
-          try{var url=new URL(asset.browser_download_url);return url.protocol==="https:"&&url.hostname==="github.com"&&url.pathname.startsWith("/consolationministry/hymnals/releases/download/");}catch(error){return false;}
+
+      window.addEventListener("beforeinstallprompt", function(event){
+        event.preventDefault();
+        deferredPrompt = event;
+        installButton.hidden = false;
+        installLabel.textContent = "Install web app";
+      });
+
+      window.addEventListener("appinstalled", function(){
+        deferredPrompt = null;
+        installButton.hidden = true;
+        announce("Consolation Hymnal is installed on this device.");
+      });
+
+      if (isIOS) {
+        var androidDownload = document.getElementById("android-download");
+        var hymnalOpen = document.getElementById("hymnal-open");
+        androidDownload.hidden = true;
+        hymnalOpen.classList.remove("button-secondary");
+        hymnalOpen.classList.add("button-primary");
+        hymnalOpen.querySelector("strong").textContent = "Open the hymnal";
+        hymnalOpen.querySelector("small").textContent = "Continue in your browser";
+      }
+
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function(){
+          navigator.serviceWorker.register("./service-worker.js", {scope:"./"}).catch(function(){});
         });
-        if(!apk)return;
-        var version=String(release.tag_name||"").replace(/^v/,"");
-        if(version)document.getElementById("release-version").textContent="v"+version;
+      }
+
+      fetch("https://api.github.com/repos/consolationministry/hymnals/releases/latest", {headers:{Accept:"application/vnd.github+json"}, cache:"force-cache"}).then(function(response){
+        if (!response.ok) throw new Error("Release information unavailable");
+        return response.json();
+      }).then(function(release){
+        if (!release || release.draft || release.prerelease) return;
+        var apk = (release.assets || []).find(function(asset){
+          if (asset.name !== "consolation-hymnal-android.apk") return false;
+          try {
+            var url = new URL(asset.browser_download_url);
+            return url.protocol === "https:" && url.hostname === "github.com" && url.pathname.startsWith("/consolationministry/hymnals/releases/download/");
+          } catch (error) {
+            return false;
+          }
+        });
+        if (!apk) return;
+        var version = String(release.tag_name || "").replace(/^v/, "");
+        if (version) document.getElementById("release-version").textContent = "v" + version;
       }).catch(function(){});
     })();
   </script>
