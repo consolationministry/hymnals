@@ -18,7 +18,18 @@
     @media(max-width:650px){.page{width:min(100% - 24px,540px)}.topbar{padding:14px 2px}.brand img{width:45px;height:45px}.brand small{max-width:210px;font-size:.67rem}.toplink{padding:9px 11px;font-size:.76rem}.hero{grid-template-columns:1fr;gap:0;min-height:0;padding:31px 24px 18px;border-radius:27px}.hero-copy{position:relative;z-index:2}.hero h1{font-size:clamp(2.65rem,12vw,4rem)}.intro{font-size:.94rem}.phone-wrap{min-height:320px;margin:8px auto 0;width:min(100%,360px)}.phone{width:190px;transform:rotate(2deg)}.phone-screen{min-height:336px;padding-top:21px}.float-tag{right:1px;bottom:34px}.install{grid-template-columns:1fr;margin-top:30px}.install-card{padding:21px}.update-note{margin-bottom:30px}footer{align-items:flex-start;flex-direction:column}}
     @media(max-width:390px){.page{width:calc(100% - 18px)}.hero{padding:26px 18px 16px}.actions{align-items:stretch;flex-direction:column}.actions .button{width:100%}.toplink{font-size:0}.toplink svg{width:20px;height:20px}.brand small{max-width:150px}.phone-wrap{transform:scale(.94);transform-origin:top center;margin-bottom:-15px}}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button{transition:none}}
-  </style>
+  
+    .apk-download-progress{max-width:480px;margin:14px 0 0;padding:14px 15px;border:1px solid rgba(255,255,255,.28);border-radius:15px;background:rgba(27,12,42,.3);color:#fff}
+    .apk-download-progress[hidden],.apk-download-progress [hidden]{display:none!important}
+    .apk-download-progress p{margin:0;font-size:.8rem}
+    .apk-download-meter{display:block;width:100%;height:10px;margin:10px 0;border:0;border-radius:999px;overflow:hidden;accent-color:#f7c9d7}
+    .apk-download-meter::-webkit-progress-bar{border-radius:999px;background:rgba(255,255,255,.2)}
+    .apk-download-meter::-webkit-progress-value{border-radius:999px;background:#f7c9d7}
+    .apk-download-meter::-moz-progress-bar{border-radius:999px;background:#f7c9d7}
+    .apk-download-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:10px}
+    .apk-download-actions .button{min-height:42px;padding:9px 13px}
+    .apk-download-hint{margin-top:9px!important;color:rgba(255,255,255,.76);font-size:.72rem!important}
+</style>
 </head>
 <body>
   <div class="page">
@@ -49,6 +60,16 @@
               <span id="pwa-install-label">Install web app</span>
             </button>
           </div>
+          <div id="apk-download-progress" class="apk-download-progress" hidden>
+            <p id="apk-download-status" role="status" aria-live="polite">Ready to prepare the Android APK download.</p>
+            <progress id="apk-download-meter" class="apk-download-meter" max="100" value="0" aria-label="APK download progress"></progress>
+            <div class="apk-download-actions">
+              <button id="apk-save-button" class="button button-primary" type="button" hidden>Save APK to device</button>
+              <a id="apk-open-downloads" class="button button-secondary" href="#" hidden>Open Downloads</a>
+              <a id="apk-direct-fallback" class="button button-secondary" href="./consolation-hymnal-android.apk" download="consolation-hymnal-android.apk" hidden>Download APK directly</a>
+            </div>
+            <p class="apk-download-hint">After saving, Android still requires you to open the APK and confirm installation.</p>
+          </div>
           <p class="hero-note"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Android will ask you to confirm the APK installation. App permissions are requested by Android only when a feature needs them.</span></p>
           <p class="platform-line">English &amp; Yorùbá <span aria-hidden="true">·</span> Offline-ready <span aria-hidden="true">·</span> Free to use</p>
         </div>
@@ -76,9 +97,9 @@
       </section>
       <section id="install-help" class="install" aria-label="Installation instructions">
         <article class="install-card" id="android-steps">
-          <div class="install-head"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M10 18.2h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><h2>Install on Android</h2><p>Download the signed Android app from this website.</p></div></div>
-          <ol class="steps"><li><span class="step-no">1</span><span>Tap <strong>Download Android app</strong> above to download the signed APK from this website.</span></li><li><span class="step-no">2</span><span>Open the downloaded APK. If Android asks, allow this browser to install apps.</span></li><li><span class="step-no">3</span><span>Review Android’s installer prompt and tap <strong>Install</strong>.</span></li></ol>
-          <p class="safety"><strong>Android keeps the final say.</strong> The browser cannot silently install an APK; Android shows its own confirmation before installation.</p>
+          <div class="install-head"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M10 18.2h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><h2>Install on Android</h2><p>Download the signed Android app, then open it from Downloads.</p></div></div>
+          <ol class="steps"><li><span class="step-no">1</span><span>Tap <strong>Download Android app</strong>, wait for the progress to reach 100%, then tap <strong>Save APK to device</strong>.</span></li><li><span class="step-no">2</span><span>After the browser finishes saving it, tap <strong>Open Downloads</strong> and select <strong>consolation-hymnal-android.apk</strong>. If Downloads does not open, open your Downloads app manually.</span></li><li><span class="step-no">3</span><span>If Android asks, allow this browser to install apps, then review the installer and tap <strong>Install</strong>.</span></li></ol>
+          <p class="safety"><strong>Android keeps the final say.</strong> The website can open the Downloads screen on supported Android browsers, but Android still requires you to open the APK and confirm installation.</p>
         </article>
         <article class="install-card" id="pwa-steps">
           <div class="install-head"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M10 18.2h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><h2>Install the web app</h2><p>Standalone home-screen version, separate from the native APK.</p></div></div>
@@ -99,15 +120,29 @@
       var installButton = document.getElementById("pwa-install");
       var installLabel = document.getElementById("pwa-install-label");
       var status = document.getElementById("status");
+      var androidDownload = document.getElementById("android-download");
+      var apkPanel = document.getElementById("apk-download-progress");
+      var apkStatus = document.getElementById("apk-download-status");
+      var apkMeter = document.getElementById("apk-download-meter");
+      var apkSaveButton = document.getElementById("apk-save-button");
+      var apkOpenDownloads = document.getElementById("apk-open-downloads");
+      var apkDirectFallback = document.getElementById("apk-direct-fallback");
       var deferredPrompt = null;
-      var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      var isAndroid = /Android/i.test(navigator.userAgent);
+      var preparedApkUrl = null;
+      var apkTransferInProgress = false;
+      var userAgent = navigator.userAgent;
+      var isIOS = /iPhone|iPad|iPod/i.test(userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      var isAndroid = /Android/i.test(userAgent);
       var isStandalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
 
       function announce(message) {
         status.textContent = message;
         status.hidden = false;
         window.setTimeout(function(){ status.hidden = true; }, 5200);
+      }
+
+      function formatMegabytes(bytes) {
+        return (bytes / (1024 * 1024)).toFixed(1) + " MB received";
       }
 
       function showInstallInstructions() {
@@ -157,10 +192,97 @@
         announce("Consolation Hymnal is installed on this device.");
       });
 
+      androidDownload.addEventListener("click", async function(event){
+        event.preventDefault();
+        if (apkTransferInProgress) return;
+        apkTransferInProgress = true;
+        apkPanel.hidden = false;
+        apkSaveButton.hidden = true;
+        apkOpenDownloads.hidden = true;
+        apkDirectFallback.hidden = true;
+        apkSaveButton.disabled = false;
+        apkMeter.max = 100;
+        apkMeter.value = 0;
+        apkStatus.textContent = "Connecting to the Android APK…";
+        if (preparedApkUrl) {
+          URL.revokeObjectURL(preparedApkUrl);
+          preparedApkUrl = null;
+        }
+
+        try {
+          var response = await fetch(androidDownload.href, {cache:"no-store"});
+          if (!response.ok) throw new Error("The APK download could not be reached.");
+          if (!response.body || typeof response.body.getReader !== "function") {
+            throw new Error("This browser cannot show download progress. Use the direct download link below.");
+          }
+          var totalBytes = Number(response.headers.get("content-length")) || 0;
+          var reader = response.body.getReader();
+          var chunks = [];
+          var receivedBytes = 0;
+          var lastPercent = -1;
+          if (!totalBytes) apkMeter.removeAttribute("value");
+
+          while (true) {
+            var part = await reader.read();
+            if (part.done) break;
+            chunks.push(part.value);
+            receivedBytes += part.value.byteLength;
+            if (totalBytes > 0) {
+              var percent = Math.min(99, Math.floor((receivedBytes / totalBytes) * 100));
+              apkMeter.value = percent;
+              if (percent !== lastPercent) {
+                apkStatus.textContent = "Downloading APK… " + percent + "%";
+                lastPercent = percent;
+              }
+            } else {
+              apkStatus.textContent = "Downloading APK… " + formatMegabytes(receivedBytes);
+            }
+          }
+
+          if (!receivedBytes) throw new Error("The APK file was empty. Use the direct download link below.");
+          apkMeter.value = 100;
+          preparedApkUrl = URL.createObjectURL(new Blob(chunks, {type:"application/vnd.android.package-archive"}));
+          apkStatus.textContent = "Download complete — 100%. Tap Save APK to device to save it to Downloads.";
+          apkSaveButton.hidden = false;
+        } catch (error) {
+          apkMeter.removeAttribute("value");
+          apkStatus.textContent = error && error.message ? error.message : "The APK could not be prepared. Use the direct download link below.";
+          apkDirectFallback.hidden = false;
+        } finally {
+          apkTransferInProgress = false;
+        }
+      });
+
+      apkSaveButton.addEventListener("click", function(){
+        if (!preparedApkUrl) return;
+        var saveLink = document.createElement("a");
+        saveLink.href = preparedApkUrl;
+        saveLink.download = "consolation-hymnal-android.apk";
+        saveLink.style.display = "none";
+        document.body.appendChild(saveLink);
+        saveLink.click();
+        saveLink.remove();
+        apkSaveButton.disabled = true;
+        if (isAndroid) {
+          var fallbackUrl = new URL("./", window.location.href);
+          fallbackUrl.hash = "android-steps";
+          apkOpenDownloads.href = "intent://#Intent;action=android.intent.action.VIEW_DOWNLOADS;S.browser_fallback_url=" + encodeURIComponent(fallbackUrl.href) + ";end";
+          apkOpenDownloads.hidden = false;
+          apkStatus.textContent = "APK sent to Downloads. Wait for the browser to finish saving it, then tap Open Downloads and select consolation-hymnal-android.apk.";
+        } else {
+          apkStatus.textContent = "APK download started. When it finishes, open it from your browser’s Downloads list.";
+        }
+        window.setTimeout(function(){
+          if (preparedApkUrl) {
+            URL.revokeObjectURL(preparedApkUrl);
+            preparedApkUrl = null;
+          }
+        }, 300000);
+      });
+
       if (isIOS) {
-        var androidDownload = document.getElementById("android-download");
-        var hymnalOpen = document.getElementById("hymnal-open");
         androidDownload.hidden = true;
+        var hymnalOpen = document.getElementById("hymnal-open");
         hymnalOpen.classList.remove("button-secondary");
         hymnalOpen.classList.add("button-primary");
         hymnalOpen.querySelector("strong").textContent = "Open the hymnal";
