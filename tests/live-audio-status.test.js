@@ -17,7 +17,7 @@ test("public live audio failure message gives listeners a simple next step", () 
   assert.doesNotMatch(message, /TURN|relay|WebRTC/i);
 });
 
-test("public live audio status messages preserve the connected and ended states", () => {
+test("public live audio status messages match the current listener copy", () => {
   assert.equal(
     publicLiveAudioConnectionMessage("live"),
     "Live audio is connected."
@@ -28,7 +28,7 @@ test("public live audio status messages preserve the connected and ended states"
   );
   assert.equal(
     publicLiveAudioConnectionMessage("reconnecting"),
-    "The connection dropped briefly. Reconnecting to live audio…"
+    "Connection interrupted. Reconnecting to the live source…"
   );
   assert.equal(
     publicLiveAudioConnectionMessage("unknown"),
