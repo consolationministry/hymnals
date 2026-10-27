@@ -102,7 +102,7 @@
       var deferredPrompt = null;
       var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
       var isAndroid = /Android/i.test(navigator.userAgent);
-      var isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+      var isStandalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
 
       function announce(message) {
         status.textContent = message;
@@ -130,13 +130,17 @@
         }
         var promptEvent = deferredPrompt;
         deferredPrompt = null;
-        await promptEvent.prompt();
-        var choice = await promptEvent.userChoice;
-        if (choice.outcome === "accepted") {
-          installButton.hidden = true;
-          announce("Consolation Hymnal is installed. Open it from your Home Screen or app list.");
-        } else {
-          announce("Installation was cancelled. You can try again from your browser menu.");
+        try {
+          await promptEvent.prompt();
+          var choice = await promptEvent.userChoice;
+          if (choice.outcome === "accepted") {
+            installButton.hidden = true;
+            announce("Consolation Hymnal is installed. Open it from your Home Screen or app list.");
+          } else {
+            announce("Installation was cancelled. You can try again from your browser menu.");
+          }
+        } catch (error) {
+          announce("The install prompt could not be opened. Use your browser menu to install this app.");
         }
       });
 
