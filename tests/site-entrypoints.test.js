@@ -9,7 +9,7 @@ const read = (name) => readFile(new URL("../" + name, import.meta.url), "utf8");
 const run = promisify(execFile);
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
-test("public homepage offers native APK download and a browser-managed PWA install", async () => {
+test("public homepage offers APK progress, Downloads handoff, and PWA install", async () => {
   const home = await read("index.html");
   assert.ok(home.includes("Download Android app"));
   assert.ok(home.includes("Proceed to the hymnal"));
@@ -17,10 +17,15 @@ test("public homepage offers native APK download and a browser-managed PWA insta
   const androidLink = home.match(/<a id="android-download"[^>]*>/)?.[0] || "";
   assert.ok(androidLink.includes('href="./consolation-hymnal-android.apk" download="consolation-hymnal-android.apk"'));
   assert.ok(!androidLink.includes("github.com"));
+  assert.ok(home.includes('id="apk-download-progress"'));
+  assert.ok(home.includes('id="apk-download-meter"'));
+  assert.ok(home.includes("response.body.getReader()"));
+  assert.ok(home.includes('id="apk-save-button"'));
+  assert.ok(home.includes('id="apk-open-downloads"'));
+  assert.ok(home.includes("android.intent.action.VIEW_DOWNLOADS"));
   assert.ok(home.includes('id="pwa-install"'));
   assert.ok(home.includes('id="pwa-steps"'));
   assert.ok(home.includes("beforeinstallprompt"));
-  assert.ok(home.includes("var promptEvent = deferredPrompt;"));
   assert.ok(home.includes("await promptEvent.prompt()"));
   assert.ok(home.includes('"appinstalled"'));
   assert.ok(home.includes("Add to Home Screen"));
