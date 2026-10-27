@@ -355,6 +355,7 @@ function renderPublicPrograms(programs, available) {
   }
   return '<div class="public-program-list">' + programs.map(function (program) {
     const title = escapeHtml(program.title);
+    const category = String(program && program.category || "").trim();
     const startDateValue = String(program.start_date || "").slice(0, 10);
     const startDate = publicDate(program.start_date);
     const endDate = publicDate(program.end_date);
@@ -370,7 +371,7 @@ function renderPublicPrograms(programs, available) {
     const media = flyer ? '<div class="public-program-post-media">' + flyer + '</div>' : "";
     const venue = String(program.venue || "").trim();
     const venueMarkup = venue
-      ? '<p class="public-program-post-venue"><span class="public-program-post-detail-label">Location</span><span>' + escapeHtml(venue) + '</span></p>'
+      ? '<span class="public-program-post-venue"><span class="public-program-post-detail-label">Location</span><span>' + escapeHtml(venue) + '</span></span>'
       : "";
     const description = String(program.description || "").trim();
     const expanded = Boolean(state.programmeDescriptionsExpanded[program.id]);
@@ -387,10 +388,16 @@ function renderPublicPrograms(programs, available) {
     const ministerMarkup = minister
       ? '<span class="public-program-post-minister"><span class="public-program-post-detail-label">Minister</span><span>' + escapeHtml(minister) + '</span></span>'
       : "";
-    const eventMetadata = eventDate || ministerMarkup || status
-      ? '<div class="public-program-post-meta">' + eventDate + ministerMarkup + publicStatusBadge(status) + '</div>'
+    const categoryMarkup = category
+      ? '<span class="public-program-post-category">' + escapeHtml(category) + '</span>'
       : "";
-    return '<article class="public-program-post"><header class="public-program-post-header"><h2 class="public-program-post-title">' + title + '</h2></header>' + eventMetadata + media + '<div class="public-program-post-body">' + descriptionMarkup + venueMarkup + '</div>' + renderProgrammeInteractions(program) + '</article>';
+    const eventMetadata = eventDate || ministerMarkup || venueMarkup || status
+      ? '<div class="public-program-post-meta">' + eventDate + ministerMarkup + venueMarkup + publicStatusBadge(status) + '</div>'
+      : "";
+    const descriptionSection = descriptionMarkup
+      ? '<div class="public-program-post-body">' + descriptionMarkup + '</div>'
+      : "";
+    return '<article class="public-program-post"><header class="public-program-post-header"><h2 class="public-program-post-title">' + title + '</h2>' + categoryMarkup + '</header>' + eventMetadata + descriptionSection + media + renderProgrammeInteractions(program) + '</article>';
   }).join("") + '</div>';
 }
 

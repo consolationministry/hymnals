@@ -87,6 +87,7 @@ function validDate(value) {
 function normalizeProgramData(value) {
   const data = value || {};
   const title = typeof data.title === "string" ? data.title.trim() : "";
+  const category = typeof data.category === "string" ? data.category.trim() : "";
   const minister = typeof data.minister === "string" ? data.minister.trim() : "";
   const description = typeof data.description === "string" ? data.description.trim() : "";
   const venue = typeof data.venue === "string" ? data.venue.trim() : "";
@@ -98,6 +99,7 @@ function normalizeProgramData(value) {
   const noLabel = typeof data.noLabel === "string" ? data.noLabel.trim() : "";
   if (!title) throw new Error("Enter the event name.");
   if (title.length > 120) throw new Error("Event names must be 120 characters or fewer.");
+  if (category.length > 60) throw new Error("Programme categories must be 60 characters or fewer.");
   if (minister.length > 120) throw new Error("Minister names must be 120 characters or fewer.");
   if (description.length > 2000) throw new Error("Programme descriptions must be 2,000 characters or fewer.");
   if (!venue) throw new Error("Enter the event venue.");
@@ -112,12 +114,13 @@ function normalizeProgramData(value) {
   if (responseQuestion.length > 120) throw new Error("The availability question must be 120 characters or fewer.");
   if (!yesLabel || !noLabel) throw new Error("Enter both response button labels.");
   if (yesLabel.length > 48 || noLabel.length > 48) throw new Error("Response button labels must be 48 characters or fewer.");
-  return { title, minister, description, venue, startDate, endDate, flyerDataUrl, responseQuestion, yesLabel, noLabel };
+  return { title, category, minister, description, venue, startDate, endDate, flyerDataUrl, responseQuestion, yesLabel, noLabel };
 }
 
 function toProgramRow(value) {
   return {
     title: value.title,
+    category: value.category,
     minister: value.minister,
     description: value.description,
     venue: value.venue,
@@ -135,6 +138,7 @@ function fromProgramRow(row) {
   return {
     id: row.id,
     title: row.title,
+    category: row.category || "",
     minister: row.minister || "",
     description: row.description || "",
     venue: row.venue,
