@@ -1,4 +1,5 @@
 import { liveAudioCounts, liveAudioReactionSelected } from "./live-audio-data.js";
+import { publicLiveAudioConnectionMessage } from "./live-audio-status.js";
 
 function escapeHtml(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, function (character) {
@@ -194,6 +195,23 @@ export function renderLiveAudioListener(data, programId, options) {
   const counts = liveAudioCounts(data, program.id);
   const comments = data.comments.filter(function (comment) { return comment.programId === program.id; }).slice(-12).reverse();
   const isLive = program.onAir && Boolean(program.liveSessionId);
+  const joinError = opts.joinError && typeof opts.joinError.message === "string" ? opts.joinError : null;
+  const joinStatus = opts.status || (opts.connecting ? "connecting" : "connected");
+  const showJoinOverlay = isLive && (joinError || opts.connecting ||
+    ["connecting", "connected", "reconnecting", "disconnected"].includes(joinStatus));
+  const joinOverlay = showJoinOverlay
+    ? '<div class="audio-live-join-overlay" role="' + (joinError ? "alert" : "status") + '" aria-live="' + (joinError ? "assertive" : "polite") + '">' +
+      '<div class="audio-live-join-panel">' +
+      (joinError
+        ? '<span class="audio-live-join-error-mark" aria-hidden="true">!</span>'
+        : '<span class="audio-live-join-spinner" aria-hidden="true"></span>') +
+      '<p class="audio-live-join-message">' + escapeHtml(joinError ? joinError.message : publicLiveAudioConnectionMessage(joinStatus)) + '</p>' +
+      (joinError
+        ? '<button class="audio-live-join-retry" type="button" data-action="retry-live-audio" data-program-id="' + escapeHtml(program.id) + '">' +
+          (joinError.kind === "network" ? "Retry connection" : "Try again") + '</button>'
+        : "") +
+      '</div></div>'
+    : "";
   const savedProgramIds = new Set((data.savedPrograms || []).map(function (item) { return item.id; }));
   const isSavedOffline = savedProgramIds.has(program.id);
   const offlinePlayback = Boolean(opts.offlinePlayback);
@@ -269,7 +287,7 @@ export function renderLiveAudioListener(data, programId, options) {
       '<textarea id="audio-comment-input" name="comment" rows="1" maxlength="280" required placeholder="Type a message…"></textarea>' +
       '<button class="button-primary audio-comment-send" type="submit" aria-label="Post comment"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6 3 10l12 2-12 2z"/></svg></button></form>' +
       commentList + '</section>';
-  return '<section class="page audio-listener-page">' + header + '<div class="audio-listener-content">' +
+  return '<section class="page audio-listener-page">' + header + joinOverlay + '<div class="audio-listener-content">' +
     (data.error ? '<p class="audio-service-error" role="alert">' + escapeHtml(data.error) + '</p>' : "") + '<article class="audio-listener-card">' + artwork +
     '<div class="audio-listener-art-overlay">' +
     (isLive ? '<span class="audio-listener-live-badge"><i></i> LIVE</span><span class="audio-listener-viewers"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.2 0-7 2.1-7 4.5V21h14v-2.5c0-2.4-2.8-4.5-7-4.5Z"/></svg>' + listenerCount + '</span>' : '<span class="audio-listener-featured-badge">PUBLISHED PROGRAMME</span>') +
