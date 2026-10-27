@@ -41,11 +41,12 @@ test("public home removes the live-audio banner and adds Stream Live to the menu
 test("Upcoming Programmes renders a newest-first, full-width flyer and voting feed", () => {
   assert.match(memberContent, /programmeSortTime/);
   assert.match(memberContent, /return programmeSortTime\(right\) - programmeSortTime\(left\)/);
-  assert.match(memberApp, /publicPostedDate\(program\.created_at\)/);
+  assert.match(memberApp, /const minister = String\(program && program\.minister \|\| \"\"\)\.trim\(\);/);
+  assert.match(memberApp, /const eventDate = dateLabel/);
   assert.match(memberApp, /class="public-program-post-flyer"/);
   assert.match(memberApp, /return '<article class="public-program-post">/);
   assert.match(memberApp, /class="public-program-post-description"/);
-  assert.match(memberApp, /<header class="public-program-post-header"><h2 class="public-program-post-title">' \+ title \+ '<\/h2>' \+ posted \+ '<\/header>' \+ media \+ renderProgrammeInteractions\(program\) \+ '<div class="public-program-post-body">/);
+  assert.match(memberApp, /<header class="public-program-post-header"><h2 class="public-program-post-title">' \+ title \+ '<\/h2><\/header>' \+ eventMetadata \+ media \+ '<div class="public-program-post-body">' \+ descriptionMarkup \+ venueMarkup \+ '<\/div>' \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
   assert.doesNotMatch(memberApp, /Church programme|public-program-post-kicker/);
   assert.match(memberStyles, /\.public-program-post-header/);
   assert.match(memberStyles, /\.public-program-post-flyer\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*max-height:[^;]+;[^}]*height:\s*auto;[^}]*object-fit:\s*contain;/);

@@ -11,7 +11,7 @@ function installStorage() {
       removeItem(key) { values.delete(key); }
     }
   };
-  values.set("cerc-public-programs-v4", "null");
+  values.set("cerc-public-programs-v5", "null");
   values.set("cerc-public-service-plans-v2", "null");
   return values;
 }
@@ -43,7 +43,7 @@ test("loads past and future public programs and service plans through read-only 
     requests.push({ url: new URL(String(url)), options });
     if (String(url).includes("/programs?")) {
       return response([
-        { id: "event-1", title: "Annual Meeting", description: "A community gathering.", venue: "Church Hall", start_date: "2026-10-20", end_date: null, flyer_data_url: "", created_at: "2026-10-12T10:00:00Z", response_question: "Will you attend?", yes_label: "Yes", no_label: "No" },
+        { id: "event-1", title: "Annual Meeting", minister: "Minister Grace", description: "A community gathering.", venue: "Church Hall", start_date: "2026-10-20", end_date: null, flyer_data_url: "", created_at: "2026-10-12T10:00:00Z", response_question: "Will you attend?", yes_label: "Yes", no_label: "No" },
         { id: "event-past", title: "Past Meeting", description: "", venue: "Church Hall", start_date: "2026-10-01", end_date: null, flyer_data_url: "", created_at: "2026-10-01T10:00:00Z", response_question: "Will you attend?", yes_label: "Yes", no_label: "No" }
       ]);
     }
@@ -64,6 +64,8 @@ test("loads past and future public programs and service plans through read-only 
   const plansRequest = requests.find(function (request) { return request.url.pathname.endsWith("/service_plans"); });
   assert.equal(programsRequest.options.method, "GET");
   assert.match(programsRequest.url.searchParams.get("select"), /flyer_data_url/);
+  assert.match(programsRequest.url.searchParams.get("select"), /minister/);
+  assert.equal(content.programs[0].minister, "Minister Grace");
   assert.match(programsRequest.url.searchParams.get("select"), /created_at/);
   assert.match(programsRequest.url.searchParams.get("select"), /description/);
   assert.match(programsRequest.url.searchParams.get("select"), /response_question/);
@@ -97,16 +99,19 @@ test("falls back through older public programme fields when response metadata is
   assert.deepEqual(content.programs.map(function (item) { return item.id; }), ["event-1"]);
   assert.equal(content.programsAvailable, true);
   assert.equal(content.usingCache, false);
-  assert.equal(programRequests.length, 3);
+  assert.equal(programRequests.length, 4);
+  assert.match(programRequests[0].searchParams.get("select"), /minister/);
   assert.match(programRequests[0].searchParams.get("select"), /created_at/);
+  assert.doesNotMatch(programRequests[1].searchParams.get("select"), /minister/);
   assert.match(programRequests[1].searchParams.get("select"), /created_at/);
-  assert.doesNotMatch(programRequests[2].searchParams.get("select"), /created_at/);
-  assert.equal(programRequests[2].searchParams.get("order"), "start_date.desc");
+  assert.match(programRequests[2].searchParams.get("select"), /created_at/);
+  assert.doesNotMatch(programRequests[3].searchParams.get("select"), /created_at/);
+  assert.equal(programRequests[3].searchParams.get("order"), "start_date.desc");
 });
 
 test("uses cached public content when the public database is unavailable", async () => {
   const values = installStorage();
-  values.set("cerc-public-programs-v4", JSON.stringify([
+  values.set("cerc-public-programs-v5", JSON.stringify([
     { id: "event-1", title: "Upcoming Event", venue: "Church Hall", start_date: "2026-10-20", end_date: null }
   ]));
   globalThis.fetch = async function () { return response({ message: "public read is not enabled" }, 403); };

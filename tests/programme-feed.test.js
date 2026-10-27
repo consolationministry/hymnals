@@ -6,6 +6,9 @@ import { getMemberContent } from "../js/public-content.js";
 
 const appSource = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
 const styleSource = readFileSync(new URL("../css/style.css", import.meta.url), "utf8");
+const adminSource = readFileSync(new URL("../admin/js/admin-app.js", import.meta.url), "utf8");
+const publicContentSource = readFileSync(new URL("../js/public-content.js", import.meta.url), "utf8");
+const ministerMigrationSource = readFileSync(new URL("../supabase/migrations/202610270001_public_program_minister.sql", import.meta.url), "utf8");
 const originalFetch = globalThis.fetch;
 const originalWindow = globalThis.window;
 
@@ -31,7 +34,7 @@ function response(body, status = 200) {
 test("programme descriptions expand only after the configured preview length", () => {
   const short = "A short programme description.";
   assert.equal(excerptProgrammeDescription(short), short);
-  assert.equal(PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT, 260);
+  assert.equal(PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT, 200);
 
   const long = Array.from({ length: 70 }, (_, index) => `word${index}`).join(" ");
   const excerpt = excerptProgrammeDescription(long);
@@ -57,7 +60,13 @@ test("programme announcements are sorted by latest post date", async () => {
 test("upcoming programme feed is title-first, full-width, and has no comment UI", () => {
   assert.match(appSource, /pageHeading\("Upcoming Programmes"\)/);
   assert.doesNotMatch(appSource, /Programme posts and flyers, newest announcement first/);
-  assert.match(appSource, /<article class="public-program-post"><header class="public-program-post-header"[\s\S]*<\/header>' \+ media \+ renderProgrammeInteractions\(program\) \+ '<div class="public-program-post-body">/);
+  assert.match(appSource, /<article class="public-program-post"><header class="public-program-post-header"[\s\S]*<\/header>' \+ eventMetadata \+ media \+ '<div class="public-program-post-body">' \+ descriptionMarkup \+ venueMarkup \+ '<\/div>' \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
+  assert.match(appSource, /const minister = String\(program && program\.minister \|\| ""\)\.trim\(\);/);
+  assert.match(appSource, /public-program-post-minister/);
+  assert.match(adminSource, /name="minister"/);
+  assert.match(publicContentSource, /id,title,minister,description/);
+  assert.match(ministerMigrationSource, /add column if not exists minister text not null default ''/i);
+  assert.match(ministerMigrationSource, /grant select \(minister\) on public\.programs to anon/i);
   assert.match(appSource, /data-action="toggle-programme-description"/);
   assert.match(appSource, /excerptProgrammeDescription\(description\)/);
   assert.match(appSource, /startDate \+ " – " \+ endDate/);
@@ -65,5 +74,7 @@ test("upcoming programme feed is title-first, full-width, and has no comment UI"
   assert.doesNotMatch(appSource, /programme-comments|data-programme-comment-form|submitPublicProgrammeComment|postProgrammeComment/);
   assert.match(styleSource, /\.public-programs-page \{ width: 100%; max-width: none; \}/);
   assert.match(styleSource, /\.public-program-list \{ display: grid; width: 100%; max-width: none;/);
+  assert.match(styleSource, /\.programme-vote-options \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  assert.doesNotMatch(styleSource, /\.programme-vote-options \{ grid-template-columns: 1fr; \}/);
   assert.doesNotMatch(styleSource, /\.programme-comment/);
 });
