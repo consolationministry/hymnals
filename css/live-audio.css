@@ -420,7 +420,17 @@ body.audio-listener-mode .toast { bottom:calc(16px + env(safe-area-inset-bottom)
   .audio-listener-time, .audio-listener-timer { font-size:.66rem; }
   .audio-reaction-button { flex-direction:column; gap:2px; min-height:48px; padding:5px 3px; }
 }
+.audio-live-join-overlay { position:fixed; inset:calc(66px + env(safe-area-inset-top)) 0 0; z-index:7; display:grid; place-items:center; padding:20px; background:rgba(5,10,19,.58); backdrop-filter:blur(2px); }
+.audio-live-join-panel { display:grid; justify-items:center; gap:14px; width:min(100%,420px); padding:22px 24px; border:1px solid rgba(255,255,255,.13); border-radius:20px; color:#f3f5fb; background:rgba(7,15,28,.78); text-align:center; box-shadow:0 18px 55px rgba(0,0,0,.32); }
+.audio-live-join-spinner { width:42px; height:42px; border:3px solid rgba(185,173,255,.2); border-top-color:#b3a6ff; border-right-color:#8976ff; border-radius:50%; animation:audio-live-join-spin .85s linear infinite; }
+.audio-live-join-error-mark { display:grid; width:42px; height:42px; place-items:center; border:1px solid rgba(255,176,188,.4); border-radius:50%; color:#ffd4dc; background:rgba(120,24,49,.32); font-size:1.2rem; font-weight:800; }
+.audio-live-join-message { max-width:36ch; margin:0; color:#e3e8f2; font-size:.9rem; line-height:1.5; }
+.audio-live-join-retry { min-height:42px; padding:9px 18px; border:1px solid rgba(179,166,255,.42); border-radius:12px; color:#fff; background:#644fe4; font:inherit; font-size:.87rem; font-weight:750; cursor:pointer; }
+.audio-live-join-retry:hover { background:#7964f4; }
+.audio-live-join-retry:focus-visible { outline:2px solid #c7beff; outline-offset:3px; }
+@keyframes audio-live-join-spin { to { transform:rotate(360deg); } }
 @media (prefers-reduced-motion:reduce) {
   .audio-listener-page *, .audio-listener-header * { scroll-behavior:auto; transition-duration:.01ms; }
   .audio-listener-waveform span { transition:none; }
+  .audio-live-join-spinner { animation:none; }
 }
