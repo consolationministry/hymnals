@@ -20,7 +20,8 @@ test("public homepage offers native APK download and a browser-managed PWA insta
   assert.ok(home.includes('id="pwa-install"'));
   assert.ok(home.includes('id="pwa-steps"'));
   assert.ok(home.includes("beforeinstallprompt"));
-  assert.ok(home.includes("deferredPrompt.prompt()"));
+  assert.ok(home.includes("var promptEvent = deferredPrompt;"));
+  assert.ok(home.includes("await promptEvent.prompt()"));
   assert.ok(home.includes('"appinstalled"'));
   assert.ok(home.includes("Add to Home Screen"));
   assert.ok(home.includes("Android keeps the final say."));
