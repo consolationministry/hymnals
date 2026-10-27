@@ -3,298 +3,215 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#efe7f2">
-  <meta name="description" content="Install the Consolation Evangelical and Revival Church Hymnal on Android, or add the web app to your iPhone Home Screen.">
+  <meta name="theme-color" content="#f7f1eb">
+  <meta name="description" content="Welcome to Consolation Ministry. Worship, pray, and explore the English and Yorùbá hymnal online or on Android.">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="./assets/consolation-launcher-192.png">
   <link rel="apple-touch-icon" href="./assets/consolation-launcher-192.png">
-  <title>Get the Consolation Hymnal</title>
+  <title>Welcome | Consolation Ministry</title>
   <style>
-    :root{color-scheme:light;--ink:#2b1b33;--muted:#74647c;--canvas:#efe7f2;--surface:#f8f0f5;--surface-soft:#e9deed;--line:#dfd0e4;--accent:#9d244d;--purple:#60366f;--shadow:0 22px 60px rgba(66,35,73,.15);--ui:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--reading:Georgia,"Times New Roman",serif}
-    *{box-sizing:border-box}html{min-width:320px;scroll-behavior:smooth}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -12%,#fff 0,transparent 53%),var(--canvas);color:var(--ink);font-family:var(--ui);line-height:1.5}a{color:inherit}button{font:inherit}.page{width:min(100% - 36px,1080px);margin:0 auto}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 0}.brand{display:flex;align-items:center;gap:12px;text-decoration:none}.brand img{width:52px;height:52px;object-fit:contain}.brand strong,.brand small{display:block}.brand strong{font-family:var(--reading);font-size:1.07rem;line-height:1.15}.brand small{margin-top:4px;color:var(--muted);font-size:.75rem}.toplink{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--line);border-radius:999px;background:rgba(248,240,245,.75);font-size:.86rem;font-weight:700;text-decoration:none}.toplink:hover{border-color:var(--accent);color:var(--accent)}
-    .hero{position:relative;isolation:isolate;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(270px,.85fr);align-items:center;gap:34px;min-height:490px;padding:clamp(30px,6vw,68px);border:1px solid rgba(255,255,255,.45);border-radius:34px;color:#fff;background:linear-gradient(122deg,#9a1f45 0%,#79305f 52%,#4c2e72 100%);box-shadow:var(--shadow)}.hero:before,.hero:after{position:absolute;z-index:-1;content:"";border:1px solid rgba(255,255,255,.17);border-radius:50%;pointer-events:none}.hero:before{width:500px;height:500px;right:-180px;top:-230px;box-shadow:0 0 0 34px rgba(255,255,255,.035),0 0 0 76px rgba(255,255,255,.025)}.hero:after{width:230px;height:230px;right:12%;bottom:-165px;box-shadow:0 0 0 24px rgba(255,255,255,.035)}.hero-copy{max-width:560px}.eyebrow{display:flex;align-items:center;gap:9px;margin:0 0 17px;color:rgba(255,255,255,.82);font-size:.73rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.eyebrow-dot{width:8px;height:8px;border-radius:50%;background:#f7c9d7;box-shadow:0 0 0 5px rgba(255,255,255,.1)}h1{max-width:580px;margin:0;font-family:var(--reading);font-size:clamp(2.7rem,6vw,4.6rem);font-weight:500;letter-spacing:-.045em;line-height:.99;text-wrap:balance}.intro{max-width:480px;margin:20px 0 25px;color:rgba(255,255,255,.83);font-size:1.02rem}.actions{display:flex;flex-wrap:wrap;align-items:center;gap:11px}.button{display:inline-flex;min-height:54px;align-items:center;justify-content:center;gap:12px;padding:11px 17px;border:1px solid transparent;border-radius:15px;font-weight:750;text-decoration:none;cursor:pointer;transition:transform .16s ease,filter .16s ease,background .16s ease}.button:hover{transform:translateY(-2px);filter:brightness(1.03)}.button:focus-visible,.toplink:focus-visible,a:focus-visible{outline:3px solid #ffd6e0;outline-offset:3px}.button-primary{color:#642747;background:#fff;box-shadow:0 7px 18px rgba(33,10,32,.16)}.button-secondary{color:#fff;border-color:rgba(255,255,255,.38);background:rgba(255,255,255,.1)}.button svg{width:20px;height:20px;flex:0 0 auto}.button-label{text-align:left}.button-label strong,.button-label small{display:block}.button-label strong{font-size:.91rem}.button-label small{margin-top:2px;color:#805a75;font-size:.73rem;font-weight:600}.hero-note{display:flex;align-items:flex-start;gap:8px;max-width:480px;margin:16px 0 0;color:rgba(255,255,255,.76);font-size:.78rem}.hero-note svg{width:17px;height:17px;flex:0 0 auto;margin-top:2px}.platform-line{margin:18px 0 0;color:rgba(255,255,255,.68);font-size:.78rem;letter-spacing:.02em}.phone-wrap{position:relative;display:grid;place-items:center;min-height:340px}.phone{position:relative;width:218px;padding:9px;border:1px solid rgba(255,255,255,.45);border-radius:34px;background:#211726;box-shadow:0 26px 50px rgba(28,8,35,.32);transform:rotate(3deg)}.phone-screen{overflow:hidden;min-height:368px;padding:22px 15px 20px;border-radius:26px;background:linear-gradient(160deg,#fffafd,#f4eaf5 70%,#e8d9ed);color:var(--ink);text-align:center}.speaker{position:absolute;top:15px;left:50%;z-index:1;width:54px;height:5px;border-radius:9px;background:#201b24;transform:translateX(-50%)}.statusbar{display:flex;justify-content:space-between;margin:3px 2px 26px;color:#786a7c;font-size:.58rem;font-weight:700}.appicon{display:block;width:86px;height:86px;margin:0 auto 12px;border-radius:22px;box-shadow:0 9px 22px rgba(66,35,73,.17)}.phone-screen h2{margin:0;font-family:var(--reading);font-size:1.18rem;line-height:1.15}.phone-screen>p{margin:8px 0 18px;color:var(--muted);font-size:.68rem}.screen-label{margin:0 0 7px;color:var(--accent);font-size:.58rem;font-weight:800;letter-spacing:.1em;text-align:left;text-transform:uppercase}.hymn-row{display:flex;align-items:center;gap:9px;margin-top:8px;padding:9px;border:1px solid #e6dae9;border-radius:12px;background:rgba(255,255,255,.8);text-align:left}.row-number{display:grid;width:29px;height:29px;place-items:center;border-radius:9px;color:var(--accent);background:#f4e4eb;font-size:.62rem;font-weight:800}.row-lines{flex:1}.row-lines i{display:block;height:5px;margin:4px 0;border-radius:6px;background:#d9cbdc}.row-lines i:first-child{width:80%;background:#a68da9}.row-lines i:last-child{width:56%;height:4px;background:#e0d5e4}.phone-nav{display:flex;justify-content:space-around;margin-top:16px;padding-top:12px;border-top:1px solid #e6dae9;color:#816d87;font-size:.56rem}.phone-nav span:first-child{color:var(--accent);font-weight:800}.float-tag{position:absolute;right:-7px;bottom:38px;padding:11px 14px;border:1px solid rgba(255,255,255,.35);border-radius:15px;color:#5b294f;background:rgba(255,255,255,.94);box-shadow:0 13px 30px rgba(30,11,38,.2);font-size:.76rem;font-weight:800;transform:rotate(-5deg)}
-    .features{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:22px 0 0}.feature{display:flex;align-items:flex-start;gap:12px;padding:19px;border:1px solid var(--line);border-radius:20px;background:rgba(248,240,245,.83)}.feature-icon{display:grid;width:39px;height:39px;flex:0 0 auto;place-items:center;border-radius:13px;color:var(--accent);background:#f1e2eb}.feature-icon svg{width:19px;height:19px}.feature strong{display:block;font-size:.91rem}.feature p{margin:4px 0 0;color:var(--muted);font-size:.79rem}.install{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:42px 0 20px;scroll-margin-top:24px}.install-card{padding:24px;border:1px solid var(--line);border-radius:22px;background:var(--surface)}.install-head{display:flex;align-items:center;gap:12px;margin:0 0 17px}.install-head .feature-icon{width:42px;height:42px}.install-head h2{margin:0;font-family:var(--reading);font-size:1.32rem}.install-head p{margin:2px 0 0;color:var(--muted);font-size:.78rem}.steps{display:grid;gap:12px;margin:0;padding:0;list-style:none}.steps li{display:flex;align-items:flex-start;gap:11px;color:var(--muted);font-size:.86rem}.step-no{display:grid;width:23px;height:23px;flex:0 0 auto;place-items:center;border:1px solid var(--line);border-radius:50%;color:var(--accent);background:#fff;font-size:.71rem;font-weight:800}.steps strong{color:var(--ink)}.safety{margin:17px 0 0;padding:12px 13px;border-radius:13px;color:#674e6c;background:#f0e6f1;font-size:.76rem}.safety strong{color:var(--ink)}.update-note{display:flex;align-items:flex-start;gap:13px;margin:16px 0 40px;padding:18px 20px;border:1px solid var(--line);border-radius:18px;background:rgba(248,240,245,.75)}.update-note svg{width:20px;height:20px;flex:0 0 auto;color:var(--accent)}.update-note p{margin:0;color:var(--muted);font-size:.82rem}.update-note strong{color:var(--ink)}footer{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:19px 0 28px;border-top:1px solid var(--line);color:var(--muted);font-size:.77rem}footer a{color:var(--accent);font-weight:700;text-decoration:none}.toast{position:fixed;right:20px;bottom:20px;z-index:4;max-width:min(390px,calc(100vw - 40px));padding:13px 16px;border-radius:13px;color:#fff;background:#2b1b33;box-shadow:var(--shadow);font-size:.85rem}.toast[hidden]{display:none}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-    @media(max-width:820px){.hero{grid-template-columns:1fr .75fr;gap:16px;padding:38px}.phone{width:192px}.phone-screen{min-height:345px}.appicon{width:76px;height:76px}.float-tag{right:-16px}.features{grid-template-columns:1fr}.feature{padding:15px}}
-    @media(max-width:650px){.page{width:min(100% - 24px,540px)}.topbar{padding:14px 2px}.brand img{width:45px;height:45px}.brand small{max-width:210px;font-size:.67rem}.toplink{padding:9px 11px;font-size:.76rem}.hero{grid-template-columns:1fr;gap:0;min-height:0;padding:31px 24px 18px;border-radius:27px}.hero-copy{position:relative;z-index:2}.hero h1{font-size:clamp(2.65rem,12vw,4rem)}.intro{font-size:.94rem}.phone-wrap{min-height:320px;margin:8px auto 0;width:min(100%,360px)}.phone{width:190px;transform:rotate(2deg)}.phone-screen{min-height:336px;padding-top:21px}.float-tag{right:1px;bottom:34px}.install{grid-template-columns:1fr;margin-top:30px}.install-card{padding:21px}.update-note{margin-bottom:30px}footer{align-items:flex-start;flex-direction:column}}
-    @media(max-width:390px){.page{width:calc(100% - 18px)}.hero{padding:26px 18px 16px}.actions{align-items:stretch;flex-direction:column}.actions .button{width:100%}.toplink{font-size:0}.toplink svg{width:20px;height:20px}.brand small{max-width:150px}.phone-wrap{transform:scale(.94);transform-origin:top center;margin-bottom:-15px}}
-    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button{transition:none}}
-  
-    .apk-download-progress{max-width:480px;margin:14px 0 0;padding:14px 15px;border:1px solid rgba(255,255,255,.28);border-radius:15px;background:rgba(27,12,42,.3);color:#fff}
-    .apk-download-progress[hidden],.apk-download-progress [hidden]{display:none!important}
-    .apk-download-progress p{margin:0;font-size:.8rem}
-    .apk-download-meter{display:block;width:100%;height:10px;margin:10px 0;border:0;border-radius:999px;overflow:hidden;accent-color:#f7c9d7}
-    .apk-download-meter::-webkit-progress-bar{border-radius:999px;background:rgba(255,255,255,.2)}
-    .apk-download-meter::-webkit-progress-value{border-radius:999px;background:#f7c9d7}
-    .apk-download-meter::-moz-progress-bar{border-radius:999px;background:#f7c9d7}
-    .apk-download-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:10px}
-    .apk-download-actions .button{min-height:42px;padding:9px 13px}
-    .apk-download-hint{margin-top:9px!important;color:rgba(255,255,255,.76);font-size:.72rem!important}
-</style>
+    :root{color-scheme:light;--ink:#2b1b33;--muted:#766879;--wine:#852b4d;--wine-dark:#451c38;--plum:#563665;--rose:#c68c96;--gold:#c7a66a;--cream:#f7f1eb;--paper:#fffdfa;--line:#e7dce1;--soft:#f0e5e8;--shadow:0 24px 70px rgba(59,28,55,.13);--ui:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--reading:Georgia,"Times New Roman",serif}
+    *{box-sizing:border-box}html{min-width:320px;scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--ui);line-height:1.65}a{color:inherit}button{font:inherit}.site-shell{width:min(100% - 40px,1120px);margin:0 auto}.site-header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:13px 0;border-bottom:1px solid rgba(231,220,225,.75);background:rgba(247,241,235,.91);backdrop-filter:blur(18px)}.brand{display:flex;align-items:center;gap:11px;min-width:max-content;text-decoration:none}.brand img{width:42px;height:42px;object-fit:contain;border-radius:13px}.brand strong,.brand small{display:block}.brand strong{font-family:var(--reading);font-size:1rem;line-height:1.15}.brand small{margin-top:4px;color:var(--muted);font-size:.68rem;letter-spacing:.03em}.main-nav{display:flex;align-items:center;justify-content:center;gap:clamp(12px,2vw,25px)}.main-nav a{color:var(--muted);font-size:.78rem;font-weight:700;text-decoration:none;white-space:nowrap;transition:color .18s ease}.main-nav a:hover,.main-nav a:focus-visible{color:var(--wine)}.nav-cta{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:9px 15px;border:1px solid rgba(133,43,77,.18);border-radius:999px;color:var(--wine);background:rgba(255,253,250,.8);font-size:.78rem;font-weight:800;text-decoration:none;white-space:nowrap;transition:transform .18s ease,background .18s ease}.nav-cta:hover{transform:translateY(-2px);background:#fff}
+    .hero{position:relative;isolation:isolate;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);align-items:center;gap:clamp(28px,6vw,80px);min-height:510px;margin:24px 0 0;padding:clamp(34px,6vw,76px);border:1px solid rgba(255,255,255,.18);border-radius:34px;color:#fff;background:linear-gradient(125deg,#8b2b4c 0%,#71365d 52%,#45315f 100%);box-shadow:0 28px 80px rgba(74,28,57,.22)}.hero:before,.hero:after{position:absolute;z-index:-1;content:"";border:1px solid rgba(255,255,255,.15);border-radius:50%;pointer-events:none}.hero:before{width:570px;height:570px;right:-175px;top:-300px;box-shadow:0 0 0 38px rgba(255,255,255,.035),0 0 0 82px rgba(255,255,255,.025)}.hero:after{width:270px;height:270px;left:32%;bottom:-220px;box-shadow:0 0 0 28px rgba(255,255,255,.035)}.hero-copy{position:relative;z-index:1;max-width:590px}.eyebrow{display:flex;align-items:center;gap:10px;margin:0 0 18px;color:rgba(255,255,255,.78);font-size:.7rem;font-weight:800;letter-spacing:.17em;text-transform:uppercase}.eyebrow-dot{width:8px;height:8px;flex:0 0 auto;border-radius:50%;background:#e6c58f;box-shadow:0 0 0 5px rgba(230,197,143,.15)}.typed-text{border-right:1px solid rgba(255,255,255,.82);padding-right:3px;animation:caret 1s steps(1) infinite}@keyframes caret{50%{border-color:transparent}}h1,h2,h3,p{margin-top:0}.hero h1{max-width:650px;margin:0;font-family:var(--reading);font-size:clamp(2.8rem,6vw,5.05rem);font-weight:500;letter-spacing:-.055em;line-height:.99;text-wrap:balance}.hero h1 em{color:#f0d8c0;font-weight:400}.hero-intro{max-width:510px;margin:22px 0 25px;color:rgba(255,255,255,.82);font-size:1rem}.actions{display:flex;flex-wrap:wrap;align-items:center;gap:11px}.button{display:inline-flex;min-height:52px;align-items:center;justify-content:center;gap:11px;padding:11px 17px;border:1px solid transparent;border-radius:15px;font-weight:800;text-decoration:none;cursor:pointer;transition:transform .18s ease,filter .18s ease,background .18s ease}.button:hover{transform:translateY(-2px);filter:brightness(1.04)}.button:focus-visible,.main-nav a:focus-visible,.nav-cta:focus-visible,.contact-link:focus-visible,footer a:focus-visible{outline:3px solid #e7c98f;outline-offset:3px}.button svg{width:20px;height:20px;flex:0 0 auto}.button-label{text-align:left}.button-label strong,.button-label small{display:block}.button-label strong{font-size:.89rem}.button-label small{margin-top:2px;font-size:.7rem;font-weight:600}.button-primary{color:#54253f;background:#fffaf5;box-shadow:0 9px 24px rgba(29,12,31,.18)}.button-primary .button-label small{color:#886b78}.button-secondary{border-color:rgba(255,255,255,.4);color:#fff;background:rgba(255,255,255,.08)}.button-secondary .button-label small{color:rgba(255,255,255,.68)}.hero-meta{display:flex;flex-wrap:wrap;gap:9px 18px;margin:18px 0 0;color:rgba(255,255,255,.69);font-size:.75rem}.hero-meta span{display:inline-flex;align-items:center;gap:7px}.hero-meta span:before{width:5px;height:5px;border-radius:50%;background:#d9b986;content:""}.download-note{margin:11px 0 0;color:rgba(255,255,255,.73);font-size:.74rem}.download-note[hidden],.button[hidden]{display:none!important}.hero-scripture{position:relative;max-width:380px;margin:0 auto;padding:31px 29px 28px;border:1px solid rgba(255,255,255,.24);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.065));box-shadow:0 18px 44px rgba(32,13,38,.16);backdrop-filter:blur(12px)}.hero-scripture:before{position:absolute;top:-11px;left:25px;width:46px;height:3px;border-radius:999px;background:var(--gold);content:""}.quote-mark{display:block;margin:0 0 6px;color:#e6c58f;font-family:var(--reading);font-size:4rem;line-height:.8}.hero-scripture blockquote{margin:0;color:#fff9f2;font-family:var(--reading);font-size:clamp(1.28rem,2.4vw,1.7rem);line-height:1.34}.hero-scripture cite{display:block;margin-top:17px;color:rgba(255,255,255,.69);font-size:.74rem;font-style:normal;font-weight:700;letter-spacing:.1em;text-transform:uppercase}.scripture-note{margin:20px 0 0;color:rgba(255,255,255,.63);font-size:.74rem}
+    .section{padding:clamp(62px,9vw,100px) 0}.section-heading{max-width:680px;margin:0 auto 35px;text-align:center}.section-kicker{margin:0 0 10px;color:var(--wine);font-size:.69rem;font-weight:850;letter-spacing:.16em;text-transform:uppercase}.section-heading h2,.about-copy h2,.service-copy h2,.contact-copy h2{margin:0;color:var(--ink);font-family:var(--reading);font-size:clamp(2rem,4vw,3.3rem);font-weight:500;letter-spacing:-.04em;line-height:1.08;text-wrap:balance}.section-heading>p:last-child{max-width:590px;margin:14px auto 0;color:var(--muted);font-size:.93rem}.about-grid{display:grid;grid-template-columns:1fr .82fr;align-items:stretch;gap:20px}.about-copy{padding:clamp(26px,4vw,48px);border:1px solid var(--line);border-radius:24px;background:var(--paper);box-shadow:0 12px 38px rgba(59,28,55,.045)}.about-copy h2{max-width:490px;margin-bottom:17px}.about-copy>p:not(.section-kicker){max-width:600px;margin:0 0 14px;color:var(--muted);font-size:.94rem}.about-typed{min-height:30px;margin:18px 0 0;color:var(--wine);font-family:var(--reading);font-size:1.22rem;font-style:italic}.about-typed .typed-text{border-right-color:var(--wine)}.scripture-card{display:flex;flex-direction:column;justify-content:space-between;min-height:280px;padding:clamp(26px,4vw,42px);border-radius:24px;color:#fff;background:linear-gradient(145deg,#53345f,#3f294d);box-shadow:0 18px 50px rgba(59,28,55,.14)}.scripture-card .quote-mark{color:#e6c58f}.scripture-card blockquote{margin:8px 0 20px;color:#fff9f2;font-family:var(--reading);font-size:clamp(1.2rem,2.2vw,1.55rem);line-height:1.45}.scripture-card cite{color:rgba(255,255,255,.66);font-size:.72rem;font-style:normal;font-weight:750;letter-spacing:.12em;text-transform:uppercase}.scripture-card p{margin:20px 0 0;color:rgba(255,255,255,.7);font-size:.78rem}
+    .app-section{padding-top:22px}.app-panel{display:grid;grid-template-columns:.82fr 1.18fr;gap:clamp(30px,7vw,88px);align-items:center;padding:clamp(28px,5vw,58px);border-radius:30px;background:#eee3e8}.app-preview{position:relative;display:grid;min-height:345px;place-items:center;overflow:hidden;border-radius:24px;background:radial-gradient(circle at 50% 26%,rgba(255,255,255,.9),rgba(255,255,255,.1) 48%),linear-gradient(150deg,#a44162,#553665);}.app-preview:before,.app-preview:after{position:absolute;width:220px;height:220px;border:1px solid rgba(255,255,255,.3);border-radius:50%;content:""}.app-preview:before{top:-108px;right:-67px}.app-preview:after{bottom:-126px;left:-70px;width:290px;height:290px}.app-card{position:relative;z-index:1;width:min(78%,250px);padding:22px 18px 19px;border:1px solid rgba(255,255,255,.64);border-radius:26px;background:rgba(255,253,250,.94);box-shadow:0 25px 50px rgba(36,14,39,.22);text-align:center;transform:rotate(-2deg)}.app-card img{width:62px;height:62px;margin-bottom:10px;border-radius:17px;object-fit:contain}.app-card h3{margin:0;color:var(--ink);font-family:var(--reading);font-size:1.2rem;font-weight:600}.app-card>p{margin:5px 0 17px;color:var(--muted);font-size:.72rem}.collection-row{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px 11px;border:1px solid #eadde3;border-radius:12px;background:#fff;text-align:left}.collection-badge{display:grid;width:31px;height:31px;place-items:center;border-radius:10px;color:#812747;background:#f4e4e9;font-size:.68rem;font-weight:850}.collection-row span:last-child{color:var(--ink);font-size:.76rem;font-weight:750}.app-copy .section-kicker{text-align:left}.app-copy h2{margin:0 0 14px;color:var(--ink);font-family:var(--reading);font-size:clamp(2rem,3.4vw,3rem);font-weight:500;letter-spacing:-.04em;line-height:1.1}.app-copy>p{max-width:590px;color:var(--muted);font-size:.94rem}.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:22px}.feature-card{padding:17px 16px;border:1px solid rgba(133,43,77,.12);border-radius:16px;background:rgba(255,253,250,.68)}.feature-icon{display:grid;width:38px;height:38px;margin-bottom:12px;place-items:center;border-radius:12px;color:var(--wine);background:#f3e4e8}.feature-icon svg{width:19px;height:19px}.feature-card strong{display:block;color:var(--ink);font-size:.81rem}.feature-card p{margin:5px 0 0;color:var(--muted);font-size:.73rem;line-height:1.5}
+    .install-section{padding-top:25px}.install-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.install-step{position:relative;padding:23px 21px;border:1px solid var(--line);border-radius:19px;background:var(--paper)}.step-no{display:grid;width:34px;height:34px;margin-bottom:18px;place-items:center;border:1px solid rgba(133,43,77,.18);border-radius:50%;color:var(--wine);background:#f7ebef;font-size:.78rem;font-weight:850}.install-step h3{margin:0 0 8px;color:var(--ink);font-family:var(--reading);font-size:1.18rem;font-weight:600}.install-step p{margin:0;color:var(--muted);font-size:.81rem}.install-step strong{color:var(--ink)}.install-note{display:flex;align-items:flex-start;gap:12px;max-width:880px;margin:18px auto 0;padding:15px 17px;border:1px solid #e2d1a9;border-radius:14px;color:#62513a;background:#f5efdf;font-size:.78rem}.install-note svg{width:18px;height:18px;flex:0 0 auto;margin-top:2px;color:#9a783c}.install-note p{margin:0}.install-note strong{color:#443624}
+    .service-banner{position:relative;isolation:isolate;overflow:hidden;display:grid;grid-template-columns:1fr auto;align-items:center;gap:25px;padding:clamp(28px,5vw,52px);border:1px solid rgba(255,255,255,.14);border-radius:27px;color:#fff;background:linear-gradient(115deg,#722643,#542e62);box-shadow:var(--shadow)}.service-banner:after{position:absolute;z-index:-1;right:-70px;bottom:-170px;width:390px;height:390px;border:1px solid rgba(255,255,255,.13);border-radius:50%;box-shadow:0 0 0 30px rgba(255,255,255,.03),0 0 0 70px rgba(255,255,255,.025);content:""}.service-copy .section-kicker{color:#ecd4a7}.service-copy h2{color:#fff}.service-copy>p:not(.section-kicker){max-width:620px;margin:13px 0 0;color:rgba(255,255,255,.75);font-size:.9rem}.service-cta{position:relative;z-index:1}.service-cta .button{min-width:180px}.service-cta .button-secondary{background:rgba(255,255,255,.12)}
+    .contact-section{padding-bottom:72px}.contact-panel{display:grid;grid-template-columns:.8fr 1.2fr;gap:32px;align-items:start;padding:clamp(28px,5vw,53px);border:1px solid var(--line);border-radius:26px;background:var(--paper);box-shadow:0 12px 38px rgba(59,28,55,.045)}.contact-copy h2{margin-bottom:13px}.contact-copy>p:last-child{max-width:420px;margin:0;color:var(--muted);font-size:.88rem}.contact-list{display:grid;gap:12px}.contact-link{display:flex;align-items:center;gap:14px;padding:16px;border:1px solid var(--line);border-radius:15px;background:#fff;text-decoration:none;transition:border-color .18s ease,transform .18s ease}.contact-link:hover{transform:translateY(-2px);border-color:rgba(133,43,77,.4)}.contact-icon{display:grid;width:40px;height:40px;flex:0 0 auto;place-items:center;border-radius:13px;color:var(--wine);background:#f3e4e8}.contact-icon svg{width:19px;height:19px}.contact-link span strong,.contact-link span small{display:block}.contact-link strong{color:var(--ink);font-size:.84rem}.contact-link small{margin-top:3px;color:var(--muted);font-size:.75rem;overflow-wrap:anywhere}
+    footer{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:22px 0 27px;border-top:1px solid var(--line);color:var(--muted);font-size:.75rem}footer p{margin:0}footer a{color:var(--wine);font-weight:750;text-decoration:none}footer a:hover{text-decoration:underline}.footer-links{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:9px 15px}.footer-credit{grid-column:1/-1;padding-top:10px;color:#887987;font-size:.72rem}.status-toast{position:fixed;right:18px;bottom:18px;z-index:20;max-width:min(390px,calc(100vw - 36px));padding:13px 16px;border:1px solid rgba(255,255,255,.14);border-radius:14px;color:#fff;background:#332039;box-shadow:0 12px 35px rgba(34,15,37,.23);font-size:.82rem}.status-toast[hidden]{display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    @media(max-width:900px){.site-header{flex-wrap:wrap}.main-nav{order:3;width:100%;justify-content:flex-start;overflow-x:auto;padding:3px 0 1px;scrollbar-width:none}.main-nav::-webkit-scrollbar{display:none}.hero{grid-template-columns:1fr .78fr;gap:28px;padding:clamp(28px,5vw,52px)}.hero-scripture{padding:25px 23px}.app-panel{grid-template-columns:.75fr 1.25fr;gap:28px}.feature-grid{grid-template-columns:1fr}.feature-card{display:grid;grid-template-columns:38px 1fr;column-gap:11px;align-items:center;padding:12px}.feature-icon{grid-row:span 2;margin:0}.feature-card p{margin:2px 0 0}}
+    @media(max-width:680px){.site-shell{width:min(100% - 24px,560px)}.site-header{padding:11px 0;gap:12px}.brand{gap:9px}.brand img{width:38px;height:38px}.brand strong{font-size:.94rem}.brand small{font-size:.64rem}.nav-cta{min-height:37px;padding:8px 11px;font-size:.73rem}.main-nav{gap:18px}.main-nav a{font-size:.74rem}.hero{grid-template-columns:1fr;min-height:0;margin-top:13px;padding:33px 23px 25px;border-radius:25px}.hero h1{font-size:clamp(2.75rem,12vw,4.25rem)}.hero-intro{margin:17px 0 22px;font-size:.91rem}.hero-scripture{width:min(100%,390px);margin:18px 0 0;padding:23px 21px}.hero-scripture blockquote{font-size:1.34rem}.scripture-note{margin-top:12px}.hero-meta{font-size:.7rem}.section{padding:64px 0}.section-heading{margin-bottom:26px}.section-heading h2,.about-copy h2,.service-copy h2,.contact-copy h2{font-size:2.25rem}.about-grid,.app-panel,.contact-panel{grid-template-columns:1fr}.about-grid{gap:13px}.about-copy,.scripture-card{padding:25px}.scripture-card{min-height:250px}.app-section{padding-top:5px}.app-panel{gap:23px;padding:19px;border-radius:23px}.app-preview{min-height:295px}.app-copy{padding:2px 4px 5px}.feature-grid{grid-template-columns:1fr}.install-section{padding-top:8px}.install-grid{grid-template-columns:1fr;gap:10px}.install-step{padding:19px}.step-no{margin-bottom:11px}.service-banner{grid-template-columns:1fr;gap:20px;padding:26px 23px;border-radius:23px}.service-cta .button{min-width:0}.contact-panel{gap:22px;padding:24px}.contact-section{padding-bottom:54px}footer{grid-template-columns:1fr;gap:9px}.footer-links{justify-content:flex-start}.footer-credit{grid-column:auto;padding-top:4px}}
+    @media(max-width:380px){.site-shell{width:calc(100% - 18px)}.hero{padding:28px 18px 22px}.actions{align-items:stretch}.actions .button{width:100%}.nav-cta{font-size:0}.nav-cta:after{content:"Join";font-size:.73rem}.hero-meta{gap:7px 11px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+  </style>
 </head>
 <body>
-  <div class="page">
-    <header class="topbar">
-      <a class="brand" href="./" aria-label="Consolation Hymnal home">
-        <img src="./assets/consolation-launcher-192.png" width="52" height="52" alt="">
-        <span><strong>Consolation Hymnal</strong><small>Consolation Evangelical and Revival Church</small></span>
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="brand" href="#welcome" aria-label="Consolation Ministry home">
+        <img src="./assets/consolation-launcher-192.png" width="42" height="42" alt="">
+        <span><strong>Consolation Ministry</strong><small>Church of the Lord</small></span>
       </a>
-      <a class="toplink" href="./hymnal.html">Proceed to the hymnal <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="#about">About us</a>
+        <a href="#app-features">The hymnal app</a>
+        <a href="#install-guide">Installation</a>
+        <a href="#sunday-service">Sunday Service</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <a class="nav-cta" href="#sunday-service">Join us now</a>
     </header>
+
     <main>
-      <section class="hero" aria-labelledby="hero-title">
+      <section class="hero" id="welcome" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> The church hymnal, on your phone</p>
-          <h1 id="hero-title">Worship, wherever you go.</h1>
-          <p class="intro">Find the right hymn, keep your favourites close, and read even when you’re offline. English and Yorùbá collections, together in one simple app.</p>
+          <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span><span id="welcome-typewriter" class="typed-text" aria-hidden="true">Welcome to Consolation Ministry</span><span class="sr-only">Welcome to Consolation Ministry</span></p>
+          <h1 id="hero-title">Worship, give thanks,<br><em>and pray together.</em></h1>
+          <p class="hero-intro">You are welcome to the Church of the Lord. We gather in worship, gratitude, and prayer, trusting the Lord to meet every need.</p>
           <div class="actions">
             <a id="android-download" class="button button-primary" href="./consolation-hymnal-android.apk" download="consolation-hymnal-android.apk">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 16v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span class="button-label"><strong>Download Android app</strong><small>Signed APK from this website · <span id="release-version">latest release</span></small></span>
+              <span class="button-label"><strong>Get our hymnal app</strong><small>Android · signed APK · <span id="release-version">latest release</span></small></span>
             </a>
             <a id="hymnal-open" class="button button-secondary" href="./hymnal.html">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span class="button-label"><strong>Proceed to the hymnal</strong><small>Open it in your browser</small></span>
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5.5c2.5-1.2 4.8-.8 7 1v14c-2.2-1.8-4.5-2.2-7-1v-14Zm14 0c-2.5-1.2-4.8-.8-7 1v14c2.2-1.8 4.5-2.2 7-1v-14Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+              <span class="button-label"><strong>Visit the web hymnal</strong><small>Read in your browser</small></span>
             </a>
-            <button id="pwa-install" class="button button-secondary" type="button">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm3 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-              <span id="pwa-install-label">Install web app</span>
-            </button>
           </div>
-          <div id="apk-download-progress" class="apk-download-progress" hidden>
-            <p id="apk-download-status" role="status" aria-live="polite">Ready to prepare the Android APK download.</p>
-            <progress id="apk-download-meter" class="apk-download-meter" max="100" value="0" aria-label="APK download progress"></progress>
-            <div class="apk-download-actions">
-              <button id="apk-save-button" class="button button-primary" type="button" hidden>Save APK to device</button>
-              <a id="apk-open-downloads" class="button button-secondary" href="#" hidden>Open Downloads</a>
-              <a id="apk-direct-fallback" class="button button-secondary" href="./consolation-hymnal-android.apk" download="consolation-hymnal-android.apk" hidden>Download APK directly</a>
-            </div>
-            <p class="apk-download-hint">After saving, Android still requires you to open the APK and confirm installation.</p>
-          </div>
-          <p class="hero-note"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Android will ask you to confirm the APK installation. App permissions are requested by Android only when a feature needs them.</span></p>
-          <p class="platform-line">English &amp; Yorùbá <span aria-hidden="true">·</span> Offline-ready <span aria-hidden="true">·</span> Free to use</p>
+          <p id="android-note" class="download-note">For Android phones · English and Yorùbá · works offline after opening</p>
+          <p id="ios-note" class="download-note" hidden>On iPhone or iPad? Visit the web hymnal in your browser.</p>
+          <div class="hero-meta" aria-label="Hymnal app highlights"><span>English &amp; Yorùbá</span><span>Offline reading</span><span>Free to use</span></div>
         </div>
-        <div class="phone-wrap" aria-label="Preview of the Consolation Hymnal app">
-          <div class="phone">
-            <div class="speaker" aria-hidden="true"></div>
-            <div class="phone-screen">
-              <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
-              <img class="appicon" src="./assets/consolation-launcher-192.png" width="86" height="86" alt="">
-              <h2>Consolation Hymnal</h2>
-              <p>Read, search, and keep hymns close</p>
-              <p class="screen-label">Your collections</p>
-              <div class="hymn-row"><span class="row-number">EN</span><span class="row-lines" aria-hidden="true"><i></i><i></i></span></div>
-              <div class="hymn-row"><span class="row-number">YO</span><span class="row-lines" aria-hidden="true"><i></i><i></i></span></div>
-              <div class="phone-nav"><span>Home</span><span>Hymns</span><span>Saved</span><span>Settings</span></div>
-            </div>
-          </div>
-          <div class="float-tag">English <span aria-hidden="true">+</span> Yorùbá</div>
+        <aside class="hero-scripture" aria-label="Bible verse">
+          <span class="quote-mark" aria-hidden="true">“</span>
+          <blockquote>For where two or three are gathered together in my name, there am I in the midst of them.</blockquote>
+          <cite>Matthew 18:20 · KJV</cite>
+          <p class="scripture-note">Come as you are. There is room for you here.</p>
+        </aside>
+      </section>
+
+      <section class="section" id="about" aria-labelledby="about-title">
+        <div class="section-heading">
+          <p class="section-kicker">A welcoming church family</p>
+          <h2 id="about-title">A place to belong, believe, and grow.</h2>
+          <p>We worship together, give thanks for God’s goodness, pray for one another, and grow in faith as a community.</p>
+        </div>
+        <div class="about-grid">
+          <article class="about-copy">
+            <p class="section-kicker">Our heart</p>
+            <h2>Faith, fellowship, and a life of prayer.</h2>
+            <p>We are a church family gathered to praise God, study His Word, share encouragement, and serve our neighbours with love.</p>
+            <p>Where people gather in prayer, we believe God hears and answers. The Lord awaits you; we would be glad to welcome you at our next programme.</p>
+            <p class="about-typed"><span id="about-typewriter" class="typed-text" aria-hidden="true">A family of faith.</span><span class="sr-only">A family of faith. A home for worship. A place of prayer.</span></p>
+          </article>
+          <aside class="scripture-card" aria-label="Bible verse about prayer">
+            <div><span class="quote-mark" aria-hidden="true">“</span><blockquote>Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.</blockquote><cite>Philippians 4:6 · KJV</cite></div>
+            <p>Bring your hopes, your questions, and your prayers.</p>
+          </aside>
         </div>
       </section>
-      <section class="features" aria-label="App features">
-        <article class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v18m6-15H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><strong>Two hymn collections</strong><p>Browse the English and Yorùbá hymns in one place.</p></div></article>
-        <article class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><strong>Read offline</strong><p>After your first online visit, cached hymns are ready without internet.</p></div></article>
-        <article class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 20-1.4-1.3C5.6 14.1 2.5 11.3 2.5 7.8A4.8 4.8 0 0 1 7.3 3c1.8 0 3.5.8 4.7 2.1A6.4 6.4 0 0 1 16.7 3a4.8 4.8 0 0 1 4.8 4.8c0 3.5-3.1 6.3-8.1 10.9L12 20Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><div><strong>Keep your favourites</strong><p>Save hymns and adjust your reading settings on your device.</p></div></article>
+
+      <section class="section app-section" id="app-features" aria-labelledby="app-title">
+        <div class="app-panel">
+          <div class="app-preview" aria-label="Consolation Hymnal app preview">
+            <div class="app-card">
+              <img src="./assets/consolation-launcher-192.png" width="62" height="62" alt="">
+              <h3>Consolation Hymnal</h3>
+              <p>Keep songs of praise close at hand</p>
+              <div class="collection-row"><span class="collection-badge">EN</span><span>English hymns</span></div>
+              <div class="collection-row"><span class="collection-badge">YO</span><span>Yorùbá hymns</span></div>
+            </div>
+          </div>
+          <div class="app-copy">
+            <p class="section-kicker">A hymn for every moment</p>
+            <h2 id="app-title">Take the hymnal with you.</h2>
+            <p>Find a hymn for worship, keep favourites close, and read English and Yorùbá collections—even when you are offline.</p>
+            <div class="feature-grid">
+              <article class="feature-card"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v18m6-15H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><strong>Two collections</strong><p>Browse English and Yorùbá hymns.</p></article>
+              <article class="feature-card"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong>Read offline</strong><p>Return to hymns on your device.</p></article>
+              <article class="feature-card"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 20-1.4-1.3C5.6 14.1 2.5 11.3 2.5 7.8A4.8 4.8 0 0 1 7.3 3c1.8 0 3.5.8 4.7 2.1A6.4 6.4 0 0 1 16.7 3a4.8 4.8 0 0 1 4.8 4.8c0 3.5-3.1 6.3-8.1 10.9L12 20Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><strong>Save favourites</strong><p>Keep the hymns you love nearby.</p></article>
+            </div>
+          </div>
+        </div>
       </section>
-      <section id="install-help" class="install" aria-label="Installation instructions">
-        <article class="install-card" id="android-steps">
-          <div class="install-head"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M10 18.2h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><h2>Install on Android</h2><p>Download the signed Android app, then open it from Downloads.</p></div></div>
-          <ol class="steps"><li><span class="step-no">1</span><span>Tap <strong>Download Android app</strong>, wait for the progress to reach 100%, then tap <strong>Save APK to device</strong>.</span></li><li><span class="step-no">2</span><span>After the browser finishes saving it, tap <strong>Open Downloads</strong> and select <strong>consolation-hymnal-android.apk</strong>. If Downloads does not open, open your Downloads app manually.</span></li><li><span class="step-no">3</span><span>If Android asks, allow this browser to install apps, then review the installer and tap <strong>Install</strong>.</span></li></ol>
-          <p class="safety"><strong>Android keeps the final say.</strong> The website can open the Downloads screen on supported Android browsers, but Android still requires you to open the APK and confirm installation.</p>
-        </article>
-        <article class="install-card" id="pwa-steps">
-          <div class="install-head"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M10 18.2h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><h2>Install the web app</h2><p>Standalone home-screen version, separate from the native APK.</p></div></div>
-          <ol class="steps"><li><span class="step-no">1</span><span>On Android, tap <strong>Install web app</strong> above when the browser offers it. If no prompt appears, use Chrome’s menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</span></li><li><span class="step-no">2</span><span>On iPhone or iPad, open this page in <strong>Safari</strong>, tap Share, then choose <strong>Add to Home Screen</strong>.</span></li><li><span class="step-no">3</span><span>Launch the new icon to open the hymnal without the usual browser controls.</span></li></ol>
-          <p class="safety"><strong>This is the web app, not the APK.</strong> Installation options vary by browser. The native Android app remains available through the APK download above.</p>
-        </article>
+
+      <section class="section install-section" id="install-guide" aria-labelledby="install-title">
+        <div class="section-heading">
+          <p class="section-kicker">Simple to get started</p>
+          <h2 id="install-title">Install the Android hymnal.</h2>
+          <p>Download the signed app, then follow Android’s on-screen installation steps.</p>
+        </div>
+        <div class="install-grid">
+          <article class="install-step"><span class="step-no">1</span><h3>Download the app</h3><p>Tap <strong>Get our hymnal app</strong> above and wait for the APK download to finish.</p></article>
+          <article class="install-step"><span class="step-no">2</span><h3>Choose “Open with”</h3><p>In your browser’s download notification or Downloads list, tap the APK and choose <strong>Open with</strong>.</p></article>
+          <article class="install-step"><span class="step-no">3</span><h3>Confirm installation</h3><p>If Android asks, allow this browser to install apps. Review the installer prompt and tap <strong>Install</strong>.</p></article>
+        </div>
+        <div class="install-note"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 2.8 20h18.4L12 3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 9v5m0 3h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg><p><strong>Android controls the final prompt.</strong> If “Open with” is not shown yet, wait for the download to finish and open the APK from Downloads. Android will ask you to confirm before installing.</p></div>
       </section>
-      <aside class="update-note">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4m-4 5a8 8 0 0 0 14.9 3M20 20v-4h-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <p><strong>Updates stay in sync.</strong> This page links to the latest signed Android APK. The installed app checks for signed APK updates, downloads the APK, and opens Android's installer. Android asks you to confirm before replacing the app.</p>
-      </aside>
+
+      <section class="section" id="sunday-service" aria-labelledby="service-title">
+        <div class="service-banner">
+          <div class="service-copy">
+            <p class="section-kicker">Our next programme</p>
+            <h2 id="service-title">Sunday Service</h2>
+            <p>Join us for worship, thanksgiving, prayer, and the Word. The Lord awaits you—we look forward to seeing you at our next programme.</p>
+          </div>
+          <div class="service-cta"><a class="button button-secondary" href="mailto:Consolationministry123@gmail.com?subject=Sunday%20Service%20Enquiry"><span class="button-label"><strong>Join us this Sunday</strong><small>Ask us for service details</small></span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        </div>
+      </section>
+
+      <section class="section contact-section" id="contact" aria-labelledby="contact-title">
+        <div class="contact-panel">
+          <div class="contact-copy"><p class="section-kicker">We’re here to help</p><h2 id="contact-title">Contact us.</h2><p>Have a question about the church, the hymnal, or a Sunday Service? Send us a message and we’ll be glad to hear from you.</p></div>
+          <div class="contact-list">
+            <a class="contact-link" href="mailto:Consolationministry123@gmail.com"><span class="contact-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="m4 7 8 6 8-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>Church enquiries</strong><small>Consolationministry123@gmail.com</small></span></a>
+            <a class="contact-link" href="mailto:dev@darapet.name.ng?subject=Website%20or%20app%20enquiry"><span class="contact-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3a4 4 0 0 0-4 4v2a4 4 0 0 1-2 3.5A4 4 0 0 0 8 20h8a4 4 0 0 0 2-7.5A4 4 0 0 1 16 9V7a4 4 0 0 0-4-4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 8h6m-6 4h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span><strong>Website or app support · Daraoet Technology</strong><small>dev@darapet.name.ng</small></span></a>
+          </div>
+        </div>
+      </section>
     </main>
-    <footer><span>Consolation Evangelical and Revival Church</span><span><a href="./hymnal.html">Open the hymnal</a> &nbsp;·&nbsp; <a href="https://github.com/consolationministry/hymnals/releases" target="_blank" rel="noopener noreferrer">Release history</a></span></footer>
+
+    <footer>
+      <p>Consolation Evangelical and Revival Church</p>
+      <div class="footer-links"><a href="./hymnal.html">Open the hymnal</a><a href="https://github.com/consolationministry/hymnals/releases" target="_blank" rel="noopener noreferrer">Release history</a></div>
+      <p class="footer-credit">© <span id="current-year">2026</span> · Designed &amp; developed by <strong>Daraoet Technology</strong> · <a href="mailto:dev@darapet.name.ng">Contact the developer</a></p>
+    </footer>
   </div>
-  <p id="status" class="toast" role="status" aria-live="polite" hidden></p>
+  <p id="download-status" class="status-toast" role="status" aria-live="polite" hidden></p>
   <script>
     (function(){
-      var installButton = document.getElementById("pwa-install");
-      var installLabel = document.getElementById("pwa-install-label");
-      var status = document.getElementById("status");
-      var androidDownload = document.getElementById("android-download");
-      var apkPanel = document.getElementById("apk-download-progress");
-      var apkStatus = document.getElementById("apk-download-status");
-      var apkMeter = document.getElementById("apk-download-meter");
-      var apkSaveButton = document.getElementById("apk-save-button");
-      var apkOpenDownloads = document.getElementById("apk-open-downloads");
-      var apkDirectFallback = document.getElementById("apk-direct-fallback");
-      var deferredPrompt = null;
-      var preparedApkUrl = null;
-      var apkTransferInProgress = false;
-      var userAgent = navigator.userAgent;
-      var isIOS = /iPhone|iPad|iPod/i.test(userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      var isAndroid = /Android/i.test(userAgent);
-      var isStandalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
-
-      function announce(message) {
+      var status = document.getElementById("download-status");
+      var statusTimer;
+      function announce(message){
         status.textContent = message;
         status.hidden = false;
-        window.setTimeout(function(){ status.hidden = true; }, 5200);
+        window.clearTimeout(statusTimer);
+        statusTimer = window.setTimeout(function(){ status.hidden = true; }, 7000);
       }
 
-      function formatMegabytes(bytes) {
-        return (bytes / (1024 * 1024)).toFixed(1) + " MB received";
-      }
-
-      function showInstallInstructions() {
-        document.getElementById("install-help").scrollIntoView({behavior:"smooth", block:"start"});
-        if (isIOS) {
-          announce("In Safari, tap Share, then Add to Home Screen.");
-        } else if (isAndroid) {
-          announce("In Chrome, open the ⋮ menu and choose Install app or Add to Home screen.");
-        } else {
-          announce("Use your browser’s Install app option or menu to add this site to your device.");
-        }
-      }
-
-      installButton.hidden = isStandalone;
-      if (isIOS) installLabel.textContent = "How to add to Home Screen";
-      installButton.addEventListener("click", async function(){
-        if (!deferredPrompt) {
-          showInstallInstructions();
-          return;
-        }
-        var promptEvent = deferredPrompt;
-        deferredPrompt = null;
-        try {
-          await promptEvent.prompt();
-          var choice = await promptEvent.userChoice;
-          if (choice.outcome === "accepted") {
-            installButton.hidden = true;
-            announce("Consolation Hymnal is installed. Open it from your Home Screen or app list.");
-          } else {
-            announce("Installation was cancelled. You can try again from your browser menu.");
-          }
-        } catch (error) {
-          announce("The install prompt could not be opened. Use your browser menu to install this app.");
-        }
+      var downloadLink = document.getElementById("android-download");
+      downloadLink.addEventListener("click", function(){
+        announce("Your APK download is starting. When it finishes, open the file and choose Open with.");
       });
 
-      window.addEventListener("beforeinstallprompt", function(event){
-        event.preventDefault();
-        deferredPrompt = event;
-        installButton.hidden = false;
-        installLabel.textContent = "Install web app";
-      });
-
-      window.addEventListener("appinstalled", function(){
-        deferredPrompt = null;
-        installButton.hidden = true;
-        announce("Consolation Hymnal is installed on this device.");
-      });
-
-      androidDownload.addEventListener("click", async function(event){
-        event.preventDefault();
-        if (apkTransferInProgress) return;
-        apkTransferInProgress = true;
-        apkPanel.hidden = false;
-        apkSaveButton.hidden = true;
-        apkOpenDownloads.hidden = true;
-        apkDirectFallback.hidden = true;
-        apkSaveButton.disabled = false;
-        apkMeter.max = 100;
-        apkMeter.value = 0;
-        apkStatus.textContent = "Connecting to the Android APK…";
-        if (preparedApkUrl) {
-          URL.revokeObjectURL(preparedApkUrl);
-          preparedApkUrl = null;
-        }
-
-        try {
-          var response = await fetch(androidDownload.href, {cache:"no-store"});
-          if (!response.ok) throw new Error("The APK download could not be reached.");
-          if (!response.body || typeof response.body.getReader !== "function") {
-            throw new Error("This browser cannot show download progress. Use the direct download link below.");
-          }
-          var totalBytes = Number(response.headers.get("content-length")) || 0;
-          var reader = response.body.getReader();
-          var chunks = [];
-          var receivedBytes = 0;
-          var lastPercent = -1;
-          if (!totalBytes) apkMeter.removeAttribute("value");
-
-          while (true) {
-            var part = await reader.read();
-            if (part.done) break;
-            chunks.push(part.value);
-            receivedBytes += part.value.byteLength;
-            if (totalBytes > 0) {
-              var percent = Math.min(99, Math.floor((receivedBytes / totalBytes) * 100));
-              apkMeter.value = percent;
-              if (percent !== lastPercent) {
-                apkStatus.textContent = "Downloading APK… " + percent + "%";
-                lastPercent = percent;
-              }
-            } else {
-              apkStatus.textContent = "Downloading APK… " + formatMegabytes(receivedBytes);
-            }
-          }
-
-          if (!receivedBytes) throw new Error("The APK file was empty. Use the direct download link below.");
-          apkMeter.value = 100;
-          preparedApkUrl = URL.createObjectURL(new Blob(chunks, {type:"application/vnd.android.package-archive"}));
-          apkStatus.textContent = "Download complete — 100%. Tap Save APK to device to save it to Downloads.";
-          apkSaveButton.hidden = false;
-        } catch (error) {
-          apkMeter.removeAttribute("value");
-          apkStatus.textContent = error && error.message ? error.message : "The APK could not be prepared. Use the direct download link below.";
-          apkDirectFallback.hidden = false;
-        } finally {
-          apkTransferInProgress = false;
-        }
-      });
-
-      apkSaveButton.addEventListener("click", function(){
-        if (!preparedApkUrl) return;
-        var saveLink = document.createElement("a");
-        saveLink.href = preparedApkUrl;
-        saveLink.download = "consolation-hymnal-android.apk";
-        saveLink.style.display = "none";
-        document.body.appendChild(saveLink);
-        saveLink.click();
-        saveLink.remove();
-        apkSaveButton.disabled = true;
-        if (isAndroid) {
-          var fallbackUrl = new URL("./", window.location.href);
-          fallbackUrl.hash = "android-steps";
-          apkOpenDownloads.href = "intent://#Intent;action=android.intent.action.VIEW_DOWNLOADS;S.browser_fallback_url=" + encodeURIComponent(fallbackUrl.href) + ";end";
-          apkOpenDownloads.hidden = false;
-          apkStatus.textContent = "APK sent to Downloads. Wait for the browser to finish saving it, then tap Open Downloads and select consolation-hymnal-android.apk.";
-        } else {
-          apkStatus.textContent = "APK download started. When it finishes, open it from your browser’s Downloads list.";
-        }
-        window.setTimeout(function(){
-          if (preparedApkUrl) {
-            URL.revokeObjectURL(preparedApkUrl);
-            preparedApkUrl = null;
-          }
-        }, 300000);
-      });
-
+      var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
       if (isIOS) {
-        androidDownload.hidden = true;
-        var hymnalOpen = document.getElementById("hymnal-open");
-        hymnalOpen.classList.remove("button-secondary");
-        hymnalOpen.classList.add("button-primary");
-        hymnalOpen.querySelector("strong").textContent = "Open the hymnal";
-        hymnalOpen.querySelector("small").textContent = "Continue in your browser";
+        downloadLink.hidden = true;
+        document.getElementById("android-note").hidden = true;
+        document.getElementById("ios-note").hidden = false;
       }
 
+      function typeLoop(elementId, phrases, startDelay){
+        var element = document.getElementById(elementId);
+        if (!element) return;
+        var phraseIndex = 0;
+        var characterIndex = 0;
+        var deleting = false;
+        function tick(){
+          var phrase = phrases[phraseIndex];
+          characterIndex += deleting ? -1 : 1;
+          element.textContent = phrase.slice(0, Math.max(0, characterIndex));
+          var delay = deleting ? 32 : 64;
+          if (!deleting && characterIndex >= phrase.length) { deleting = true; delay = 1900; }
+          else if (deleting && characterIndex <= 0) { deleting = false; phraseIndex = (phraseIndex + 1) % phrases.length; delay = 320; }
+          window.setTimeout(tick, delay);
+        }
+        element.textContent = "";
+        window.setTimeout(tick, startDelay);
+      }
+      var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!reduceMotion) {
+        typeLoop("welcome-typewriter", ["Welcome to Consolation Ministry", "A home for worship and prayer"], 180);
+        typeLoop("about-typewriter", ["A family of faith.", "A home for worship.", "A place of prayer."], 900);
+      }
+
+      var year = document.getElementById("current-year");
+      if (year) year.textContent = String(new Date().getFullYear());
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function(){
           navigator.serviceWorker.register("./service-worker.js", {scope:"./"}).catch(function(){});
         });
       }
-
       fetch("https://api.github.com/repos/consolationministry/hymnals/releases/latest", {headers:{Accept:"application/vnd.github+json"}, cache:"force-cache"}).then(function(response){
         if (!response.ok) throw new Error("Release information unavailable");
         return response.json();
@@ -305,9 +222,7 @@
           try {
             var url = new URL(asset.browser_download_url);
             return url.protocol === "https:" && url.hostname === "github.com" && url.pathname.startsWith("/consolationministry/hymnals/releases/download/");
-          } catch (error) {
-            return false;
-          }
+          } catch (error) { return false; }
         });
         if (!apk) return;
         var version = String(release.tag_name || "").replace(/^v/, "");

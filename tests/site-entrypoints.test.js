@@ -9,27 +9,28 @@ const read = (name) => readFile(new URL("../" + name, import.meta.url), "utf8");
 const run = promisify(execFile);
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
-test("public homepage offers APK progress, Downloads handoff, and PWA install", async () => {
+test("public homepage welcomes visitors and explains the Android hymnal app", async () => {
   const home = await read("index.html");
-  assert.ok(home.includes("Download Android app"));
-  assert.ok(home.includes("Proceed to the hymnal"));
-  assert.ok(home.includes('href="./hymnal.html"'));
+  assert.ok(home.includes("Welcome to Consolation Ministry"));
+  assert.ok(home.includes("Matthew 18:20"));
+  assert.ok(home.includes("Philippians 4:6"));
+  assert.ok(home.includes('id="android-download"'));
   const androidLink = home.match(/<a id="android-download"[^>]*>/)?.[0] || "";
   assert.ok(androidLink.includes('href="./consolation-hymnal-android.apk" download="consolation-hymnal-android.apk"'));
   assert.ok(!androidLink.includes("github.com"));
-  assert.ok(home.includes('id="apk-download-progress"'));
-  assert.ok(home.includes('id="apk-download-meter"'));
-  assert.ok(home.includes("response.body.getReader()"));
-  assert.ok(home.includes('id="apk-save-button"'));
-  assert.ok(home.includes('id="apk-open-downloads"'));
-  assert.ok(home.includes("android.intent.action.VIEW_DOWNLOADS"));
-  assert.ok(home.includes('id="pwa-install"'));
-  assert.ok(home.includes('id="pwa-steps"'));
-  assert.ok(home.includes("beforeinstallprompt"));
-  assert.ok(home.includes("await promptEvent.prompt()"));
-  assert.ok(home.includes('"appinstalled"'));
-  assert.ok(home.includes("Add to Home Screen"));
-  assert.ok(home.includes("Android keeps the final say."));
+  assert.ok(home.includes("Your APK download is starting."));
+  assert.ok(home.includes("choose Open with"));
+  assert.ok(home.includes('href="./hymnal.html"'));
+  assert.ok(home.includes('id="app-features"'));
+  assert.ok(home.includes('id="install-guide"'));
+  assert.ok(home.includes("English and Yorùbá"));
+  assert.ok(home.includes("Sunday Service"));
+  assert.ok(home.includes("mailto:Consolationministry123@gmail.com"));
+  assert.ok(home.includes("mailto:dev@darapet.name.ng"));
+  assert.ok(home.includes("Daraoet Technology"));
+  assert.ok(home.includes("Release history"));
+  assert.ok(!home.includes('id="pwa-install"'));
+  assert.ok(!home.includes("beforeinstallprompt"));
 });
 test("the hymn reader remains the web, PWA, and native Android launch page", async () => {
   const [reader, manifestText, capacitorText] = await Promise.all([
