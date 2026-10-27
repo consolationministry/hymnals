@@ -99,11 +99,14 @@ test("falls back through older public programme fields when response metadata is
   assert.deepEqual(content.programs.map(function (item) { return item.id; }), ["event-1"]);
   assert.equal(content.programsAvailable, true);
   assert.equal(content.usingCache, false);
-  assert.equal(programRequests.length, 3);
+  assert.equal(programRequests.length, 4);
+  assert.match(programRequests[0].searchParams.get("select"), /minister/);
   assert.match(programRequests[0].searchParams.get("select"), /created_at/);
+  assert.doesNotMatch(programRequests[1].searchParams.get("select"), /minister/);
   assert.match(programRequests[1].searchParams.get("select"), /created_at/);
-  assert.doesNotMatch(programRequests[2].searchParams.get("select"), /created_at/);
-  assert.equal(programRequests[2].searchParams.get("order"), "start_date.desc");
+  assert.match(programRequests[2].searchParams.get("select"), /created_at/);
+  assert.doesNotMatch(programRequests[3].searchParams.get("select"), /created_at/);
+  assert.equal(programRequests[3].searchParams.get("order"), "start_date.desc");
 });
 
 test("uses cached public content when the public database is unavailable", async () => {
