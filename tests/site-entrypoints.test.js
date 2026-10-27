@@ -32,6 +32,23 @@ test("public homepage welcomes visitors and explains the Android hymnal app", as
   assert.ok(!home.includes('id="pwa-install"'));
   assert.ok(!home.includes("beforeinstallprompt"));
 });
+test("hero and About copy animate with an accessible welcome carousel", async () => {
+  const home = await read("index.html");
+  assert.ok(home.includes('aria-roledescription="carousel"'));
+  assert.ok(home.includes('id="hero-title-line-one"'));
+  assert.ok(home.includes('id="hero-intro-typewriter"'));
+  assert.ok(home.includes('id="hero-carousel-prev"'));
+  assert.ok(home.includes('id="hero-carousel-next"'));
+  assert.ok(home.includes('id="hero-carousel-toggle"'));
+  assert.ok(home.includes('id="hero-carousel-announcement"'));
+  assert.ok(home.includes("Psalm 46:1 · KJV"));
+  assert.ok(home.includes('id="about-title-typewriter"'));
+  assert.ok(home.includes('id="about-intro-typewriter"'));
+  assert.ok(home.includes('id="about-heart-typewriter"'));
+  assert.ok(home.includes("prefers-reduced-motion: reduce"));
+  assert.ok(home.includes('addEventListener("focusin"'));
+});
+
 test("the hymn reader remains the web, PWA, and native Android launch page", async () => {
   const [reader, manifestText, capacitorText] = await Promise.all([
     read("hymnal.html"),
