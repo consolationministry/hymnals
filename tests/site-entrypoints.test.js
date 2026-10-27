@@ -45,6 +45,14 @@ test("hero and About copy animate with an accessible welcome carousel", async ()
   assert.ok(home.includes('id="about-title-typewriter"'));
   assert.ok(home.includes('id="about-intro-typewriter"'));
   assert.ok(home.includes('id="about-heart-typewriter"'));
+  assert.ok(home.includes("function eraseTick(){"));
+  assert.ok(home.includes("heroTitleSecond.textContent = currentSecond.slice(0, -1);"));
+  assert.ok(home.includes("heroTitleFirst.textContent = currentFirst.slice(0, -1);"));
+  assert.ok(home.includes("element.textContent = currentText.slice(0, Math.max(0, position));"));
+  assert.ok(home.includes("typeLoop(\"about-title-typewriter\", [\"A place to belong.\", \"Faith to grow in.\", \"A family that prays together.\"], 120);"));
+  assert.ok(home.includes("heroSection.addEventListener(\"pointerdown\""));
+  assert.ok(!home.includes("heroSection.addEventListener(\"mouseenter\""));
+  assert.ok(home.includes("showHeroSlide(heroIndex + 1, false, !reduceMotion);"));
   assert.ok(home.includes("prefers-reduced-motion: reduce"));
   assert.ok(home.includes('addEventListener("focusin"'));
 });

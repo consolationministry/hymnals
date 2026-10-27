@@ -83,7 +83,7 @@
       <section class="section" id="about" aria-labelledby="about-title">
         <div class="section-heading">
           <p class="section-kicker">A welcoming church family</p>
-          <h2 id="about-title"><span id="about-title-typewriter" aria-hidden="true">A place to belong, believe, and grow.</span><span id="about-title-accessible" class="sr-only">A place to belong, believe, and grow.</span></h2>
+          <h2 id="about-title"><span id="about-title-typewriter" aria-hidden="true">A place to belong.</span><span id="about-title-accessible" class="sr-only">A place to belong. Faith to grow in. A family that prays together.</span></h2>
           <p class="about-section-intro"><span id="about-intro-typewriter" aria-hidden="true">We worship together, give thanks for God’s goodness, pray for one another, and grow in faith as a community.</span><span id="about-intro-accessible" class="sr-only">We worship together, give thanks for God’s goodness, pray for one another, and grow in faith as a community.</span></p>
         </div>
         <div class="about-grid">
@@ -199,7 +199,7 @@
       ];
       var heroIndex = 0;
       var heroRotationEnabled = !reduceMotion;
-      var heroPointerPaused = false;
+      var heroPointerInteracting = false;
       var heroFocusPaused = false;
       var heroRotationTimer = 0;
       var heroTitleTimer = 0;
@@ -225,11 +225,9 @@
           heroTitleSecond.classList.remove("typed-text");
           return;
         }
-        heroTitleFirst.textContent = "";
-        heroTitleSecond.textContent = "";
         var position = 0;
         var total = slide.first.length + slide.second.length;
-        function tick(){
+        function typeTick(){
           position += 1;
           if (position <= slide.first.length) {
             heroTitleFirst.textContent = slide.first.slice(0, position);
@@ -241,20 +239,51 @@
             heroTitleSecond.textContent = slide.second.slice(0, position - slide.first.length);
             heroTitleSecond.classList.add("typed-text");
           }
-          if (position < total) heroTitleTimer = window.setTimeout(tick, 38);
+          if (position < total) heroTitleTimer = window.setTimeout(typeTick, 38);
         }
-        heroTitleFirst.classList.add("typed-text");
-        heroTitleTimer = window.setTimeout(tick, 120);
+        function eraseTick(){
+          var currentSecond = heroTitleSecond.textContent;
+          var currentFirst = heroTitleFirst.textContent;
+          if (currentSecond.length) {
+            heroTitleSecond.textContent = currentSecond.slice(0, -1);
+            heroTitleSecond.classList.add("typed-text");
+            heroTitleFirst.classList.remove("typed-text");
+            heroTitleTimer = window.setTimeout(eraseTick, 28);
+            return;
+          }
+          if (currentFirst.length) {
+            heroTitleFirst.textContent = currentFirst.slice(0, -1);
+            heroTitleFirst.classList.add("typed-text");
+            heroTitleSecond.classList.remove("typed-text");
+            heroTitleTimer = window.setTimeout(eraseTick, 28);
+            return;
+          }
+          heroTitleTimer = window.setTimeout(typeTick, 120);
+        }
+        eraseTick();
       }
       function makeTypeAnimation(elementId, text, speed, delay){
         var element = document.getElementById(elementId);
         if (!element) return function(){};
         var active = true;
-        var position = 0;
+        var currentText = element.textContent;
+        var position = currentText.length;
+        var deleting = true;
         var timer = 0;
-        element.textContent = "";
         function tick(){
           if (!active) return;
+          if (deleting) {
+            position -= 1;
+            element.textContent = currentText.slice(0, Math.max(0, position));
+            if (position <= 0) {
+              deleting = false;
+              position = 0;
+              timer = window.setTimeout(tick, 120);
+            } else {
+              timer = window.setTimeout(tick, Math.max(8, Math.floor(speed / 2)));
+            }
+            return;
+          }
           position += 1;
           element.textContent = text.slice(0, position);
           if (position < text.length) timer = window.setTimeout(tick, speed);
@@ -262,7 +291,7 @@
         timer = window.setTimeout(tick, delay);
         return function(){active = false;window.clearTimeout(timer);};
       }
-      function canRotate(){return heroRotationEnabled && !heroPointerPaused && !heroFocusPaused;}
+      function canRotate(){return heroRotationEnabled && !heroFocusPaused;}
       function updateRotationButton(){
         var active = canRotate();
         heroRotationButton.textContent = active ? "Pause" : "Play";
@@ -298,7 +327,7 @@
         if (announce) updateAccessibleText("hero-carousel-announcement", "Slide " + (heroIndex + 1) + " of " + heroSlides.length + ": " + slide.first + " " + slide.second + " " + slide.intro);
       }
       heroCarouselControls.hidden = false;
-      showHeroSlide(0, false, !reduceMotion);
+      showHeroSlide(0, false, false);
       heroCarouselControls.querySelectorAll("[data-hero-slide]").forEach(function(button){
         button.addEventListener("click", function(){showHeroSlide(Number(button.getAttribute("data-hero-slide")), true, !reduceMotion);scheduleHeroRotation();});
       });
@@ -309,9 +338,10 @@
         else {heroRotationEnabled = true;heroPointerPaused = false;heroFocusPaused = false;}
         scheduleHeroRotation();
       });
-      heroSection.addEventListener("mouseenter", function(){heroPointerPaused = true;scheduleHeroRotation();});
-      heroSection.addEventListener("mouseleave", function(){heroPointerPaused = false;scheduleHeroRotation();});
-      heroSection.addEventListener("focusin", function(){heroFocusPaused = true;heroRotationEnabled = false;scheduleHeroRotation();});
+      heroSection.addEventListener("pointerdown", function(){heroPointerInteracting = true;});
+      window.addEventListener("pointerup", function(){heroPointerInteracting = false;});
+      window.addEventListener("pointercancel", function(){heroPointerInteracting = false;});
+      heroSection.addEventListener("focusin", function(){if (!heroPointerInteracting) heroFocusPaused = true;scheduleHeroRotation();});
       heroSection.addEventListener("focusout", function(event){if (!heroSection.contains(event.relatedTarget)) {heroFocusPaused = false;scheduleHeroRotation();}});
       scheduleHeroRotation();
 
@@ -345,7 +375,7 @@
       function startAboutTyping(){
         if (aboutTypingStarted || reduceMotion) return;
         aboutTypingStarted = true;
-        typeOnce("about-title-typewriter", "A place to belong, believe, and grow.", 34, 120);
+        typeLoop("about-title-typewriter", ["A place to belong.", "Faith to grow in.", "A family that prays together."], 120);
         typeOnce("about-intro-typewriter", "We worship together, give thanks for God’s goodness, pray for one another, and grow in faith as a community.", 15, 900);
         typeOnce("about-heart-typewriter", "Faith, fellowship, and a life of prayer.", 34, 1800);
         typeLoop("about-typewriter", ["A family of faith.", "A home for worship.", "A place of prayer."], 2100);
