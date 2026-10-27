@@ -5,7 +5,7 @@ import { addRecent, getRecentNumbers } from "./recent.js";
 import { getReadingParts } from "./hymn-reading.js";
 import { getMemberContent, servicePlanDayLabel } from "./public-content.js";
 import { castProgrammeVote, getProgrammeInteractions } from "./programme-interactions.js";
-import { excerptProgrammeDescription, PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT } from "./programme-feed-utils.js";
+import { excerptProgrammeDescription, PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT, repairMojibake } from "./programme-feed-utils.js";
 import { ACCENT_THEMES, getSettings, saveSettings } from "./settings.js";
 import { shareHymn } from "./sharing.js";
 import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
@@ -332,9 +332,9 @@ function renderProgrammeInteractions(program) {
   const safeProgramId = escapeHtml(programId);
   const interaction = state.programmeInteractions[programId] || { voteYesCount: 0, voteNoCount: 0, myVote: null };
   const votesAvailable = state.programmeVotesAvailable === true;
-  const question = String(program && program.response_question || "Will you be available for this programme?").trim();
-  const yesLabel = String(program && program.yes_label || "Yes, I’ll be there").trim();
-  const noLabel = String(program && program.no_label || "Not this time").trim();
+  const question = repairMojibake(String(program && program.response_question || "Will you be available for this programme?")).trim();
+  const yesLabel = repairMojibake(String(program && program.yes_label || "Yes, I’ll be there")).trim();
+  const noLabel = repairMojibake(String(program && program.no_label || "Not this time")).trim();
   const votePending = Boolean(state.programmeVotePending[programId]);
   const disabled = !votesAvailable || votePending;
   const yesCount = votesAvailable ? escapeHtml(Math.max(0, Number(interaction.voteYesCount) || 0)) : "—";
@@ -354,8 +354,8 @@ function renderPublicPrograms(programs, available) {
     return '<div class="public-content-empty">' + escapeHtml(message) + '</div>';
   }
   return '<div class="public-program-list">' + programs.map(function (program) {
-    const title = escapeHtml(program.title);
-    const category = String(program && program.category || "").trim();
+    const title = escapeHtml(repairMojibake(program.title || "Untitled programme"));
+    const category = repairMojibake(String(program && program.category || "")).trim();
     const startDateValue = String(program.start_date || "").slice(0, 10);
     const startDate = publicDate(program.start_date);
     const endDate = publicDate(program.end_date);
@@ -369,11 +369,11 @@ function renderPublicPrograms(programs, available) {
       ? '<img class="public-program-post-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
       : "";
     const media = flyer ? '<div class="public-program-post-media">' + flyer + '</div>' : "";
-    const venue = String(program.venue || "").trim();
+    const venue = repairMojibake(String(program.venue || "")).trim();
     const venueMarkup = venue
       ? '<span class="public-program-post-venue"><span class="public-program-post-detail-label">Location</span><span>' + escapeHtml(venue) + '</span></span>'
       : "";
-    const description = String(program.description || "").trim();
+    const description = repairMojibake(String(program.description || "")).trim();
     const expanded = Boolean(state.programmeDescriptionsExpanded[program.id]);
     const descriptionId = "programme-description-" + String(program.id || "programme").replace(/[^a-z0-9_-]/gi, "").slice(0, 80);
     const descriptionIsLong = Array.from(description).length > PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT;
@@ -381,7 +381,7 @@ function renderPublicPrograms(programs, available) {
       ? '<div class="public-program-post-description"><p class="public-program-post-description-copy" id="' + descriptionId + '">' + escapeHtml(expanded ? description : excerptProgrammeDescription(description)) + '</p>' +
         (descriptionIsLong ? '<button class="public-program-read-more" type="button" data-action="toggle-programme-description" data-program-id="' + escapeHtml(program.id) + '" aria-controls="' + descriptionId + '" aria-expanded="' + expanded + '">' + (expanded ? "Show less" : "Read more") + '</button>' : "") + '</div>'
       : "";
-    const minister = String(program && program.minister || "").trim();
+    const minister = repairMojibake(String(program && program.minister || "")).trim();
     const eventDate = dateLabel
       ? '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time>'
       : "";
