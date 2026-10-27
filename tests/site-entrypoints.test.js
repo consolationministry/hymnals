@@ -9,7 +9,7 @@ const read = (name) => readFile(new URL("../" + name, import.meta.url), "utf8");
 const run = promisify(execFile);
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
-test("public homepage offers app installation and a separate hymn-reader route", async () => {
+test("public homepage offers native APK download and a browser-managed PWA install", async () => {
   const home = await read("index.html");
   assert.ok(home.includes("Download Android app"));
   assert.ok(home.includes("Proceed to the hymnal"));
@@ -18,11 +18,14 @@ test("public homepage offers app installation and a separate hymn-reader route",
   assert.ok(androidLink.includes('href="./consolation-hymnal-android.apk" download="consolation-hymnal-android.apk"'));
   assert.ok(!androidLink.includes("github.com"));
   assert.ok(home.includes('id="pwa-install"'));
-  assert.ok(home.includes('installButton.textContent="How to add to Home Screen"'));
-  assert.ok(!home.includes("beforeinstallprompt"));
-  assert.ok(!home.includes("deferredPrompt"));
+  assert.ok(home.includes('id="pwa-steps"'));
+  assert.ok(home.includes("beforeinstallprompt"));
+  assert.ok(home.includes("var promptEvent = deferredPrompt;"));
+  assert.ok(home.includes("await promptEvent.prompt()"));
+  assert.ok(home.includes('"appinstalled"'));
+  assert.ok(home.includes("Add to Home Screen"));
+  assert.ok(home.includes("Android keeps the final say."));
 });
-
 test("the hymn reader remains the web, PWA, and native Android launch page", async () => {
   const [reader, manifestText, capacitorText] = await Promise.all([
     read("hymnal.html"),
