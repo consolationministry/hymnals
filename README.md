@@ -1,6 +1,6 @@
 # Consolation Evangelical and Revival Church Hymnal
 
-The GitHub Pages homepage is the app install/download landing page at `/`; the hymn reader is available at `/hymnal.html`. The reader and Android app share a mobile-first interface and a Supabase-backed hymn catalog. Their uploaded English and Yorùbá collections remain separate; Capacitor packages the reader for Android.
+The GitHub Pages homepage at `/` welcomes visitors and introduces the church and hymnal app; the hymn reader is available at `/hymnal.html`. The reader and Android app share a mobile-first interface and a Supabase-backed hymn catalog. Their uploaded English and Yorùbá collections remain separate; Capacitor packages the reader for Android.
 
 ## What is included
 
@@ -35,7 +35,7 @@ npm ci
 npm run dev
 ```
 
-Serve the repository root with a static server (for example, `python3 -m http.server 8000`) or run `npm run dev`. Do not open the HTML files through `file://`. The homepage at `/` is the install page; use `/hymnal.html` to open the reader. `npm run build` generates both pages in the optimized `dist/` bundle used by Android.
+Serve the repository root with a static server (for example, `python3 -m http.server 8000`) or run `npm run dev`. Do not open the HTML files through `file://`. The homepage at `/` introduces the church, hymnal app, installation steps, and contact details; use `/hymnal.html` to open the reader. `npm run build` generates both pages in the optimized `dist/` bundle used by Android.
 
 ## Android debug APK
 
@@ -65,7 +65,7 @@ Updates require an internet connection. Android opens its package installer afte
 
 ## GitHub Pages
 
-GitHub Pages serves the public install page at `/` and the member reader at `/hymnal.html`. On Android, the homepage offers the signed native APK and a separate **Install web app** PWA. The APK flow can show transfer percentage, then saves the package and offers **Open Downloads** on supported Android browsers; users select the APK there and confirm Android's installer. The browser cannot identify or launch a specific local download automatically. The PWA button uses the browser install prompt when available and otherwise shows manual steps. On iPhone or iPad, the page explains how to add the web app from Safari. After a signed Android release succeeds, `.github/workflows/deploy-pages.yml` builds the site, adds the APK to the Pages bundle, and publishes both through GitHub Actions. The Pages publishing source must be **GitHub Actions**. The `download.html` URL redirects to the homepage. The PWA manifest and Capacitor's `server.appStartPath` both open `hymnal.html`, so adding the web app on iPhone or launching the Android APK starts in the reader. Android still requires the user to confirm an APK installation; a website cannot silently install a native app.
+GitHub Pages serves the welcome and app landing page at `/` and the hymn reader at `/hymnal.html`. The homepage introduces the church, signed Android APK, English and Yorùbá collections, installation steps, Sunday Service, and contact details. On Android, visitors download the signed APK, select **Open with** after the download finishes, and confirm Android's installer. The system download menu and final installation prompt are controlled by Android; a website cannot silently install an APK. The **Visit the web hymnal** link opens the browser reader instead of prompting users to install a PWA. After a signed Android release succeeds, `.github/workflows/deploy-pages.yml` builds the site, adds the APK to the Pages bundle, and publishes both through GitHub Actions. The Pages publishing source must be **GitHub Actions**. The `download.html` URL redirects to the homepage. The PWA manifest and Capacitor's `server.appStartPath` both open `hymnal.html`, so launching the Android APK starts in the reader.
 
 ## Hymn text and rights
 
