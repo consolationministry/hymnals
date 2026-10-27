@@ -1,4 +1,4 @@
-export const PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT = 260;
+export const PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT = 200;
 
 export function excerptProgrammeDescription(value, limit) {
   const text = String(value == null ? "" : value).trim();

@@ -1,4 +1,4 @@
-const CACHE_NAME = "consolation-hymnal-1.1.92-offline-audio";
+const CACHE_NAME = "consolation-hymnal-1.1.92-programme-posts";
 const PRECACHE_URLS = [
   "./",
   "./index.html",

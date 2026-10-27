@@ -368,10 +368,6 @@ function renderPublicPrograms(programs, available) {
       ? '<img class="public-program-post-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
       : "";
     const media = flyer ? '<div class="public-program-post-media">' + flyer + '</div>' : "";
-    const postedLabel = publicPostedDate(program.created_at);
-    const posted = postedLabel
-      ? '<time class="public-program-post-published" datetime="' + escapeHtml(program.created_at) + '">Posted ' + escapeHtml(postedLabel) + '</time>'
-      : "";
     const venue = String(program.venue || "").trim();
     const venueMarkup = venue
       ? '<p class="public-program-post-venue"><span class="public-program-post-detail-label">Location</span><span>' + escapeHtml(venue) + '</span></p>'
@@ -384,10 +380,17 @@ function renderPublicPrograms(programs, available) {
       ? '<div class="public-program-post-description"><p class="public-program-post-description-copy" id="' + descriptionId + '">' + escapeHtml(expanded ? description : excerptProgrammeDescription(description)) + '</p>' +
         (descriptionIsLong ? '<button class="public-program-read-more" type="button" data-action="toggle-programme-description" data-program-id="' + escapeHtml(program.id) + '" aria-controls="' + descriptionId + '" aria-expanded="' + expanded + '">' + (expanded ? "Show less" : "Read more") + '</button>' : "") + '</div>'
       : "";
+    const minister = String(program && program.minister || "").trim();
     const eventDate = dateLabel
-      ? '<div class="public-program-post-meta">' + publicStatusBadge(status) + '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time></div>'
-      : publicStatusBadge(status);
-    return '<article class="public-program-post"><header class="public-program-post-header"><h2 class="public-program-post-title">' + title + '</h2>' + posted + '</header>' + media + renderProgrammeInteractions(program) + '<div class="public-program-post-body">' + descriptionMarkup + eventDate + venueMarkup + '</div></article>';
+      ? '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time>'
+      : "";
+    const ministerMarkup = minister
+      ? '<span class="public-program-post-minister"><span class="public-program-post-detail-label">Minister</span><span>' + escapeHtml(minister) + '</span></span>'
+      : "";
+    const eventMetadata = eventDate || ministerMarkup || status
+      ? '<div class="public-program-post-meta">' + eventDate + ministerMarkup + publicStatusBadge(status) + '</div>'
+      : "";
+    return '<article class="public-program-post"><header class="public-program-post-header"><h2 class="public-program-post-title">' + title + '</h2></header>' + eventMetadata + media + '<div class="public-program-post-body">' + descriptionMarkup + venueMarkup + '</div>' + renderProgrammeInteractions(program) + '</article>';
   }).join("") + '</div>';
 }
 
