@@ -16,7 +16,7 @@ import {
 
 // Audio file the admin picked in the details form. It uploads when the form is saved.
 let pendingAudioFile = null;
-import { createLiveAudioId } from "../../js/live-audio-realtime.js";
+import { createLiveAudioId, subscribeLiveAudioBursts } from "../../js/live-audio-realtime.js";
 import { startLiveAudioRecording } from "../../js/live-audio-recording.js?v=2";
 import { AUDIO_CONTROL_SPECS, AUDIO_PRESETS, createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=4";
 import { buildWaveformBars, getWaveformDisplayGain, scaleWaveformBars } from "./live-audio-waveform.js";
@@ -50,6 +50,7 @@ let networkToastTimer = null;
 let studioInteractions = null;
 let studioBurstCursor = null;
 let studioBurstTimer = null;
+let studioBurstSub = null;
 const FEED_EMOJI = { love: "❤️", clap: "👏", fire: "🔥", like: "👍" };
 let studioInteractionsError = "";
 let studioRefreshTimer = null;
@@ -798,22 +799,37 @@ async function refreshStudioActivity(programId) {
   updateStudioActivity();
 }
 
+function showStudioBurst(reaction) {
+  const feed = document.querySelector("[data-studio-burst-feed]");
+  if (!feed) return;
+  const chip = document.createElement("span");
+  chip.className = "audio-studio-burst";
+  chip.textContent = FEED_EMOJI[reaction] || "•";
+  feed.appendChild(chip);
+  window.setTimeout(function () { chip.remove(); }, 2600);
+  while (feed.children.length > 60) feed.removeChild(feed.firstChild);
+}
+
+// Realtime push for the admin feed. The polling below stays as the fallback.
+function subscribeStudioBursts(programId) {
+  if (studioBurstSub) studioBurstSub.close();
+  studioBurstSub = null;
+  if (!programId) return;
+  studioBurstSub = subscribeLiveAudioBursts(programId, {
+    onBurst(burst) {
+      if (burst.id > (studioBurstCursor || 0)) studioBurstCursor = burst.id;
+      showStudioBurst(burst.reaction);
+    }
+  });
+}
+
 async function pollStudioBursts(programId) {
   if (!programId) return;
   try {
     const bursts = await loadAdminLiveAudioBursts(programId, studioBurstCursor);
     if (!bursts.length) return;
     studioBurstCursor = bursts[bursts.length - 1].id;
-    const feed = document.querySelector("[data-studio-burst-feed]");
-    if (!feed) return;
-    bursts.forEach(function (burst) {
-      const chip = document.createElement("span");
-      chip.className = "audio-studio-burst";
-      chip.textContent = FEED_EMOJI[burst.reaction] || "•";
-      feed.appendChild(chip);
-      window.setTimeout(function () { chip.remove(); }, 2600);
-    });
-    while (feed.children.length > 60) feed.removeChild(feed.firstChild);
+    bursts.forEach(function (burst) { showStudioBurst(burst.reaction); });
   } catch (error) {
     // Burst polling is best effort; the main activity refresh still reports errors.
   }
@@ -836,6 +852,7 @@ function startStudioTimers() {
   studioBurstTimer = window.setInterval(() => {
     if (activeBroadcastId) void pollStudioBursts(activeBroadcastId);
   }, 2000);
+  subscribeStudioBursts(activeBroadcastId);
 }
 
 function stopStudioTimers() {
@@ -843,6 +860,8 @@ function stopStudioTimers() {
   if (studioClockTimer) window.clearInterval(studioClockTimer);
   if (studioBurstTimer) window.clearInterval(studioBurstTimer);
   studioBurstTimer = null;
+  if (studioBurstSub) studioBurstSub.close();
+  studioBurstSub = null;
   studioRefreshTimer = null;
   studioClockTimer = null;
 }

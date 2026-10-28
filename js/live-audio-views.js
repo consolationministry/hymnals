@@ -121,10 +121,19 @@ function publicStreamOfflineSaved(data) {
 }
 
 function liveEndedBanner(program) {
+  const canSave = Boolean(program.recordingUrl && program.recordingPath);
+  const saveButton = canSave
+    ? '<button type="button" class="audio-live-ended-save" data-action="save-live-audio" data-program-id="' + escapeHtml(program.id) + '">Save / download recording</button>'
+    : '<span class="audio-live-ended-pending">The recording is still being prepared. Check back shortly.</span>';
   return '<div class="audio-live-ended-banner" role="status" aria-live="polite">' +
     '<span class="audio-live-ended-icon" aria-hidden="true">■</span>' +
-    '<div><strong>This live broadcast has ended</strong>' +
-    '<span>' + escapeHtml(program.title) + ' is no longer streaming. Thank you for listening.</span></div></div>';
+    '<div><strong>This programme has ended</strong>' +
+    '<span>' + escapeHtml(program.title) + ' is no longer streaming. Thank you for listening.</span>' +
+    '<div class="audio-live-ended-actions">' + saveButton + '</div></div></div>';
+}
+
+function liveEndingSpinner() {
+  return '<div class="audio-live-ending" role="status" aria-live="polite"><span class="audio-stream-loading-ring" aria-hidden="true"></span><p>Wrapping up the broadcast…</p></div>';
 }
 
 function audioPlayerButton(playerType, action, label, icon) {
@@ -286,7 +295,7 @@ export function renderLiveAudioListener(data, programId, options) {
     return '<div class="audio-listener-times"><output class="audio-listener-time" data-audio-current-time="' + playerType + '">0:00</output>' + (middle || "") +
       '<output class="audio-listener-time" data-audio-duration="' + playerType + '">--:--</output></div>';
   };
-  const endedNotice = opts.liveEnded && !isLive ? liveEndedBanner(program) : "";
+  const endedNotice = opts.liveEnding && !isLive ? liveEndingSpinner() : (opts.liveEnded && !isLive ? liveEndedBanner(program) : "");
   const openingOverlay = opts.opening
     ? '<div class="audio-stream-loading-overlay" role="status" aria-live="polite"><div class="audio-stream-loading-panel"><span class="audio-stream-loading-ring" aria-hidden="true"></span><p>searching for the stream</p></div></div>'
     : "";

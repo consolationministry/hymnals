@@ -21,7 +21,7 @@ import {
   togglePublicLiveAudioReaction,
   sendPublicLiveAudioBurst
 } from "./live-audio-public-data.js";
-import { createLiveAudioId } from "./live-audio-realtime.js";
+import { createLiveAudioId, subscribeLiveAudioBursts, getLiveAudioVisitorId } from "./live-audio-realtime.js";
 import { publicLiveAudioConnectionMessage, publicLiveAudioJoinError, publicLiveAudioNetworkIssue } from "./live-audio-status.js";
 import {
   createSavedLiveAudioPlaybackUrl,
@@ -62,7 +62,7 @@ const updateMessage = document.getElementById("update-message");
 const updateVersion = document.getElementById("update-version");
 const updateStatus = document.getElementById("update-status");
 const updateInstallButton = document.getElementById("update-install");
-const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, programmeSelectedId: null, programmeCategoryFilter: "", serviceSelectedId: null, serviceAimId: null, liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioJoinError: null, liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioSegmentPollTimer: null, liveAudioSegmentRequest: false, liveAudioSegmentRequestToken: 0, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, settings: getSettings(), toastTimer: null };
+const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, programmeSelectedId: null, programmeCategoryFilter: "", serviceSelectedId: null, serviceAimId: null, liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioJoinError: null, liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioSegmentPollTimer: null, liveAudioSegmentRequest: false, liveAudioSegmentRequestToken: 0, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioEnding: false, liveAudioEndingTimer: null, liveAudioBurstSub: null, liveAudioBurstProgramId: "", liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
@@ -724,7 +724,8 @@ function render() {
         joinError: state.liveAudioJoinError,
         loading: state.liveAudioLoading && navigator.onLine !== false && !liveAudioViewData.programs.length,
         networkError: navigator.onLine === false || Boolean(state.liveAudioError && /network|connection|reach/i.test(state.liveAudioError)),
-        liveEnded: state.liveAudioStatusCode === "ended",
+        liveEnded: state.liveAudioStatusCode === "ended" && !state.liveAudioEnding,
+        liveEnding: state.liveAudioEnding,
         opening: Boolean(state.liveAudioOpening),
         previousProgramId: liveAudioNeighbourId(-1),
         nextProgramId: liveAudioNeighbourId(1)
@@ -857,6 +858,7 @@ async function refreshLiveAudioData() {
     const data = await loadPublicLiveAudioData();
     if (requestToken !== state.liveAudioRequestToken) return;
     state.liveAudioData = data;
+    ensureLiveAudioBurstSubscription();
     if (state.selectedLiveAudioProgramId && state.liveAudioListener) {
       const current = data.programs.find(program => program.id === state.selectedLiveAudioProgramId);
       if (!current || !current.onAir || current.liveSessionId !== state.liveAudioSessionId) {
@@ -866,6 +868,7 @@ async function refreshLiveAudioData() {
         state.liveAudioConnecting = false;
         state.liveAudioStatusCode = "ended";
         state.liveAudioConnectionStatus = "This broadcast has ended.";
+        beginLiveAudioEnding();
         stopLiveAudioTimer();
         stopAudioPlayer(main.querySelector("[data-live-audio-player]"));
         if (listener) listener.stop().catch(() => {});
@@ -943,12 +946,15 @@ function startLiveAudioRefresh() {
   state.liveAudioPollTimer = window.setInterval(function () {
     if (state.view === "listen" && navigator.onLine !== false) void refreshLiveAudioData();
   }, 25000);
+  ensureLiveAudioBurstSubscription();
   state.liveAudioSegmentPollTimer = window.setInterval(function () {
     void refreshWaitingLiveAudioSegment();
   }, 2500);
 }
 
 function stopLiveAudioRefresh() {
+  if (state.liveAudioBurstSub) { state.liveAudioBurstSub.close(); state.liveAudioBurstSub = null; }
+  state.liveAudioBurstProgramId = "";
   if (state.liveAudioPollTimer) window.clearInterval(state.liveAudioPollTimer);
   if (state.liveAudioSegmentPollTimer) window.clearInterval(state.liveAudioSegmentPollTimer);
   state.liveAudioPollTimer = null;
@@ -956,6 +962,56 @@ function stopLiveAudioRefresh() {
   state.liveAudioSegmentRequest = false;
   state.liveAudioSegmentRequestToken += 1;
   state.liveAudioRequestToken += 1;
+}
+
+// Shows a short spinner, then the "programme has ended" banner with save/download.
+function beginLiveAudioEnding() {
+  state.liveAudioEnding = true;
+  if (state.liveAudioEndingTimer) window.clearTimeout(state.liveAudioEndingTimer);
+  state.liveAudioEndingTimer = window.setTimeout(function () {
+    state.liveAudioEnding = false;
+    state.liveAudioEndingTimer = null;
+    if (state.view === "listen") render();
+  }, 1600);
+}
+
+// Keeps one realtime burst subscription for the programme on air; polling stays as the fallback.
+function ensureLiveAudioBurstSubscription() {
+  const programId = state.view === "listen" ? state.selectedLiveAudioProgramId : null;
+  const data = state.liveAudioData;
+  const program = programId && data ? data.programs.find(item => item.id === programId) : null;
+  const wanted = Boolean(program && program.onAir && program.liveSessionId);
+  if (!wanted) {
+    if (state.liveAudioBurstSub) { state.liveAudioBurstSub.close(); state.liveAudioBurstSub = null; }
+    state.liveAudioBurstProgramId = "";
+    return;
+  }
+  if (state.liveAudioBurstSub && state.liveAudioBurstProgramId === programId) return;
+  if (state.liveAudioBurstSub) state.liveAudioBurstSub.close();
+  state.liveAudioBurstProgramId = programId;
+  const myVisitor = getLiveAudioVisitorId();
+  state.liveAudioBurstSub = subscribeLiveAudioBursts(programId, {
+    onBurst(burst) {
+      // Own reactions already float locally on tap; show everyone else's.
+      if (burst.visitorId === myVisitor || state.view !== "listen") return;
+      spawnFloatingBurst(burst.reaction);
+    }
+  });
+}
+
+function spawnFloatingBurst(reaction) {
+  const page = document.querySelector(".audio-listener-page");
+  if (!page) return;
+  const emoji = { love: "❤️", clap: "👏", fire: "🔥", like: "👍" }[reaction] || "👍";
+  const float = document.createElement("span");
+  float.className = "audio-float-emoji";
+  float.setAttribute("aria-hidden", "true");
+  float.textContent = emoji;
+  float.style.left = (20 + Math.random() * 60) + "%";
+  float.style.top = (40 + Math.random() * 30) + "%";
+  float.style.setProperty("--drift", String(Math.round(Math.random() * 60 - 30)) + "px");
+  page.appendChild(float);
+  window.setTimeout(function () { float.remove(); }, 1400);
 }
 
 function stopLiveAudioConnection() {
@@ -1041,6 +1097,7 @@ function updateLiveAudioConnectionStatus(connectToken, status) {
     stopLiveAudioTimer();
     stopAudioPlayer(main.querySelector("[data-live-audio-player]"));
     if (listener) listener.stop().catch(() => {});
+    if (status === "ended") beginLiveAudioEnding();
     render();
     if (status === "ended") void refreshLiveAudioData();
     return;

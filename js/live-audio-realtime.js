@@ -381,3 +381,126 @@ export async function makeAudioPeerConnection(options) {
     iceServers
   });
 }
+
+
+// Realtime reaction bursts. Subscribes to INSERTs on live_audio_reaction_bursts for one
+// programme. Rows are delivered only while the programme is on air (RLS select policy).
+// Returns { close() }. Callers keep their polling fallback running alongside this.
+export function subscribeLiveAudioBursts(programId, callbacks) {
+  if (!UUID_PATTERN.test(String(programId || "")) || !isLiveAudioBackendConfigured()) {
+    return { close() {} };
+  }
+  const WebSocketClass = globalThis.WebSocket;
+  if (!WebSocketClass) return { close() {} };
+  const opts = callbacks || {};
+  const topic = "realtime:live-audio-bursts:" + programId;
+  let socket = null;
+  let closed = false;
+  let ref = 0;
+  let joinRef = "";
+  let heartbeat = null;
+  let reconnectTimer = null;
+  let delay = 1000;
+
+  const send = (event, payload, frameTopic) => {
+    if (!socket || socket.readyState !== 1) return;
+    ref += 1;
+    try {
+      socket.send(JSON.stringify({ topic: frameTopic || topic, event, payload: payload || {}, ref: String(ref), join_ref: joinRef }));
+    } catch (error) { /* socket will reconnect */ }
+  };
+  const stopHeartbeat = () => { if (heartbeat) globalThis.clearInterval(heartbeat); heartbeat = null; };
+  const scheduleReconnect = () => {
+    if (closed || reconnectTimer !== null) return;
+    stopHeartbeat();
+    reconnectTimer = globalThis.setTimeout(() => {
+      reconnectTimer = null;
+      open();
+    }, delay);
+    delay = Math.min(30000, delay * 2);
+  };
+  const open = () => {
+    if (closed) return;
+    let current;
+    try { current = new WebSocketClass(signalEndpoint()); } catch (error) { scheduleReconnect(); return; }
+    socket = current;
+    current.addEventListener("open", () => {
+      if (closed || socket !== current) return;
+      ref += 1;
+      joinRef = String(ref);
+      current.send(JSON.stringify({
+        topic,
+        event: "phx_join",
+        payload: {
+          config: {
+            broadcast: { ack: false, self: false },
+            presence: { key: "" },
+            private: false,
+            postgres_changes: [{
+              event: "INSERT",
+              schema: "public",
+              table: "live_audio_reaction_bursts",
+              filter: "program_id=eq." + programId
+            }]
+          },
+          access_token: SUPABASE_PUBLISHABLE_KEY
+        },
+        ref: joinRef,
+        join_ref: joinRef
+      }));
+    });
+    current.addEventListener("message", event => {
+      if (closed || socket !== current) return;
+      let message;
+      try { message = JSON.parse(event.data); } catch (error) { return; }
+      if (message.topic !== topic) return;
+      if (message.event === "phx_reply" && message.ref === joinRef) {
+        if (message.payload && message.payload.status === "ok") {
+          delay = 1000;
+          stopHeartbeat();
+          heartbeat = globalThis.setInterval(() => send("heartbeat", {}, "phoenix"), 25000);
+          if (opts.onStatus) opts.onStatus("connected");
+        } else {
+          try { current.close(1011, "burst channel could not join"); } catch (error) {}
+          scheduleReconnect();
+        }
+        return;
+      }
+      if (message.event === "postgres_changes" && message.payload && message.payload.data) {
+        const data = message.payload.data;
+        if (data.type === "INSERT" && data.record && opts.onBurst) {
+          opts.onBurst({
+            id: Number(data.record.id) || 0,
+            reaction: String(data.record.reaction || ""),
+            visitorId: String(data.record.visitor_id || ""),
+            createdAt: String(data.record.created_at || "")
+          });
+        }
+      }
+      if (message.event === "system" && message.payload && message.payload.status === "error") {
+        try { current.close(1011, "burst channel error"); } catch (error) {}
+      }
+    });
+    current.addEventListener("close", () => {
+      if (closed || socket !== current) return;
+      socket = null;
+      if (opts.onStatus) opts.onStatus("reconnecting");
+      scheduleReconnect();
+    });
+    current.addEventListener("error", () => {});
+  };
+
+  open();
+  return {
+    close() {
+      if (closed) return;
+      closed = true;
+      stopHeartbeat();
+      if (reconnectTimer !== null) globalThis.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      const current = socket;
+      socket = null;
+      if (current) { try { current.close(1000, "bursts closed"); } catch (error) {} }
+    }
+  };
+}
