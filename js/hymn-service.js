@@ -1,9 +1,8 @@
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
-import { DEFAULT_ACTIVE_HYMNAL, filterHymnsForActiveHymnal, isActiveHymnalId, isManagedHymnSource, normalizeActiveHymnal, UPLOADED_HYMN_SOURCE, UPLOADED_YORUBA_HYMN_SOURCE } from "./hymnal-selection.js";
+import { isManagedHymnSource, UPLOADED_HYMN_SOURCE, UPLOADED_YORUBA_HYMN_SOURCE } from "./hymnal-selection.js";
 
-const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-dual-v7";
-const ACTIVE_HYMNAL_CACHE_KEY = "cerc-active-hymnal-v2";
+const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-unified-v8";
 const PUBLIC_HYMN_COLUMNS = [
   "id",
   "hymn_number",
@@ -101,34 +100,6 @@ function normalizePublishedRows(rows) {
   return normalized;
 }
 
-async function fetchActiveHymnal() {
-  const cached = normalizeActiveHymnal(readLocal(ACTIVE_HYMNAL_CACHE_KEY, DEFAULT_ACTIVE_HYMNAL));
-  if (typeof fetch !== "function" || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return cached;
-  try {
-    const response = await fetch(
-      SUPABASE_URL.replace(/\/+$/, "") + "/rest/v1/rpc/get_active_hymnal",
-      {
-        method: "POST",
-        cache: "no-store",
-        headers: {
-          apikey: SUPABASE_PUBLISHABLE_KEY,
-          authorization: "Bearer " + SUPABASE_PUBLISHABLE_KEY,
-          "content-type": "application/json",
-          accept: "application/json"
-        },
-        body: "{}"
-      }
-    );
-    if (!response.ok) return cached;
-    const selection = await response.json();
-    if (!isActiveHymnalId(selection)) return cached;
-    writeLocal(ACTIVE_HYMNAL_CACHE_KEY, selection);
-    return selection;
-  } catch (error) {
-    return cached;
-  }
-}
-
 async function fetchPublishedHymns() {
   if (typeof fetch !== "function" || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return null;
   const query = new URLSearchParams({
@@ -138,8 +109,7 @@ async function fetchPublishedHymns() {
   });
 
   try {
-    const [activeHymnal, response] = await Promise.all([
-      fetchActiveHymnal(),
+    const response = await (
       fetch(
         SUPABASE_URL.replace(/\/+$/, "") + "/rest/v1/hymns?" + query.toString(),
         {
@@ -152,13 +122,12 @@ async function fetchPublishedHymns() {
           }
         }
       )
-    ]);
+    );
     if (!response.ok) return null;
     const rows = normalizePublishedRows(await response.json());
     if (rows === null) return null;
-    const activeRows = filterHymnsForActiveHymnal(rows, activeHymnal);
-    writeLocal(PUBLISHED_HYMNS_CACHE_KEY, activeRows);
-    return activeRows;
+    writeLocal(PUBLISHED_HYMNS_CACHE_KEY, rows);
+    return rows;
   } catch (error) {
     return null;
   }
@@ -168,7 +137,7 @@ export async function getAllHymns() {
   if (published !== null) return published;
 
   const cached = normalizePublishedRows(readLocal(PUBLISHED_HYMNS_CACHE_KEY, null));
-  return cached === null ? [] : filterHymnsForActiveHymnal(cached, normalizeActiveHymnal(readLocal(ACTIVE_HYMNAL_CACHE_KEY, DEFAULT_ACTIVE_HYMNAL)));
+  return cached === null ? [] : cached;
 }
 
 export async function getHymnByNumber(number) {

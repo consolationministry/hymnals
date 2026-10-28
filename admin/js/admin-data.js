@@ -1,7 +1,7 @@
 import repositoryHymns from "../../data/uploaded-hymns.js";
 import repositoryYorubaHymns from "../../data/uploaded-yoruba-hymns.js";
 import { findMissingHymnsByNumber } from "./hymn-catalog-sync.js";
-import { DEFAULT_ACTIVE_HYMNAL, isActiveHymnalId, isManagedHymnSource } from "../../js/hymnal-selection.js";
+import { isManagedHymnSource } from "../../js/hymnal-selection.js";
 import { requireAdmin } from "./admin-auth.js?v=31";
 import { supabaseRequest } from "./supabase-client.js?v=31";
 
@@ -353,8 +353,6 @@ export async function getAdminSettings() {
   return {
     defaultHymnCategory: row && row.default_hymn_category || "",
     defaultTheme: row && row.default_theme || "system",
-    activeHymnal: row && isActiveHymnalId(row.active_hymnal) ? row.active_hymnal : DEFAULT_ACTIVE_HYMNAL,
-    activeHymnalConfigured: Boolean(row && Object.prototype.hasOwnProperty.call(row, "active_hymnal"))
   };
 }
 
@@ -363,13 +361,10 @@ export async function updateAdminSettings(value) {
   const current = await getAdminSettings();
   const category = typeof data.defaultHymnCategory === "string" ? data.defaultHymnCategory.trim() : current.defaultHymnCategory;
   const theme = typeof data.defaultTheme === "string" ? data.defaultTheme : current.defaultTheme;
-  const activeHymnal = data.activeHymnal === undefined ? current.activeHymnal : data.activeHymnal;
   const categories = await getCategories();
   if (category && !categories.includes(category)) throw new Error("Choose a category that still exists.");
   if (!["system", "light", "dark"].includes(theme)) throw new Error("Choose light, dark, or device theme.");
-  if (!isActiveHymnalId(activeHymnal)) throw new Error("Choose one of the available hymn collections.");
   const settingsUpdate = { default_hymn_category: category || null, default_theme: theme };
-  if (data.activeHymnal !== undefined) settingsUpdate.active_hymnal = activeHymnal;
   await adminRequest("rest/v1/admin_settings?id=eq." + GLOBAL_ROW_ID, {
     method: "PATCH",
     prefer: "return=representation",

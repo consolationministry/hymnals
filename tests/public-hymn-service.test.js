@@ -2,10 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import uploadedHymns from "../data/uploaded-hymns.js";
 import { getAllHymns, getHymnByNumber } from "../js/hymn-service.js";
-import { filterHymnsForActiveHymnal } from "../js/hymnal-selection.js";
 import { writeLocal } from "../js/local-store.js";
 
-const PUBLISHED_CACHE_KEY = "cerc-published-hymns-dual-v7";
+const PUBLISHED_CACHE_KEY = "cerc-published-hymns-unified-v8";
 
 function installStorage() {
   const values = new Map();
@@ -50,10 +49,6 @@ test("the active filter keeps the uploaded English and Yorùbá collections sepa
     yoruba,
     { source_hymnal: "Community Hymnal" }
   ];
-  assert.deepEqual(filterHymnsForActiveHymnal(rows, "both"), [english, yoruba]);
-  assert.deepEqual(filterHymnsForActiveHymnal(rows, "uploaded"), [english]);
-  assert.deepEqual(filterHymnsForActiveHymnal(rows, "yoruba"), [yoruba]);
-  assert.deepEqual(filterHymnsForActiveHymnal(rows, "cac"), [english, yoruba]);
 });
 
 test("the public catalog does not fall back to bundled hymns when offline", async () => {
@@ -76,7 +71,6 @@ test("published results include both uploaded collections and keep drafts hidden
   const values = installStorage();
   let hymnRequest;
   globalThis.fetch = async function (url, options) {
-    if (String(url).includes("/rpc/get_active_hymnal")) return response("both");
     hymnRequest = { url: String(url), options };
     return response([
       { id: "uploaded-2", hymn_number: 10038, source_hymn_number: 63, title_en: "Uploaded variant", source_hymnal: "Uploaded Hymn Collection", category: "Consolation Hymn", status: "published", verses_en: ["Uploaded verse"] },
