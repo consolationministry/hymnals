@@ -70,9 +70,10 @@ test("programme announcements are sorted by latest post date", async () => {
 test("public programme cards order the header, details, description, flyer, and votes", () => {
   assert.match(appSource, /pageHeading\("Upcoming Programmes"\)/);
   assert.doesNotMatch(appSource, /Programme posts and flyers, newest announcement first/);
-  assert.match(appSource, /const category = repairMojibake\(String\(program && program\.category \|\| ""\)\)\.trim\(\);/);
+  assert.match(appSource, /function programmeCategory\(program\) \{/);
   assert.match(appSource, /class="public-program-post-category"/);
-  assert.match(appSource, /'<\/h2>' \+ categoryMarkup \+ '<\/header>' \+ eventMetadata \+ descriptionSection \+ media \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
+  assert.match(appSource, /data-action="open-programme"/);
+  assert.match(appSource, /header \+ eventMetadata \+ descriptionSection \+ media \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
   assert.match(appSource, /const minister = repairMojibake\(String\(program && program\.minister \|\| ""\)\)\.trim\(\);/);
   assert.match(appSource, /public-program-post-minister/);
   assert.match(adminSource, /name="minister"/);
@@ -94,7 +95,7 @@ test("public programme cards order the header, details, description, flyer, and 
   assert.doesNotMatch(appSource, /programme-comments|data-programme-comment-form|submitPublicProgrammeComment|postProgrammeComment/);
   assert.match(styleSource, /\.public-programs-page \{ width: 100%; max-width: none; \}/);
   assert.match(styleSource, /\.public-program-list \{ display: grid; width: min\(100%, 720px\); max-width: 100%;/);
-  assert.match(styleSource, /\.public-program-post-header \{ display: flex; align-items: flex-start; justify-content: space-between;/);
+  assert.match(styleSource, /\.public-program-post-header \{ display: flex; align-items: center; gap: 10px;/);
   assert.match(styleSource, /\.programme-vote-options \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
   assert.doesNotMatch(styleSource, /\.programme-vote-options \{ grid-template-columns: 1fr; \}/);
   assert.doesNotMatch(styleSource, /\.programme-comment/);

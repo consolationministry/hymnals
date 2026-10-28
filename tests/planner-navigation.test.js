@@ -41,17 +41,18 @@ test("public home removes the live-audio banner and adds Stream Live to the menu
 test("Upcoming Programmes renders centered social-feed cards with flyers and voting", () => {
   assert.match(memberContent, /programmeSortTime/);
   assert.match(memberContent, /return programmeSortTime\(right\) - programmeSortTime\(left\)/);
-  assert.match(memberApp, /const category = repairMojibake\(String\(program && program\.category \|\| ""\)\)\.trim\(\);/);
+  assert.match(memberApp, /function programmeCategory\(program\) \{/);
   assert.match(memberApp, /class="public-program-post-category"/);
+  assert.match(memberApp, /data-action="open-programme"/);
   assert.match(memberApp, /const minister = repairMojibake\(String\(program && program\.minister \|\| \"\"\)\)\.trim\(\);/);
   assert.match(memberApp, /const eventDate = dateLabel/);
   assert.match(memberApp, /class="public-program-post-flyer"/);
-  assert.match(memberApp, /return '<article class="public-program-post">/);
+  assert.match(memberApp, /return '<article class="public-program-post' \+ \(detail/);
   assert.match(memberApp, /class="public-program-post-description"/);
-  assert.match(memberApp, /'<\/header>' \+ eventMetadata \+ descriptionSection \+ media \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
+  assert.match(memberApp, /header \+ eventMetadata \+ descriptionSection \+ media \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
   assert.doesNotMatch(memberApp, /Church programme|public-program-post-kicker/);
   assert.match(memberStyles, /\.public-program-post-header/);
-  assert.match(memberStyles, /\.public-program-post-flyer\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*max-height:[^;]+;[^}]*height:\s*auto;[^}]*object-fit:\s*contain;/);
+  assert.match(memberStyles, /\.public-program-post-flyer\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*object-fit:\s*cover;/);
   assert.match(memberStyles, /\.public-program-list\s*\{[^}]*width:\s*min\(100%, 720px\);[^}]*max-width:\s*100%;/);
 });
 

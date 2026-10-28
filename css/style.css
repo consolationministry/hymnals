@@ -153,16 +153,27 @@ button { -webkit-tap-highlight-color: transparent; }
 .public-program-list { display: grid; width: min(100%, 720px); max-width: 100%; gap: 16px; margin: 0 auto; }
 .public-service-list { display: grid; gap: 12px; }
 .public-program-post, .public-service-card { overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 2px 8px rgba(45, 28, 57, .08); }
-.public-program-post-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 17px 18px 8px; }
-.public-program-post-title { flex: 1 1 auto; min-width: 0; margin: 0; color: var(--ink); font-size: clamp(1.1rem, 2.4vw, 1.35rem); font-weight: 800; line-height: 1.3; overflow-wrap: anywhere; }
-.public-program-post-category { flex: 0 1 auto; max-width: min(44%, 250px); padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--accent); background: var(--accent-soft); font-size: .73rem; font-weight: 800; line-height: 1.25; text-align: right; overflow-wrap: anywhere; }
-.public-program-post-media { display: block; width: 100%; max-height: min(80vh, 760px); background: var(--surface-soft); }
-.public-program-post-flyer { display: block; width: 100%; max-width: 100%; max-height: min(80vh, 760px); height: auto; margin: 0; object-fit: contain; background: var(--surface-soft); }
+.public-program-post-header { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; }
+.public-program-post-avatar { flex: 0 0 auto; width: 42px; height: 42px; border: 1px solid var(--line); border-radius: 50%; object-fit: cover; background: var(--surface-soft); }
+.public-program-post-identity { flex: 1 1 auto; min-width: 0; }
+.public-program-post-title { margin: 0; color: var(--ink); font-size: 1rem; font-weight: 800; line-height: 1.3; overflow-wrap: anywhere; }
+.public-program-post-title-button { display: inline; max-width: 100%; margin: 0; padding: 2px 4px; border: 0; border-radius: 6px; color: var(--ink); background: transparent; font: inherit; font-weight: 800; text-align: left; overflow-wrap: anywhere; cursor: pointer; text-decoration: none; transition: color .15s ease, background .15s ease, text-decoration-color .15s ease; }
+.public-program-post-title-button:hover { color: var(--accent); background: var(--accent-soft); text-decoration: underline; }
+.public-program-post-title-button:active { transform: scale(.985); background: var(--surface-soft); }
+.public-program-post-title-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.public-program-post-category { flex: 0 1 auto; max-width: min(40%, 200px); min-height: 34px; margin: 0; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--accent); background: var(--accent-soft); font: inherit; font-size: .73rem; font-weight: 800; line-height: 1.25; text-align: center; overflow-wrap: anywhere; cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease, transform .1s ease; }
+.public-program-post-category:hover { color: #fff; background: var(--accent); border-color: var(--accent); }
+.public-program-post-category:active { transform: scale(.96); }
+.public-program-post-category:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.public-program-post-media { display: block; width: 100%; height: 260px; overflow: hidden; background: var(--surface-soft); }
+.public-program-post-flyer { display: block; width: 100%; height: 100%; max-width: 100%; margin: 0; object-fit: cover; background: var(--surface-soft); }
 .public-program-post-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; padding: 0 18px 11px; color: var(--muted); }
 .public-program-post-body { display: grid; gap: 12px; padding: 0 18px 14px; }
 .public-program-post-description { margin: 0; color: var(--ink); font-size: .96rem; line-height: 1.55; overflow-wrap: anywhere; white-space: pre-wrap; }
 .public-program-post-description-copy { margin: 0; }
-.public-program-read-more { margin-top: 4px; padding: 2px 0; border: 0; color: var(--accent); background: transparent; font: inherit; font-size: .9rem; font-weight: 750; cursor: pointer; }
+.public-program-read-more:hover { color: var(--ink); text-decoration: underline; }
+.public-program-read-more:active { opacity: .7; }
+.public-program-read-more { margin-top: 4px; padding: 2px 0; transition: color .15s ease, text-decoration-color .15s ease; border: 0; color: var(--accent); background: transparent; font: inherit; font-size: .9rem; font-weight: 750; cursor: pointer; }
 .public-program-read-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 .public-program-post-event-date { color: var(--ink); font-size: .9rem; font-weight: 750; }
 .public-program-post-minister { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--ink); font-size: .88rem; }
@@ -181,9 +192,20 @@ button { -webkit-tap-highlight-color: transparent; }
 .programme-vote-button:disabled { opacity: .58; cursor: not-allowed; }
 .programme-vote-status { margin: 0; color: var(--muted); font-size: .79rem; }
 
+.public-program-filter { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 auto 12px; width: min(100%, 720px); padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; color: var(--muted); background: var(--surface); font-size: .9rem; }
+.public-program-filter strong { color: var(--accent); }
+.public-programs-detail-page .public-program-list, .public-program-detail .public-program-post-detail { width: 100%; }
+.public-program-back { margin: 0 auto 12px; width: min(100%, 720px); }
+.public-program-post-detail { width: min(100%, 720px); margin: 0 auto; }
+.public-program-post-detail .public-program-post-title { font-size: clamp(1.25rem, 3vw, 1.6rem); }
+.public-program-post-detail .public-program-post-media { height: min(72vh, 620px); }
+.public-program-post-detail .public-program-post-flyer { height: 100%; }
+.public-program-post-detail .public-program-post-description { font-size: 1.02rem; }
+
 @media (max-width: 480px) {
   .public-program-post-header { gap: 8px; padding: 15px 14px 7px; }
-  .public-program-post-category { max-width: 42%; padding: 5px 8px; font-size: .68rem; }
+  .public-program-post-category { max-width: 42%; min-height: 30px; padding: 5px 9px; font-size: .68rem; }
+  .public-program-post-media { height: 210px; }
   .public-program-post-meta { padding: 0 14px 10px; }
   .public-program-post-body { padding: 0 14px 13px; }
   .programme-interactions { padding-right: 14px; padding-left: 14px; }
