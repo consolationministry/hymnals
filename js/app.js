@@ -183,8 +183,13 @@ function pageHeading(title, subtitle) {
   return '<div class="page-heading"><h1>' + escapeHtml(title) + '</h1>' + subtitleMarkup + '</div>';
 }
 
+function compareByPrintedNumber(a, b) {
+  const pa = Number(a.source_hymn_number || a.hymn_number), pb = Number(b.source_hymn_number || b.hymn_number);
+  return pa - pb || Number(a.hymn_number) - Number(b.hymn_number);
+}
+
 function renderHome() {
-  const matchingHymns = state.query ? rankHymnResults(state.hymns, state.query) : state.hymns.slice().sort(function (a, b) { return Number(a.hymn_number) - Number(b.hymn_number); });
+  const matchingHymns = state.query ? rankHymnResults(state.hymns, state.query) : state.hymns.slice().sort(compareByPrintedNumber);
   const visibleHymns = matchingHymns;
   let collection;
   if (!visibleHymns.length) {
@@ -195,7 +200,7 @@ function renderHome() {
   return '<section class="page home-page">' + renderHomeSearch() + collection + '</section>';
 }
 function renderHymnLibrary() {
-  const results = searchHymns(state.hymns, state.query, "").slice().sort(function (a, b) { return Number(a.hymn_number) - Number(b.hymn_number); });
+  const results = searchHymns(state.hymns, state.query, "").slice().sort(compareByPrintedNumber);
   const caption = state.query ? "Search results" : "All hymns";
   const emptyTitle = "No matching hymns";
   const emptyMessage = state.query ? "Try another number, title, word, or first line." : "No hymns are available.";
@@ -553,7 +558,7 @@ function renderReader() {
     ? poemSection("English", hymn.verses_en, hymn.chorus_en, "en", showEnglishGospelMeterHeading)
     : poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo", false, hymn.hymnal_note);
   const translationNote = "";
-  return '<section class="page reader-page"><div class="reader-topbar"><button class="reader-back" type="button" data-action="back" data-testid="button-reader-back">' + icon("arrow") + ' Back</button><div class="reader-actions">' + favoriteButton(hymn) + '<button class="icon-button" type="button" data-action="share" data-number="' + hymn.hymn_number + '" aria-label="Share hymn ' + number + '" data-testid="button-share-hymn">' + icon("share") + '</button></div></div><header class="reader-heading"><div class="reader-edition"><span class="hymn-number">' + number + '</span><span>' + escapeHtml(displayHymnalName(hymn)) + '</span></div><h1>' + title + '</h1><p class="reader-first-line">' + firstLine + '</p></header><div class="reader-meta">' + languageToggle() + '<div class="reading-size" role="group" aria-label="Change hymn text size"><button type="button" data-action="font-decrease" aria-label="Decrease hymn text size" data-testid="button-font-decrease">A−</button><output id="reader-font-size">' + state.settings.fontSize + ' px</output><button type="button" data-action="font-increase" aria-label="Increase hymn text size" data-testid="button-font-increase">A+</button></div></div><div class="hymn-reading">' + translationNote + sections + '</div><footer class="reader-footer"><button class="text-link" type="button" data-action="share" data-number="' + hymn.hymn_number + '">' + icon("share") + ' Share hymn</button></footer></section>';
+  return '<section class="page reader-page"><div class="reader-topbar"><button class="reader-back" type="button" data-action="back" data-testid="button-reader-back">' + icon("arrow") + ' Back</button><div class="reader-actions">' + favoriteButton(hymn) + '<button class="icon-button" type="button" data-action="share" data-number="' + hymn.hymn_number + '" aria-label="Share hymn ' + number + '" data-testid="button-share-hymn">' + icon("share") + '</button></div></div><header class="reader-heading"><div class="reader-edition"><span class="hymn-number">' + number + '</span><span>' + escapeHtml(displayHymnalName(hymn)) + '</span></div><h1>' + title + '</h1><p class="reader-first-line">' + firstLine + '</p></header><div class="reader-meta">' + '<div class="reading-size" role="group" aria-label="Change hymn text size"><button type="button" data-action="font-decrease" aria-label="Decrease hymn text size" data-testid="button-font-decrease">A−</button><output id="reader-font-size">' + state.settings.fontSize + ' px</output><button type="button" data-action="font-increase" aria-label="Increase hymn text size" data-testid="button-font-increase">A+</button></div></div><div class="hymn-reading">' + translationNote + sections + '</div><footer class="reader-footer"><button class="text-link" type="button" data-action="share" data-number="' + hymn.hymn_number + '">' + icon("share") + ' Share hymn</button></footer></section>';
 }
 
 function themeChoice(theme, label, iconName) {
