@@ -41,9 +41,9 @@ test("public home removes the live-audio banner and adds Stream Live to the menu
 test("Upcoming Programmes renders centered social-feed cards with flyers and voting", () => {
   assert.match(memberContent, /programmeSortTime/);
   assert.match(memberContent, /return programmeSortTime\(right\) - programmeSortTime\(left\)/);
-  assert.match(memberApp, /const category = String\(program && program\.category \|\| ""\)\.trim\(\);/);
+  assert.match(memberApp, /const category = repairMojibake\(String\(program && program\.category \|\| ""\)\)\.trim\(\);/);
   assert.match(memberApp, /class="public-program-post-category"/);
-  assert.match(memberApp, /const minister = String\(program && program\.minister \|\| \"\"\)\.trim\(\);/);
+  assert.match(memberApp, /const minister = repairMojibake\(String\(program && program\.minister \|\| \"\"\)\)\.trim\(\);/);
   assert.match(memberApp, /const eventDate = dateLabel/);
   assert.match(memberApp, /class="public-program-post-flyer"/);
   assert.match(memberApp, /return '<article class="public-program-post">/);
