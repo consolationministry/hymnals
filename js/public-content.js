@@ -1,7 +1,7 @@
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
 
-const PROGRAMS_CACHE_KEY = "cerc-public-programs-v4";
+const PROGRAMS_CACHE_KEY = "cerc-public-programs-v5";
 const SERVICE_PLANS_CACHE_KEY = "cerc-public-service-plans-v2";
 
 function localDateKey(date) {
@@ -103,10 +103,12 @@ export async function getMemberContent() {
   const [programResult, planResult] = await Promise.all([
     fetchRows(
       "programs",
-      "id,title,description,venue,start_date,end_date,flyer_data_url,created_at,response_question,yes_label,no_label",
+      "id,title,minister,category,description,venue,start_date,end_date,flyer_data_url,created_at,response_question,yes_label,no_label",
       "created_at.desc",
       PROGRAMS_CACHE_KEY,
       [
+        { select: "id,title,minister,description,venue,start_date,end_date,flyer_data_url,created_at,response_question,yes_label,no_label", order: "created_at.desc" },
+        { select: "id,title,description,venue,start_date,end_date,flyer_data_url,created_at,response_question,yes_label,no_label", order: "created_at.desc" },
         { select: "id,title,venue,start_date,end_date,flyer_data_url,created_at", order: "created_at.desc" },
         { select: "id,title,venue,start_date,end_date,flyer_data_url", order: "start_date.desc" }
       ]

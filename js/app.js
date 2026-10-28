@@ -5,7 +5,7 @@ import { addRecent, getRecentNumbers } from "./recent.js";
 import { getReadingParts } from "./hymn-reading.js";
 import { getMemberContent, servicePlanDayLabel } from "./public-content.js";
 import { castProgrammeVote, getProgrammeInteractions } from "./programme-interactions.js";
-import { excerptProgrammeDescription, PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT } from "./programme-feed-utils.js";
+import { excerptProgrammeDescription, PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT, repairMojibake } from "./programme-feed-utils.js";
 import { ACCENT_THEMES, getSettings, saveSettings } from "./settings.js";
 import { shareHymn } from "./sharing.js";
 import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
@@ -21,7 +21,7 @@ import {
   togglePublicLiveAudioReaction
 } from "./live-audio-public-data.js";
 import { createLiveAudioId } from "./live-audio-realtime.js";
-import { publicLiveAudioConnectionMessage } from "./live-audio-status.js";
+import { publicLiveAudioConnectionMessage, publicLiveAudioJoinError, publicLiveAudioNetworkIssue } from "./live-audio-status.js";
 import {
   createSavedLiveAudioPlaybackUrl,
   getSavedLiveAudioPrograms,
@@ -63,7 +63,7 @@ const updateMessage = document.getElementById("update-message");
 const updateVersion = document.getElementById("update-version");
 const updateStatus = document.getElementById("update-status");
 const updateInstallButton = document.getElementById("update-install");
-const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioSegmentPollTimer: null, liveAudioSegmentRequest: false, liveAudioSegmentRequestToken: 0, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
+const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioJoinError: null, liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioSegmentPollTimer: null, liveAudioSegmentRequest: false, liveAudioSegmentRequestToken: 0, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
@@ -334,9 +334,9 @@ function renderProgrammeInteractions(program) {
   const safeProgramId = escapeHtml(programId);
   const interaction = state.programmeInteractions[programId] || { voteYesCount: 0, voteNoCount: 0, myVote: null };
   const votesAvailable = state.programmeVotesAvailable === true;
-  const question = String(program && program.response_question || "Will you be available for this programme?").trim();
-  const yesLabel = String(program && program.yes_label || "Yes, Iâll be there").trim();
-  const noLabel = String(program && program.no_label || "Not this time").trim();
+  const question = repairMojibake(String(program && program.response_question || "Will you be available for this programme?")).trim();
+  const yesLabel = repairMojibake(String(program && program.yes_label || "Yes, I’ll be there")).trim();
+  const noLabel = repairMojibake(String(program && program.no_label || "Not this time")).trim();
   const votePending = Boolean(state.programmeVotePending[programId]);
   const disabled = !votesAvailable || votePending;
   const yesCount = votesAvailable ? escapeHtml(Math.max(0, Number(interaction.voteYesCount) || 0)) : "â";
@@ -356,7 +356,8 @@ function renderPublicPrograms(programs, available) {
     return '<div class="public-content-empty">' + escapeHtml(message) + '</div>';
   }
   return '<div class="public-program-list">' + programs.map(function (program) {
-    const title = escapeHtml(program.title);
+    const title = escapeHtml(repairMojibake(program.title || "Untitled programme"));
+    const category = repairMojibake(String(program && program.category || "")).trim();
     const startDateValue = String(program.start_date || "").slice(0, 10);
     const startDate = publicDate(program.start_date);
     const endDate = publicDate(program.end_date);
@@ -370,15 +371,11 @@ function renderPublicPrograms(programs, available) {
       ? '<img class="public-program-post-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
       : "";
     const media = flyer ? '<div class="public-program-post-media">' + flyer + '</div>' : "";
-    const postedLabel = publicPostedDate(program.created_at);
-    const posted = postedLabel
-      ? '<time class="public-program-post-published" datetime="' + escapeHtml(program.created_at) + '">Posted ' + escapeHtml(postedLabel) + '</time>'
-      : "";
-    const venue = String(program.venue || "").trim();
+    const venue = repairMojibake(String(program.venue || "")).trim();
     const venueMarkup = venue
-      ? '<p class="public-program-post-venue"><span class="public-program-post-detail-label">Location</span><span>' + escapeHtml(venue) + '</span></p>'
+      ? '<span class="public-program-post-venue"><span class="public-program-post-detail-label">Location</span><span>' + escapeHtml(venue) + '</span></span>'
       : "";
-    const description = String(program.description || "").trim();
+    const description = repairMojibake(String(program.description || "")).trim();
     const expanded = Boolean(state.programmeDescriptionsExpanded[program.id]);
     const descriptionId = "programme-description-" + String(program.id || "programme").replace(/[^a-z0-9_-]/gi, "").slice(0, 80);
     const descriptionIsLong = Array.from(description).length > PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT;
@@ -386,10 +383,23 @@ function renderPublicPrograms(programs, available) {
       ? '<div class="public-program-post-description"><p class="public-program-post-description-copy" id="' + descriptionId + '">' + escapeHtml(expanded ? description : excerptProgrammeDescription(description)) + '</p>' +
         (descriptionIsLong ? '<button class="public-program-read-more" type="button" data-action="toggle-programme-description" data-program-id="' + escapeHtml(program.id) + '" aria-controls="' + descriptionId + '" aria-expanded="' + expanded + '">' + (expanded ? "Show less" : "Read more") + '</button>' : "") + '</div>'
       : "";
+    const minister = repairMojibake(String(program && program.minister || "")).trim();
     const eventDate = dateLabel
-      ? '<div class="public-program-post-meta">' + publicStatusBadge(status) + '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time></div>'
-      : publicStatusBadge(status);
-    return '<article class="public-program-post"><header class="public-program-post-header"><h2 class="public-program-post-title">' + title + '</h2>' + posted + '</header>' + media + renderProgrammeInteractions(program) + '<div class="public-program-post-body">' + descriptionMarkup + eventDate + venueMarkup + '</div></article>';
+      ? '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time>'
+      : "";
+    const ministerMarkup = minister
+      ? '<span class="public-program-post-minister"><span class="public-program-post-detail-label">Minister</span><span>' + escapeHtml(minister) + '</span></span>'
+      : "";
+    const categoryMarkup = category
+      ? '<span class="public-program-post-category">' + escapeHtml(category) + '</span>'
+      : "";
+    const eventMetadata = eventDate || ministerMarkup || venueMarkup || status
+      ? '<div class="public-program-post-meta">' + eventDate + ministerMarkup + venueMarkup + publicStatusBadge(status) + '</div>'
+      : "";
+    const descriptionSection = descriptionMarkup
+      ? '<div class="public-program-post-body">' + descriptionMarkup + '</div>'
+      : "";
+    return '<article class="public-program-post"><header class="public-program-post-header"><h2 class="public-program-post-title">' + title + '</h2>' + categoryMarkup + '</header>' + eventMetadata + descriptionSection + media + renderProgrammeInteractions(program) + '</article>';
   }).join("") + '</div>';
 }
 
@@ -591,7 +601,8 @@ function render() {
         status: state.liveAudioConnectionStatus,
         connecting: state.liveAudioConnecting,
         connected: Boolean(state.liveAudioListener),
-        offlinePlayback: state.liveAudioOfflinePlayback
+        offlinePlayback: state.liveAudioOfflinePlayback,
+         joinError: state.liveAudioJoinError
       }
     )
     : renderLiveAudioPage(
@@ -822,6 +833,7 @@ function stopLiveAudioConnection() {
   state.liveAudioConnecting = false;
   state.liveAudioStatusCode = "";
   state.liveAudioConnectionStatus = "";
+  state.liveAudioJoinError = null;
   state.liveAudioSessionId = "";
   state.liveAudioCountRecorded = false;
   state.liveAudioListenEventId = "";
@@ -845,10 +857,44 @@ async function recordCurrentLiveAudioListen(programId, connectToken) {
   }
 }
 
+function getLiveAudioNetworkInfo() {
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  return {
+    online: navigator.onLine !== false,
+    effectiveType: connection && connection.effectiveType,
+    rtt: connection && connection.rtt,
+    downlink: connection && connection.downlink
+  };
+}
+
+function retryLiveAudioProgram(programId) {
+  if (state.view !== "listen" || state.selectedLiveAudioProgramId !== programId) return;
+  if (navigator.onLine === false) {
+    state.liveAudioJoinError = publicLiveAudioNetworkIssue(getLiveAudioNetworkInfo());
+    state.liveAudioConnectionStatus = state.liveAudioJoinError.message;
+    render();
+    return;
+  }
+  const audio = main.querySelector("[data-live-audio-player]");
+  if (audio) stopAudioPlayer(audio);
+  stopLiveAudioConnection();
+  render();
+  void connectLiveAudioProgram(programId);
+}
+
 function updateLiveAudioConnectionStatus(connectToken, status) {
   if (connectToken !== state.liveAudioConnectToken) return;
   state.liveAudioStatusCode = status;
-  state.liveAudioConnectionStatus = publicLiveAudioConnectionMessage(status);
+  if (status === "failed") {
+    state.liveAudioJoinError = publicLiveAudioJoinError(new Error(""), getLiveAudioNetworkInfo());
+  } else if (status === "reconnecting" || status === "disconnected") {
+    state.liveAudioJoinError = publicLiveAudioNetworkIssue(getLiveAudioNetworkInfo());
+  } else {
+    state.liveAudioJoinError = null;
+  }
+  state.liveAudioConnectionStatus = state.liveAudioJoinError
+    ? state.liveAudioJoinError.message
+    : publicLiveAudioConnectionMessage(status);
   const statusNode = main.querySelector("[data-live-audio-status]");
   if (statusNode) statusNode.textContent = state.liveAudioConnectionStatus;
 
@@ -865,7 +911,9 @@ function updateLiveAudioConnectionStatus(connectToken, status) {
     if (listener) listener.stop().catch(() => {});
     render();
     if (status === "ended") void refreshLiveAudioData();
+    return;
   }
+  if (state.view === "listen") render();
 }
 
 async function connectLiveAudioProgram(programId) {
@@ -879,7 +927,8 @@ async function connectLiveAudioProgram(programId) {
 
   const connectToken = ++state.liveAudioConnectToken;
   state.liveAudioConnecting = true;
-  state.liveAudioConnectionStatus = "Connecting to live audioâ¦";
+  state.liveAudioJoinError = null;
+  state.liveAudioConnectionStatus = publicLiveAudioConnectionMessage("connecting");
   state.liveAudioStatusCode = "connecting";
   state.liveAudioCountRecorded = false;
   state.liveAudioListenEventId = createLiveAudioId();
@@ -887,7 +936,9 @@ async function connectLiveAudioProgram(programId) {
   const audioElement = main.querySelector("[data-live-audio-player]");
   if (!audioElement) {
     state.liveAudioConnecting = false;
-    state.liveAudioConnectionStatus = "The live player could not be opened. Try again.";
+    state.liveAudioStatusCode = "failed";
+    state.liveAudioJoinError = publicLiveAudioJoinError(new Error("The live player could not be opened."), getLiveAudioNetworkInfo());
+    state.liveAudioConnectionStatus = state.liveAudioJoinError.message;
     render();
     return;
   }
@@ -920,9 +971,9 @@ async function connectLiveAudioProgram(programId) {
   } catch (error) {
     if (connectToken !== state.liveAudioConnectToken) return;
     state.liveAudioConnecting = false;
-    state.liveAudioConnectionStatus = error && error.message
-      ? error.message
-      : "Could not connect to the live broadcast. Try again.";
+    state.liveAudioStatusCode = "failed";
+    state.liveAudioJoinError = publicLiveAudioJoinError(error, getLiveAudioNetworkInfo());
+    state.liveAudioConnectionStatus = state.liveAudioJoinError.message;
     const statusNode = main.querySelector("[data-live-audio-status]");
     if (statusNode) statusNode.textContent = state.liveAudioConnectionStatus;
     render();
@@ -1122,6 +1173,25 @@ async function shareLiveAudioProgram(programId) {
   }
 }
 
+window.addEventListener("offline", function () {
+  if (state.view !== "listen" || !state.selectedLiveAudioProgramId ||
+      (!state.liveAudioConnecting && !state.liveAudioListener)) return;
+  state.liveAudioJoinError = publicLiveAudioNetworkIssue({ online: false });
+  state.liveAudioConnectionStatus = state.liveAudioJoinError.message;
+  render();
+});
+
+window.addEventListener("online", function () {
+  if (state.view !== "listen" || !state.liveAudioJoinError ||
+      state.liveAudioJoinError.kind !== "network") return;
+  state.liveAudioJoinError = {
+    kind: "network",
+    message: "Your connection is back online. Tap Retry to rejoin the live broadcast."
+  };
+  state.liveAudioConnectionStatus = state.liveAudioJoinError.message;
+  render();
+});
+
 document.addEventListener("click", function (event) {
   const target = event.target.closest("[data-action]");
   if (state.menuOpen && !header.contains(event.target)) {
@@ -1169,6 +1239,8 @@ document.addEventListener("click", function (event) {
     void removeLiveAudioFromOffline(target.dataset.programId);
   } else if (action === "connect-live-audio") {
     void connectLiveAudioProgram(target.dataset.programId);
+  } else if (action === "retry-live-audio") {
+    retryLiveAudioProgram(target.dataset.programId);
   } else if (action === "disconnect-live-audio") {
     stopLiveAudioConnection();
     state.liveAudioConnectionStatus = "Listening stopped.";

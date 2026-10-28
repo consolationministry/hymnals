@@ -38,18 +38,21 @@ test("public home removes the live-audio banner and adds Stream Live to the menu
   assert.match(memberStyles, /\.header-nav-item-icon/);
 });
 
-test("Upcoming Programmes renders a newest-first, full-width flyer and voting feed", () => {
+test("Upcoming Programmes renders centered social-feed cards with flyers and voting", () => {
   assert.match(memberContent, /programmeSortTime/);
   assert.match(memberContent, /return programmeSortTime\(right\) - programmeSortTime\(left\)/);
-  assert.match(memberApp, /publicPostedDate\(program\.created_at\)/);
+  assert.match(memberApp, /const category = repairMojibake\(String\(program && program\.category \|\| ""\)\)\.trim\(\);/);
+  assert.match(memberApp, /class="public-program-post-category"/);
+  assert.match(memberApp, /const minister = repairMojibake\(String\(program && program\.minister \|\| \"\"\)\)\.trim\(\);/);
+  assert.match(memberApp, /const eventDate = dateLabel/);
   assert.match(memberApp, /class="public-program-post-flyer"/);
   assert.match(memberApp, /return '<article class="public-program-post">/);
   assert.match(memberApp, /class="public-program-post-description"/);
-  assert.match(memberApp, /<header class="public-program-post-header"><h2 class="public-program-post-title">' \+ title \+ '<\/h2>' \+ posted \+ '<\/header>' \+ media \+ renderProgrammeInteractions\(program\) \+ '<div class="public-program-post-body">/);
+  assert.match(memberApp, /'<\/header>' \+ eventMetadata \+ descriptionSection \+ media \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
   assert.doesNotMatch(memberApp, /Church programme|public-program-post-kicker/);
   assert.match(memberStyles, /\.public-program-post-header/);
   assert.match(memberStyles, /\.public-program-post-flyer\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*max-height:[^;]+;[^}]*height:\s*auto;[^}]*object-fit:\s*contain;/);
-  assert.match(memberStyles, /\.public-program-list\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/);
+  assert.match(memberStyles, /\.public-program-list\s*\{[^}]*width:\s*min\(100%, 720px\);[^}]*max-width:\s*100%;/);
 });
 
 test("programme posts keep admin-configured anonymous attendance votes and remove comments", () => {
