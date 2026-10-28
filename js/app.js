@@ -1616,8 +1616,22 @@ window.addEventListener("online", function () {
 async function openProgrammeFromLink() {
   const programId = getProgrammeIdFromLink();
   if (!programId) return;
-  await refreshLiveAudioData();
-  const exists = state.liveAudioData.programs.some(function (item) { return item.id === programId; });
+  // Never let the deep-link load hang: give the refresh a bounded wait, then
+  // fall through to a clear message instead of an endless loading state.
+  let timer = null;
+  const limit = new Promise(function (resolve) {
+    timer = window.setTimeout(resolve, 12000);
+  });
+  try {
+    await Promise.race([refreshLiveAudioData(), limit]);
+  } catch (error) {
+    showToast("Could not load this programme. Check the connection and try again.");
+    return;
+  } finally {
+    if (timer !== null) window.clearTimeout(timer);
+  }
+  const programs = (state.liveAudioData && state.liveAudioData.programs) || [];
+  const exists = programs.some(function (item) { return item.id === programId; });
   if (exists) {
     void openLiveAudioProgram(programId);
   } else {

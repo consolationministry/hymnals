@@ -119,13 +119,36 @@ export async function liveAudioRequest(path, options) {
   headers.set("authorization", "Bearer " + SUPABASE_PUBLISHABLE_KEY);
   headers.set("accept", "application/json");
   if (opts.body !== undefined) headers.set("content-type", "application/json");
-  const response = await fetch(SUPABASE_URL.replace(/\/+$/, "") + "/" + endpoint, {
-    method: opts.method || "GET",
-    cache: "no-store",
-    headers,
-    body: opts.body === undefined ? undefined : JSON.stringify(opts.body)
+  // Every REST call gets a hard timeout so a stalled request always settles
+  // (into the network error card) instead of leaving the page loading forever.
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timeoutMs = Math.max(1000, Number(opts.timeoutMs) || 15000);
+  let timer = null;
+  const timedOut = new Promise((_, reject) => {
+    timer = globalThis.setTimeout(() => {
+      if (controller) controller.abort();
+      reject(new Error("Live Audio could not reach the church service. Check the connection and try again."));
+    }, timeoutMs);
   });
-  const text = await response.text();
+  try {
+    const response = await Promise.race([
+      fetch(SUPABASE_URL.replace(/\/+$/, "") + "/" + endpoint, {
+        method: opts.method || "GET",
+        cache: "no-store",
+        headers,
+        signal: controller ? controller.signal : undefined,
+        body: opts.body === undefined ? undefined : JSON.stringify(opts.body)
+      }),
+      timedOut
+    ]);
+    const text = await Promise.race([response.text(), timedOut]);
+    return finishLiveAudioResponse(response, text);
+  } finally {
+    if (timer !== null) globalThis.clearTimeout(timer);
+  }
+}
+
+function finishLiveAudioResponse(response, text) {
   let payload = null;
   if (text) {
     try { payload = JSON.parse(text); } catch (error) { payload = text; }
