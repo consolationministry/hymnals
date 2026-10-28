@@ -205,6 +205,11 @@ button { -webkit-tap-highlight-color: transparent; }
 .public-program-post-detail .public-program-post-flyer { height: 100%; }
 .public-program-post-detail .public-program-post-description { font-size: 1.02rem; }
 
+@media (max-width: 719px) {
+  .public-program-list { width: calc(100% + 36px); max-width: none; margin: 0 -18px; gap: 12px; }
+  .public-program-list > .public-program-post { border-right: 0; border-left: 0; border-radius: 0; box-shadow: none; }
+}
+
 @media (max-width: 480px) {
   .public-program-post-header { gap: 8px; padding: 15px 14px 7px; }
   .public-program-post-category { max-width: 42%; min-height: 30px; padding: 5px 9px; font-size: .68rem; }
@@ -232,6 +237,13 @@ button { -webkit-tap-highlight-color: transparent; }
 .public-content-status.status-current { color: var(--accent); }
 .public-content-venue { margin: 5px 0 0; color: var(--muted); }
 .public-service-details { padding-top: 12px; }
+.public-service-list { width: min(100%, 720px); margin: 0 auto; }
+.public-service-card .public-program-post-title { font-size: 1.05rem; }
+.public-service-aims { display: grid; gap: 6px; padding: 4px 18px 16px; }
+.public-service-aims-label { margin: 0; color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.public-service-aim-actions { display: flex; justify-content: flex-start; padding: 0 18px 18px; }
+.public-service-aim-detail .public-program-detail { margin-top: 0; }
+
 .public-service-hymns { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
 .public-service-hymn { display: flex; align-items: baseline; gap: 9px; width: 100%; padding: 8px 0; border: 0; border-top: 1px solid var(--line); color: var(--ink); background: transparent; text-align: left; cursor: pointer; }
 .public-service-hymn span { min-width: 32px; color: var(--accent); font-size: .82rem; font-weight: 800; }

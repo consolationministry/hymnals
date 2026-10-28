@@ -61,7 +61,7 @@ const updateMessage = document.getElementById("update-message");
 const updateVersion = document.getElementById("update-version");
 const updateStatus = document.getElementById("update-status");
 const updateInstallButton = document.getElementById("update-install");
-const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, programmeSelectedId: null, programmeCategoryFilter: "", liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioJoinError: null, liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioSegmentPollTimer: null, liveAudioSegmentRequest: false, liveAudioSegmentRequestToken: 0, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
+const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, programmeSelectedId: null, programmeCategoryFilter: "", serviceSelectedId: null, serviceAimId: null, liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioJoinError: null, liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioSegmentPollTimer: null, liveAudioSegmentRequest: false, liveAudioSegmentRequestToken: 0, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
@@ -435,26 +435,6 @@ function renderPublicPrograms(allPrograms, available) {
   }).join("") + '</div>';
 }
 
-function renderPublicServicePlans(plans, available) {
-  if (!plans.length) {
-    const message = available ? "No service plans have been posted yet." : "Service plans are unavailable right now. Please try again later.";
-    return '<div class="public-content-empty">' + escapeHtml(message) + '</div>';
-  }
-  return '<div class="public-service-list">' + plans.map(function (plan) {
-    const dateValue = String(plan.date || "").slice(0, 10);
-    const dayLabel = servicePlanDayLabel(dateValue) || publicDate(dateValue) || "Service date";
-    const hymnLinks = (Array.isArray(plan.hymn_ids) ? plan.hymn_ids : []).map(function (id) {
-      return state.hymns.find(function (hymn) { return hymn.id && String(hymn.id) === String(id); });
-    }).filter(Boolean);
-    const hymns = hymnLinks.length
-      ? '<ol class="public-service-hymns">' + hymnLinks.map(function (hymn) {
-        return '<li><button type="button" class="public-service-hymn" data-action="open-hymn" data-number="' + hymn.hymn_number + '"><span>' + escapeHtml(displayHymnNumber(hymn)) + '</span>' + escapeHtml(currentHymnTitle(hymn)) + '</button></li>';
-      }).join("") + '</ol>'
-      : '<p class="public-content-unavailable">The selected hymns are not in the published member catalog.</p>';
-    return '<details class="public-service-card public-schedule-card"><summary class="public-schedule-summary"><span class="public-schedule-main"><span class="public-schedule-date"><time datetime="' + escapeHtml(dateValue) + '">' + escapeHtml(dayLabel) + '</time></span><span class="public-schedule-title">' + escapeHtml(plan.title) + '</span></span><span class="public-schedule-chevron" aria-hidden="true"></span></summary><div class="public-schedule-details public-service-details">' + hymns + '</div></details>';
-  }).join("") + '</div>';
-}
-
 function renderPublicProgramsPage() {
   const content = state.publicContent || { programs: [], servicePlans: [], programsAvailable: false, servicePlansAvailable: false };
   const programs = Array.isArray(content.programs) ? content.programs : [];
@@ -474,6 +454,20 @@ function renderPublicProgramsPage() {
   const listMarkup = renderPublicPrograms(content.programs, content.programsAvailable);
   return '<section class="page public-programs-page">' + pageHeading("Upcoming Programmes") +
     '<section class="public-content-section" aria-label="Programme announcements">' + filterMarkup + listMarkup + '</section></section>';
+}
+
+function openServiceAim(planId, hymnId) {
+  state.serviceSelectedId = String(planId);
+  state.serviceAimId = String(hymnId);
+  render();
+  window.scrollTo(0, 0);
+}
+
+function closeServiceAim() {
+  state.serviceSelectedId = null;
+  state.serviceAimId = null;
+  render();
+  window.scrollTo(0, 0);
 }
 
 function openProgrammePost(programId) {
@@ -526,9 +520,71 @@ async function castPublicProgrammeVote(programId, choice) {
   }
 }
 
+function servicePlanHymns(plan) {
+  const ids = Array.isArray(plan && plan.hymn_ids) ? plan.hymn_ids : [];
+  return ids.map(function (id) {
+    return state.hymns.find(function (hymn) { return hymn.id && String(hymn.id) === String(id); });
+  }).filter(Boolean);
+}
+
+function servicePlanDateText(plan) {
+  const dateValue = String(plan.date || "").slice(0, 10);
+  return servicePlanDayLabel(dateValue) || publicDate(dateValue) || "Service date";
+}
+
+function renderServiceCard(plan) {
+  const dateValue = String(plan.date || "").slice(0, 10);
+  const planId = escapeHtml(plan.id);
+  const title = escapeHtml(repairMojibake(String(plan.title || "Untitled service")));
+  const aims = servicePlanHymns(plan);
+  const aimMarkup = aims.length
+    ? '<ol class="public-service-hymns" aria-label="Aims for ' + title + '">' + aims.map(function (hymn) {
+      return '<li><button type="button" class="public-service-hymn" data-action="open-service-aim" data-plan-id="' + planId + '" data-hymn-id="' + escapeHtml(hymn.id) + '"><span>' + escapeHtml(displayHymnNumber(hymn)) + '</span>' + escapeHtml(currentHymnTitle(hymn)) + '</button></li>';
+    }).join("") + '</ol>'
+    : '<p class="public-content-unavailable">No aims have been added for this service yet.</p>';
+  return '<article class="public-program-post public-service-card">' +
+    '<header class="public-program-post-header"><img class="public-program-post-avatar" src="./assets/consolation-launcher.png" alt="" width="42" height="42">' +
+    '<div class="public-program-post-identity"><h2 class="public-program-post-title">' + title + '</h2>' +
+    '<time class="public-program-post-event-date" datetime="' + escapeHtml(dateValue) + '">' + escapeHtml(servicePlanDateText(plan)) + '</time></div></header>' +
+    '<div class="public-service-aims"><p class="public-service-aims-label">Aims</p>' + aimMarkup + '</div>' +
+    '</article>';
+}
+
+function renderPublicServicePlans(plans, available) {
+  if (!plans.length) {
+    const message = available ? "No service plans have been posted yet." : "Service plans are unavailable right now. Please try again later.";
+    return '<div class="public-content-empty">' + escapeHtml(message) + '</div>';
+  }
+  return '<div class="public-service-list">' + plans.map(renderServiceCard).join("") + '</div>';
+}
+
+function renderServiceAimDetail(plan, hymn) {
+  const title = escapeHtml(currentHymnTitle(hymn));
+  const firstLine = hymn.first_line_en || hymn.first_line_yoruba || "";
+  return '<section class="page public-service-aim-page">' +
+    '<button class="reader-back public-program-back" type="button" data-action="close-service-aim">← Back to service plans</button>' +
+    '<article class="public-program-post public-program-post-detail public-service-aim-detail">' +
+    '<header class="public-program-post-header"><img class="public-program-post-avatar" src="./assets/consolation-launcher.png" alt="" width="42" height="42">' +
+    '<div class="public-program-post-identity"><h1 class="public-program-post-title">' + title + '</h1>' +
+    '<time class="public-program-post-event-date" datetime="' + escapeHtml(String(plan.date || "").slice(0, 10)) + '">' + escapeHtml(repairMojibake(String(plan.title || ""))) + ' · ' + escapeHtml(servicePlanDateText(plan)) + '</time></div></header>' +
+    '<section class="public-program-details" aria-label="Aim details">' +
+    '<div class="public-program-detail-row"><span class="public-program-detail-title">Aim</span><span class="public-program-detail-value">' + escapeHtml(displayHymnNumber(hymn)) + ' · ' + title + '</span></div>' +
+    (firstLine ? '<div class="public-program-detail-row"><span class="public-program-detail-title">First line</span><span class="public-program-detail-value">' + escapeHtml(firstLine) + '</span></div>' : "") +
+    '</section>' +
+    '<div class="public-service-aim-actions"><button class="button button-primary" type="button" data-action="open-hymn" data-number="' + escapeHtml(hymn.hymn_number) + '">Open full hymn</button></div>' +
+    '</article></section>';
+}
+
 function renderPublicServicePlansPage() {
   const content = state.publicContent || { programs: [], servicePlans: [], programsAvailable: false, servicePlansAvailable: false };
-  return '<section class="page public-service-plans-page">' + pageHeading("Service Plans", "Hymns planned for past and upcoming services.") +
+  if (state.serviceSelectedId && state.serviceAimId) {
+    const plan = content.servicePlans.find(function (item) { return String(item.id) === String(state.serviceSelectedId); });
+    const hymn = plan ? servicePlanHymns(plan).find(function (item) { return String(item.id) === String(state.serviceAimId); }) : null;
+    if (plan && hymn) return renderServiceAimDetail(plan, hymn);
+    state.serviceSelectedId = null;
+    state.serviceAimId = null;
+  }
+  return '<section class="page public-service-plans-page">' + pageHeading("Service Planner", "Each service and the aims planned for it. Tap an aim to open it.") +
     '<section class="public-content-section" aria-label="Service plans">' + renderPublicServicePlans(content.servicePlans, content.servicePlansAvailable) + '</section></section>';
 }
 
@@ -746,6 +802,10 @@ function navigate(view) {
     state.liveAudioError = "";
   }
   if (view !== "hymns") state.category = "";
+  if (view === "services") {
+    state.serviceSelectedId = null;
+    state.serviceAimId = null;
+  }
   if (view === "programs") {
     state.programmeSelectedId = null;
     state.programmeCategoryFilter = "";
@@ -1343,6 +1403,8 @@ document.addEventListener("click", function (event) {
     const nextButton = descriptionButtons.find(function (button) { return button.dataset.programId === programId; });
     if (nextButton) nextButton.focus();
   }
+  else if (action === "open-service-aim") openServiceAim(target.dataset.planId, target.dataset.hymnId);
+  else if (action === "close-service-aim") closeServiceAim();
   else if (action === "open-programme") openProgrammePost(target.dataset.programId);
   else if (action === "close-programme") closeProgrammePost();
   else if (action === "filter-programme-category") showProgrammeCategory(target.dataset.category);
