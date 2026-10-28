@@ -362,7 +362,7 @@ function renderPublicPrograms(programs, available) {
     const endDate = publicDate(program.end_date);
     const status = publicStatus(program.start_date, program.end_date);
     const dateLabel = startDate && endDate && String(program.end_date).slice(0, 10) !== startDateValue
-      ? startDate + " â " + endDate
+      ? startDate + " – " + endDate
       : startDate;
     const flyer = typeof program.flyer_data_url === "string"
       && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(program.flyer_data_url)

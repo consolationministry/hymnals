@@ -659,10 +659,10 @@ export function returnToLiveAudio(audio) {
   if (!controller || !controller.livePlayback) return false;
   const attachedStream = audio.srcObject;
   const isActiveStream = stream => Boolean(stream && stream !== controller.liveDelayedStream && stream.active !== false);
-  const stream = isActiveStream(controller.liveStream)
-    ? controller.liveStream
-    : isActiveStream(attachedStream)
-      ? attachedStream
+  const stream = isActiveStream(attachedStream)
+    ? attachedStream
+    : isActiveStream(controller.liveStream)
+      ? controller.liveStream
       : null;
   controller.segmentLoadToken += 1;
   controller.waitingForLiveSegment = false;
