@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.1.106";
+export const APP_VERSION = "1.1.107";
 export const ANDROID_RELEASES_API = "https://api.github.com/repos/consolationministry/hymnals/releases/latest";
 export const ANDROID_APK_ASSET = "consolation-hymnal-android.apk";
 const ANDROID_RELEASE_DOWNLOAD_PREFIX = "https://github.com/consolationministry/hymnals/releases/download/";
