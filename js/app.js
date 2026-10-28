@@ -214,7 +214,7 @@ function renderHome() {
   } else {
     collection = '<div class="home-hymn-list" aria-live="polite">' + visibleHymns.map(homeHymn).join("") + '</div>';
   }
-  return '<section class="page home-page">' + renderHomeSearch() + '<div class="home-language">' + languageToggle() + '</div>' + collection + '</section>';
+  return '<section class="page home-page"><div class="home-language">' + languageToggle() + '</div>' + renderHomeSearch() + collection + '</section>';
 }
 function renderHymnLibrary() {
   const results = searchHymns(state.hymns.filter(inActiveLanguage), state.query, "").slice().sort(compareByPrintedNumber);

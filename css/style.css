@@ -312,6 +312,9 @@ button { -webkit-tap-highlight-color: transparent; }
 .home-page .search-panel { margin: 0 0 14px; }
 .home-page .search-form { min-height: 62px; border-radius: 17px; }
 .home-page .search-submit { width: 50px; height: 50px; border-radius: 14px; }
+.home-language { display: flex; justify-content: center; margin: 4px 0 16px; }
+.home-language .language-toggle { display: flex; width: 100%; max-width: 420px; padding: 4px; border-radius: 999px; }
+.home-language .language-toggle button { flex: 1; min-height: 42px; border-radius: 999px; }
 .home-language-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 0 22px; }
 .home-language-row > span { color: var(--muted); font-size: .88rem; font-weight: 650; }
 .home-language-row .section-language { margin: 0; }
