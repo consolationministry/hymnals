@@ -175,7 +175,12 @@ button { -webkit-tap-highlight-color: transparent; }
 .public-program-read-more:active { opacity: .7; }
 .public-program-read-more { margin-top: 4px; padding: 2px 0; transition: color .15s ease, text-decoration-color .15s ease; border: 0; color: var(--accent); background: transparent; font: inherit; font-size: .9rem; font-weight: 750; cursor: pointer; }
 .public-program-read-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
-.public-program-post-event-date { color: var(--ink); font-size: .9rem; font-weight: 750; }
+.public-program-post-event-date { display: block; margin-top: 2px; color: var(--muted); font-size: .8rem; font-weight: 500; }
+.public-program-details { display: grid; margin: 12px 14px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+.public-program-detail-row { display: grid; gap: 4px; padding: 12px 14px; border-top: 1px solid var(--line); }
+.public-program-detail-row:first-child { border-top: 0; }
+.public-program-detail-title { color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.public-program-detail-value { color: var(--ink); font-size: 1rem; font-weight: 650; overflow-wrap: anywhere; }
 .public-program-post-minister { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--ink); font-size: .88rem; }
 .public-program-post-venue { display: inline-flex; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: .85rem; }
 .public-program-post-detail-label { color: var(--ink); font-weight: 750; }

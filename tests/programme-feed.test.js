@@ -73,7 +73,7 @@ test("public programme cards order the header, details, description, flyer, and 
   assert.match(appSource, /function programmeCategory\(program\) \{/);
   assert.match(appSource, /class="public-program-post-category"/);
   assert.match(appSource, /data-action="open-programme"/);
-  assert.match(appSource, /header \+ eventMetadata \+ descriptionSection \+ media \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
+  assert.match(appSource, /header \+ eventMetadata \+ descriptionSection \+ media \+ detailsBlock \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
   assert.match(appSource, /const minister = repairMojibake\(String\(program && program\.minister \|\| ""\)\)\.trim\(\);/);
   assert.match(appSource, /public-program-post-minister/);
   assert.match(adminSource, /name="minister"/);

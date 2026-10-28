@@ -26,3 +26,15 @@ test("programme cards use the app logo as the avatar and a fixed-height cover im
   assert.match(styleSource, /\.public-program-post-media \{ display: block; width: 100%; height: 260px;/);
   assert.match(styleSource, /\.public-program-post-flyer \{[^}]*object-fit: cover;/);
 });
+
+test("programme date sits under the title and the detail page shows venue and ministers", () => {
+  // Date is part of the header, under the title, like Facebook's timestamp line.
+  assert.match(appSource, /'<\/div>' \+ categoryMarkup \+ '<\/header>'/);
+  assert.match(appSource, /eventDate \+ '<\/div>' \+ categoryMarkup/);
+  assert.match(styleSource, /\.public-program-post-event-date \{ display: block;[^}]*color: var\(--muted\);/);
+  // Detail view: Venue then Ministers, shown below the image and above the votes.
+  assert.match(appSource, /<span class=\"public-program-detail-title\">Venue<\/span>/);
+  assert.match(appSource, /<span class=\"public-program-detail-title\">Ministers<\/span>/);
+  assert.match(appSource, /media \+ detailsBlock \+ renderProgrammeInteractions\(program\)/);
+  assert.match(styleSource, /\.public-program-details \{ display: grid;/);
+});

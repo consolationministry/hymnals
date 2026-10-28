@@ -388,8 +388,9 @@ function renderProgrammeCard(program, detail) {
   const ministerMarkup = minister
     ? '<span class="public-program-post-minister"><span class="public-program-post-detail-label">Minister</span><span>' + escapeHtml(minister) + '</span></span>'
     : "";
-  const eventMetadata = eventDate || ministerMarkup || venueMarkup || status
-    ? '<div class="public-program-post-meta">' + eventDate + ministerMarkup + venueMarkup + publicStatusBadge(status) + '</div>'
+  // The date is shown under the title (see the header below), so the meta row only holds minister, venue and status.
+  const eventMetadata = ministerMarkup || venueMarkup || status
+    ? '<div class="public-program-post-meta">' + ministerMarkup + venueMarkup + publicStatusBadge(status) + '</div>'
     : "";
   const titleMarkup = detail
     ? '<h1 class="public-program-post-title">' + title + '</h1>'
@@ -397,11 +398,19 @@ function renderProgrammeCard(program, detail) {
   const categoryMarkup = category
     ? '<button class="public-program-post-category" type="button" data-action="filter-programme-category" data-category="' + escapeHtml(category) + '">' + escapeHtml(category) + '</button>'
     : "";
-  const header = '<header class="public-program-post-header"><img class="public-program-post-avatar" src="./assets/consolation-launcher.png" alt="" width="42" height="42"><div class="public-program-post-identity">' + titleMarkup + '</div>' + categoryMarkup + '</header>';
+  const header = '<header class="public-program-post-header"><img class="public-program-post-avatar" src="./assets/consolation-launcher.png" alt="" width="42" height="42"><div class="public-program-post-identity">' + titleMarkup + eventDate + '</div>' + categoryMarkup + '</header>';
   const descriptionSection = descriptionMarkup
     ? '<div class="public-program-post-body">' + descriptionMarkup + '</div>'
     : "";
-  return '<article class="public-program-post' + (detail ? ' public-program-post-detail' : '') + '">' + header + eventMetadata + descriptionSection + media + renderProgrammeInteractions(program) + '</article>';
+  // Detail view only: Venue and Ministers rows below the image, styled like the survey block.
+  const detailsBlock = detail
+    ? '<section class="public-program-details" aria-label="Programme details">' +
+      '<div class="public-program-detail-row"><span class="public-program-detail-title">Venue</span><span class="public-program-detail-value">' + escapeHtml(venue || "Not listed yet") + '</span></div>' +
+      '<div class="public-program-detail-row"><span class="public-program-detail-title">Ministers</span><span class="public-program-detail-value">' + escapeHtml(minister || "Not listed yet") + '</span></div>' +
+      '</section>'
+    : "";
+  // Votes/reactions come last, after the image and (in detail view) the Venue/Ministers block.
+  return '<article class="public-program-post' + (detail ? ' public-program-post-detail' : '') + '">' + header + eventMetadata + descriptionSection + media + detailsBlock + renderProgrammeInteractions(program) + '</article>';
 }
 
 function renderPublicPrograms(allPrograms, available) {

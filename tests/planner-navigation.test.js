@@ -49,7 +49,7 @@ test("Upcoming Programmes renders centered social-feed cards with flyers and vot
   assert.match(memberApp, /class="public-program-post-flyer"/);
   assert.match(memberApp, /return '<article class="public-program-post' \+ \(detail/);
   assert.match(memberApp, /class="public-program-post-description"/);
-  assert.match(memberApp, /header \+ eventMetadata \+ descriptionSection \+ media \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
+  assert.match(memberApp, /header \+ eventMetadata \+ descriptionSection \+ media \+ detailsBlock \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
   assert.doesNotMatch(memberApp, /Church programme|public-program-post-kicker/);
   assert.match(memberStyles, /\.public-program-post-header/);
   assert.match(memberStyles, /\.public-program-post-flyer\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*object-fit:\s*cover;/);
