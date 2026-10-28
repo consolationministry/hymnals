@@ -194,6 +194,93 @@ export async function deleteAdminLiveAudioProgram(programId) {
   await supabaseRequest("rest/v1/live_audio_programs?id=eq." + encodeURIComponent(programId), { method: "DELETE" });
 }
 
+// Uploads a thumbnail image file and returns its public https URL.
+// That URL is what gets saved in image_url, the same as a pasted link.
+export async function uploadAdminLiveAudioImage(file) {
+  if (!file || !file.size) throw new Error("Choose an image file to upload.");
+  if (!/^image\/(jpeg|png|webp|gif)$/.test(String(file.type || ""))) {
+    throw new Error("Choose a JPG, PNG, WebP or GIF image for the thumbnail.");
+  }
+  if (file.size > 10 * 1024 * 1024) throw new Error("This image is larger than 10 MB. Choose a smaller one.");
+
+  // Ask the edge function for a signature (it keeps the Cloudinary secret).
+  const signature = await supabaseRequest("functions/v1/cloudinary-live-audio", {
+    method: "POST",
+    body: { action: "sign-image-upload" }
+  });
+  if (!signature || !/^[a-z0-9_-]{1,64}$/i.test(String(signature.cloudName || "")) ||
+      !String(signature.apiKey || "") || !String(signature.signature || "") ||
+      !String(signature.folder || "") || !Number.isInteger(Number(signature.timestamp))) {
+    throw new Error("Cloudinary could not prepare an image upload. Check its connection in Admin Settings.");
+  }
+
+  const form = new FormData();
+  form.append("file", file, file.name);
+  form.append("api_key", signature.apiKey);
+  form.append("timestamp", String(signature.timestamp));
+  form.append("folder", signature.folder);
+  form.append("signature", signature.signature);
+
+  const endpoint = "https://api.cloudinary.com/v1_1/" + encodeURIComponent(signature.cloudName) + "/image/upload";
+  let response;
+  try {
+    response = await fetch(endpoint, { method: "POST", body: form });
+  } catch (error) {
+    throw new Error("The image upload was interrupted. Try again.");
+  }
+  const text = await response.text();
+  let result = null;
+  try { result = text ? JSON.parse(text) : null; } catch (error) { result = null; }
+  if (!response.ok || !result || !result.secure_url) {
+    throw new Error("Cloudinary rejected the image upload. Check account limits and try again.");
+  }
+  const url = new URL(String(result.secure_url));
+  if (url.protocol !== "https:") throw new Error("Cloudinary returned an unsafe image address.");
+  return url.href;
+}
+
+// Reads the length of an audio file in seconds, or 1 if the browser can't tell.
+function readAudioFileDuration(file) {
+  return new Promise(resolve => {
+    if (typeof Audio === "undefined" || typeof URL.createObjectURL !== "function") return resolve(1);
+    const audio = new Audio();
+    const objectUrl = URL.createObjectURL(file);
+    const done = seconds => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(Number.isFinite(seconds) && seconds > 0 ? seconds : 1);
+    };
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => done(audio.duration);
+    audio.onerror = () => done(0);
+    audio.src = objectUrl;
+  });
+}
+
+// Uploads an audio file the admin picked as this programme's full recording.
+// It uses the same Cloudinary path as a recording made in the browser.
+export async function uploadAdminLiveAudioFile(programId, file) {
+  if (!file || !file.size) throw new Error("Choose an audio file to upload.");
+  // Browsers sometimes leave the type empty for .m4a files, so check the file name too.
+  const name = String(file.name || "").toLowerCase();
+  let contentType = String(file.type || "").split(";")[0].trim().toLowerCase();
+  if (contentType === "audio/x-m4a" || (!contentType && name.endsWith(".m4a"))) contentType = "audio/mp4";
+  if (!contentType && name.endsWith(".webm")) contentType = "audio/webm";
+  if (!contentType && name.endsWith(".ogg")) contentType = "audio/ogg";
+  if (!["audio/webm", "audio/ogg", "audio/mp4"].includes(contentType)) {
+    throw new Error("Choose a WebM, OGG or M4A audio file.");
+  }
+  const durationSeconds = await readAudioFileDuration(file);
+  const sessionId = globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
+    ? globalThis.crypto.randomUUID()
+    : null;
+  if (!sessionId) throw new Error("This browser can't prepare an audio upload. Try a newer browser.");
+  return uploadAdminLiveAudioRecording(programId, sessionId, {
+    blob: file,
+    contentType,
+    durationSeconds
+  });
+}
+
 export async function uploadAdminLiveAudioRecording(programId, sessionId, recording) {
   if (!UUID_PATTERN.test(String(programId || "")) || !UUID_PATTERN.test(String(sessionId || ""))) {
     throw new Error("This broadcast recording could not be identified.");
