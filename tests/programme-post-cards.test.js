@@ -38,3 +38,18 @@ test("programme date sits under the title and the detail page shows venue and mi
   assert.match(appSource, /media \+ detailsBlock \+ renderProgrammeInteractions\(program\)/);
   assert.match(styleSource, /\.public-program-details \{ display: grid;/);
 });
+
+test("feed card header never shows the minister or venue", () => {
+  // The header markup is built from the title, date and category only.
+  assert.doesNotMatch(appSource, /public-program-post-minister/);
+  assert.doesNotMatch(appSource, /public-program-post-venue/);
+  assert.doesNotMatch(appSource, /const eventMetadata = ministerMarkup/);
+  assert.match(appSource, /const header = '<header class="public-program-post-header">/);
+});
+
+test("programme header date is a from-to range or a single date, in human form", () => {
+  assert.match(appSource, /function programmeShortDate\(value\)/);
+  assert.match(appSource, /const monthNames = \["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"\];/);
+  assert.match(appSource, /\? "from " \+ startLabel \+ " to " \+ endLabel/);
+  assert.match(appSource, /: startLabel;/);
+});

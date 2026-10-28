@@ -75,7 +75,7 @@ test("public programme cards order the header, details, description, flyer, and 
   assert.match(appSource, /data-action="open-programme"/);
   assert.match(appSource, /header \+ eventMetadata \+ descriptionSection \+ media \+ detailsBlock \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
   assert.match(appSource, /const minister = repairMojibake\(String\(program && program\.minister \|\| ""\)\)\.trim\(\);/);
-  assert.match(appSource, /public-program-post-minister/);
+  assert.match(appSource, /public-program-detail-title/);
   assert.match(adminSource, /name="minister"/);
   assert.match(publicContentSource, /id,title,minister,description/);
   assert.match(publicContentSource, /id,title,minister,category,description/);
@@ -90,8 +90,8 @@ test("public programme cards order the header, details, description, flyer, and 
   assert.doesNotMatch(adminSource, /(?:\u00c2[\u0080-\u00ff]|\u00c3[\u0080-\u00ff]|\u00e2[\u0080-\u00ff]{2})/);
   assert.match(appSource, /data-action="toggle-programme-description"/);
   assert.match(appSource, /excerptProgrammeDescription\(description\)/);
-  assert.match(appSource, /startDate \+ " – " \+ endDate/);
-  assert.match(appSource, /<span class="public-program-post-detail-label">Location<\/span>/);
+  assert.match(appSource, /"from " \+ startLabel \+ " to " \+ endLabel/);
+  assert.match(appSource, /public-program-detail-title\">Venue<\/span>/);
   assert.doesNotMatch(appSource, /programme-comments|data-programme-comment-form|submitPublicProgrammeComment|postProgrammeComment/);
   assert.match(styleSource, /\.public-programs-page \{ width: 100%; max-width: none; \}/);
   assert.match(styleSource, /\.public-program-list \{ display: grid; width: min\(100%, 720px\); max-width: 100%;/);

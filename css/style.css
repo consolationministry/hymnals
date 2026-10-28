@@ -181,8 +181,6 @@ button { -webkit-tap-highlight-color: transparent; }
 .public-program-detail-row:first-child { border-top: 0; }
 .public-program-detail-title { color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .public-program-detail-value { color: var(--ink); font-size: 1rem; font-weight: 650; overflow-wrap: anywhere; }
-.public-program-post-minister { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--ink); font-size: .88rem; }
-.public-program-post-venue { display: inline-flex; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: .85rem; }
 .public-program-post-detail-label { color: var(--ink); font-weight: 750; }
 .programme-interactions { display: grid; gap: 10px; padding: 13px 18px 16px; border-top: 1px solid var(--line); background: var(--surface); }
 .programme-voting { display: grid; gap: 10px; }

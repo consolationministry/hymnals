@@ -300,6 +300,18 @@ function publicDate(value) {
   return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(undefined, { dateStyle: "long" }).format(date);
 }
 
+// Short human date like "12 Dec 2026", built from the YYYY-MM-DD value the admin saved.
+function programmeShortDate(value) {
+  const text = String(value || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return "";
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const year = text.slice(0, 4);
+  const monthIndex = Number(text.slice(5, 7)) - 1;
+  const day = Number(text.slice(8, 10));
+  if (monthIndex < 0 || monthIndex > 11) return "";
+  return day + " " + monthNames[monthIndex] + " " + year;
+}
+
 function publicStatus(startValue, endValue) {
   const start = String(startValue || "").slice(0, 10);
   const end = String(endValue || startValue || "").slice(0, 10);
@@ -357,22 +369,22 @@ function renderProgrammeCard(program, detail) {
   const programId = escapeHtml(program.id);
   const category = programmeCategory(program);
   const startDateValue = String(program.start_date || "").slice(0, 10);
-  const startDate = publicDate(program.start_date);
-  const endDate = publicDate(program.end_date);
   const status = publicStatus(program.start_date, program.end_date);
-  const dateLabel = startDate && endDate && String(program.end_date).slice(0, 10) !== startDateValue
-    ? startDate + " – " + endDate
-    : startDate;
+  // Header date: "from <start> to <end>" when the programme has a different end date, otherwise one date.
+  const endDateValue = String(program.end_date || "").slice(0, 10);
+  const startLabel = programmeShortDate(startDateValue);
+  const endLabel = programmeShortDate(endDateValue);
+  const dateLabel = startLabel && endLabel && endDateValue !== startDateValue
+    ? "from " + startLabel + " to " + endLabel
+    : startLabel;
   const flyer = typeof program.flyer_data_url === "string"
     && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(program.flyer_data_url)
     && program.flyer_data_url.length <= 1900000
     ? '<img class="public-program-post-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
     : "";
   const media = flyer ? '<div class="public-program-post-media">' + flyer + '</div>' : "";
+  // Venue and minister are NOT shown in the header. They only appear in the detail block below the image.
   const venue = repairMojibake(String(program.venue || "")).trim();
-  const venueMarkup = venue
-    ? '<span class="public-program-post-venue"><span class="public-program-post-detail-label">Location</span><span>' + escapeHtml(venue) + '</span></span>'
-    : "";
   const description = repairMojibake(String(program.description || "")).trim();
   const expanded = detail || Boolean(state.programmeDescriptionsExpanded[program.id]);
   const descriptionId = "programme-description-" + String(program.id || "programme").replace(/[^a-z0-9_-]/gi, "").slice(0, 80);
@@ -385,12 +397,9 @@ function renderProgrammeCard(program, detail) {
   const eventDate = dateLabel
     ? '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time>'
     : "";
-  const ministerMarkup = minister
-    ? '<span class="public-program-post-minister"><span class="public-program-post-detail-label">Minister</span><span>' + escapeHtml(minister) + '</span></span>'
-    : "";
-  // The date is shown under the title (see the header below), so the meta row only holds minister, venue and status.
-  const eventMetadata = ministerMarkup || venueMarkup || status
-    ? '<div class="public-program-post-meta">' + ministerMarkup + venueMarkup + publicStatusBadge(status) + '</div>'
+  // The date is under the title (in the header), so the meta row only holds the status badge.
+  const eventMetadata = status
+    ? '<div class="public-program-post-meta">' + publicStatusBadge(status) + '</div>'
     : "";
   const titleMarkup = detail
     ? '<h1 class="public-program-post-title">' + title + '</h1>'
