@@ -1,37 +1,50 @@
-// Typewriter quote banner: types the current hour's quote, holds, erases, then the next one.
+// Typewriter quote banner: types a quote, holds it for about 5 seconds, erases it, then
+// continues straight into the next quote in the collection. Rotation is continuous, not hourly.
 // Only the hymn home page and the live audio page show it (see render() in app.js).
-import { currentBibleQuote } from "./bible-quotes.js";
+import { bibleQuoteAt, nextBibleQuoteIndex, saveBibleQuoteIndex } from "./bible-quotes.js";
 
 const TYPE_MS = 55;
 const ERASE_MS = 28;
-const HOLD_MS = 4200;
+const HOLD_MS = 5000;
 const GAP_MS = 700;
 
 let timer = null;
 
-export function quoteBannerHtml(date = new Date()) {
-  const quote = currentBibleQuote(date);
-  return '<aside class="quote-banner" data-quote-banner aria-label="Bible quote of the hour">' +
+export function quoteBannerHtml() {
+  return '<aside class="quote-banner" data-quote-banner aria-label="Bible quote">' +
     '<p class="quote-banner-text" data-quote-text></p>' +
-    '<p class="quote-banner-ref" data-quote-ref hidden>' + quote.ref + '</p>' +
+    '<p class="quote-banner-ref" data-quote-ref hidden></p>' +
     '</aside>';
 }
 
 // Call after the banner is in the DOM. Stops any previous run first.
-export function startQuoteBanner(root, date = new Date()) {
+export function startQuoteBanner(root) {
   stopQuoteBanner();
   const banner = root.querySelector("[data-quote-banner]");
   if (!banner) return;
-  const quote = currentBibleQuote(date);
   const textEl = banner.querySelector("[data-quote-text]");
   const refEl = banner.querySelector("[data-quote-ref]");
-  const full = "\u201C" + quote.text + "\u201D";
   if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    textEl.textContent = full;
+    const position = nextBibleQuoteIndex();
+    saveBibleQuoteIndex(position);
+    const quote = bibleQuoteAt(position);
+    textEl.textContent = "\u201C" + quote.text + "\u201D";
+    refEl.textContent = quote.ref;
     refEl.hidden = false;
     return;
   }
+  let full = "";
   let index = 0;
+  function nextQuote() {
+    const position = nextBibleQuoteIndex();
+    saveBibleQuoteIndex(position);
+    const quote = bibleQuoteAt(position);
+    full = "\u201C" + quote.text + "\u201D";
+    refEl.textContent = quote.ref;
+    index = 0;
+    refEl.hidden = true;
+    timer = window.setTimeout(type, GAP_MS);
+  }
   function type() {
     index += 1;
     textEl.textContent = full.slice(0, index);
@@ -47,9 +60,9 @@ export function startQuoteBanner(root, date = new Date()) {
     index -= 1;
     textEl.textContent = full.slice(0, Math.max(index, 0));
     if (index > 0) timer = window.setTimeout(erase, ERASE_MS);
-    else timer = window.setTimeout(type, GAP_MS);
+    else timer = window.setTimeout(nextQuote, GAP_MS);
   }
-  timer = window.setTimeout(type, GAP_MS);
+  nextQuote();
 }
 
 export function stopQuoteBanner() {
