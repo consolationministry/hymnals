@@ -1,8 +1,9 @@
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
+import { normalizeHymnVerses } from "./hymn-stanzas.js";
 import { isManagedHymnSource, UPLOADED_HYMN_SOURCE, UPLOADED_YORUBA_HYMN_SOURCE } from "./hymnal-selection.js";
 
-const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-unified-v9";
+const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-unified-v10";
 const PUBLIC_HYMN_COLUMNS = [
   "id",
   "hymn_number",
@@ -74,10 +75,12 @@ function normalizePublishedRows(rows) {
         title_yoruba: asString(row.title_yoruba),
         first_line_en: hasMeterTitle ? lyricLine : asString(row.first_line_en),
         first_line_yoruba: asString(row.first_line_yoruba),
-        verses_en: versesEn,
-        verses_yoruba: asStringArray(row.verses_yoruba),
-        chorus_en: asString(row.chorus_en),
-        chorus_yoruba: asString(row.chorus_yoruba),
+        verses_en: normalizeHymnVerses(versesEn, asString(row.chorus_en)).verses,
+        verses_yoruba: normalizeHymnVerses(asStringArray(row.verses_yoruba), asString(row.chorus_yoruba)).verses,
+        chorus_en: normalizeHymnVerses(versesEn, asString(row.chorus_en)).chorus,
+        chorus_yoruba: normalizeHymnVerses(asStringArray(row.verses_yoruba), asString(row.chorus_yoruba)).chorus,
+        description_en: asString(row.description_en),
+        description_yoruba: asString(row.description_yoruba),
         hymnal_note: asString(row.hymnal_note),
         keywords: asStringArray(row.keywords),
         author_en: asString(row.author_en),

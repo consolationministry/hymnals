@@ -547,3 +547,7 @@ html[data-theme="dark"] .reader-heading {
   .brand-name { font-size: 1.04rem; }
   .brand-subtitle { font-size: .78rem; }
 }
+
+.hymn-description { margin: 18px 0 24px; padding: 16px 20px; border-radius: 12px; background: var(--surface-soft, rgba(0,0,0,0.04)); border: 1px solid var(--line, rgba(0,0,0,0.08)); }
+.hymn-description .verse-label { display: block; margin-bottom: 8px; }
+.hymn-description .verse-text { font-style: italic; }

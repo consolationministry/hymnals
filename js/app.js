@@ -242,7 +242,8 @@ function poemSection(label, verses, chorus, languageCode, hasMeterPreface, hymna
       return '<div class="verse-block hymnal-note" role="note"><span class="verse-label">Hymnal note</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
     }
     if (part.type === "chorus") {
-      return '<div class="chorus-block"><span class="verse-label">Chorus</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
+      const chorusLabel = languageCode === "yo" ? "Egbe" : "Chorus";
+      return '<div class="chorus-block"><span class="verse-label">' + chorusLabel + '</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
     }
     return '<div class="verse-block"><span class="verse-label">Verse ' + part.number + '</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
   }).join("");
@@ -571,9 +572,14 @@ function renderReader() {
   const firstLine = hasEnglish
     ? '<span lang="en">' + escapeHtml(hymn.first_line_en) + '</span>'
     : '<span lang="yo">' + escapeHtml(hymn.first_line_yoruba) + '</span>';
-  const sections = hasEnglish
+  const descriptionText = hasEnglish ? hymn.description_en : hymn.description_yoruba;
+  const descriptionLang = hasEnglish ? "en" : "yo";
+  const descriptionMarkup = descriptionText
+    ? '<section class="hymn-description" lang="' + descriptionLang + '"><span class="verse-label">Description</span><p class="verse-text" lang="' + descriptionLang + '">' + escapeHtml(descriptionText) + '</p></section>'
+    : "";
+  const sections = descriptionMarkup + (hasEnglish
     ? poemSection("English", hymn.verses_en, hymn.chorus_en, "en", showEnglishGospelMeterHeading)
-    : poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo", false, hymn.hymnal_note);
+    : poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo", false, hymn.hymnal_note));
   const translationNote = "";
   return '<section class="page reader-page"><div class="reader-topbar"><button class="reader-back" type="button" data-action="back" data-testid="button-reader-back">' + icon("arrow") + ' Back</button><div class="reader-actions">' + favoriteButton(hymn) + '<button class="icon-button" type="button" data-action="share" data-number="' + hymn.hymn_number + '" aria-label="Share hymn ' + number + '" data-testid="button-share-hymn">' + icon("share") + '</button></div></div><header class="reader-heading"><div class="reader-edition"><span class="hymn-number">' + number + '</span><span>' + escapeHtml(displayHymnalName(hymn)) + '</span></div><h1>' + title + '</h1><p class="reader-first-line">' + firstLine + '</p></header><div class="reader-meta">' + '<div class="reading-size" role="group" aria-label="Change hymn text size"><button type="button" data-action="font-decrease" aria-label="Decrease hymn text size" data-testid="button-font-decrease">A−</button><output id="reader-font-size">' + state.settings.fontSize + ' px</output><button type="button" data-action="font-increase" aria-label="Increase hymn text size" data-testid="button-font-increase">A+</button></div></div><div class="hymn-reading">' + translationNote + sections + '</div><footer class="reader-footer"><button class="text-link" type="button" data-action="share" data-number="' + hymn.hymn_number + '">' + icon("share") + ' Share hymn</button></footer></section>';
 }
@@ -756,12 +762,20 @@ function saveCurrentSettings() {
   showToast(result.persisted ? "Settings saved on this device." : "Settings changed for now, but browser storage is unavailable.");
 }
 
+window.addEventListener("popstate", function () {
+  if (state.view !== "reader") return;
+  state.view = state.readerReturnView;
+  render();
+  window.scrollTo(0, 0);
+});
+
 function openHymn(number) {
   const hymn = state.hymns.find(function (item) { return item.hymn_number === Number(number); });
   if (!hymn) return;
   state.readerReturnView = state.view === "reader" ? state.readerReturnView : state.view;
   state.selectedNumber = hymn.hymn_number;
   state.view = "reader";
+  if (window.history && window.history.pushState) window.history.pushState({ hymnReader: true }, "", window.location.href);
   const persisted = addRecent(hymn.hymn_number);
   render();
   window.scrollTo(0, 0);
@@ -1494,6 +1508,10 @@ document.addEventListener("click", function (event) {
   else if (action === "clear-programme-category") showProgrammeCategory("");
   else if (action === "cast-programme-vote") castPublicProgrammeVote(target.dataset.programId, target.dataset.choice);
   else if (action === "back") {
+    if (state.view === "reader" && window.history && window.history.state && window.history.state.hymnReader) {
+      window.history.back();
+      return;
+    }
     state.view = state.readerReturnView;
     render();
     window.scrollTo(0, 0);
