@@ -87,6 +87,8 @@ test("Pages build includes the admin workspace and its runtime dependencies", as
     "admin/js/admin-app.js",
     "admin/js/cloudinary-settings.js",
     "js/hymnal-selection.js",
+    "js/programme-interactions.js",
+    "js/programme-feed-utils.js",
     "js/cloudinary-live-audio.js",
     "js/live-audio-recording.js",
     "js/live-audio-realtime.js",
