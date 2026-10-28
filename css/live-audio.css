@@ -453,3 +453,41 @@ body.audio-listener-mode .toast { bottom:calc(16px + env(safe-area-inset-bottom)
 .audio-float-emoji { position: absolute; z-index: 30; pointer-events: none; font-size: 28px; animation: audio-float-up 1.4s ease-out forwards; }
 @keyframes audio-float-up { 0% { opacity: 1; transform: translate(-50%, 0) scale(.8); } 100% { opacity: 0; transform: translate(calc(-50% + var(--drift, 0px)), -150px) scale(1.25); } }
 @media (prefers-reduced-motion: reduce) { .audio-listener-disc .audio-listener-disc-image, .audio-listener-disc.audio-listener-art-empty .audio-listener-art-placeholder, .audio-float-emoji { animation: none; } }
+
+/* Audiomack-style listener: square art, grey uploader line, pill actions, bar-wave tracker, round transport */
+.audio-listener-square { width: 100%; aspect-ratio: 1; height: auto; min-height: 0; max-height: none; margin: 0 0 16px; border: 0; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 34px rgba(0,0,0,.35); background: linear-gradient(160deg,#5a1830,#2a0a16); }
+.audio-listener-square img { width: 100%; height: 100%; object-fit: cover; display: block; animation: none; }
+.audio-listener-speaker { margin: 0; color: #8d8f96; font-size: .8rem; font-weight: 600; letter-spacing: .02em; }
+.audio-listener-title-row { display: grid; gap: 6px; }
+.audio-listener-title-row h1 { margin: 0; font-size: 1.35rem; line-height: 1.25; color: #f6efe2; }
+.audio-listener-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 2px 0 6px; }
+.audio-listener-pills .audio-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 7px 16px; border: 1px solid rgba(212,175,55,.45); border-radius: 999px; background: transparent; color: #e9dcc0; font: inherit; font-size: .8rem; font-weight: 650; cursor: pointer; }
+.audio-listener-pills .audio-pill:hover:not(:disabled) { background: rgba(212,175,55,.12); }
+.audio-listener-pills .audio-pill:disabled { opacity: .45; cursor: not-allowed; }
+.audio-listener-pills .audio-pill.is-done { color: #d4af37; }
+.audio-listener-pills .audio-like-button[aria-pressed="true"] { background: rgba(212,175,55,.2); border-color: #d4af37; color: #f6efe2; }
+.audio-listener-pills .audio-like-button svg, .audio-listener-pills .audio-share-button svg { width: 15px; height: 15px; }
+.audio-listener-pills .audio-reaction-count { font-size: .7rem; color: #b9a784; }
+.audio-listener-player { padding: 14px; border: 1px solid rgba(212,175,55,.2); border-radius: 16px; background: #1a0a12; }
+.audio-listener-controls { display: grid; gap: 10px; }
+.audio-listener-waveform { position: relative; display: flex; align-items: center; gap: 2px; width: 100%; height: 76px; cursor: pointer; }
+.audio-listener-waveform span { flex: 1 1 0; min-width: 2px; max-width: 6px; height: 12%; border-radius: 2px; background: #5b4a52; transition: background .15s ease; }
+.audio-listener-waveform span.is-played { background: #d4af37; }
+.audio-listener-waveform span.is-active { background: #d4af37; }
+.audio-listener-seek { position: absolute; left: 0; right: 0; width: 100%; opacity: 0; height: 0; pointer-events: none; }
+.audio-listener-times { display: flex; justify-content: space-between; align-items: center; color: #b9a784; font-size: .72rem; font-variant-numeric: tabular-nums; }
+.audio-listener-times .audio-listener-time { color: #b9a784; }
+.audio-listener-transport { display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 2px; }
+.audio-listener-skip { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: #e9dcc0; cursor: pointer; }
+.audio-listener-skip svg { width: 26px; height: 26px; }
+.audio-listener-skip:disabled { opacity: .35; cursor: not-allowed; }
+.audio-listener-play { display: grid; place-items: center; width: 68px; height: 68px; border: 0; border-radius: 50%; background: #d4af37; color: #2a0a16; font-size: 1.4rem; cursor: pointer; box-shadow: 0 6px 18px rgba(212,175,55,.35); }
+.audio-listener-secondary { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.audio-listener-secondary .audio-player-volume { min-width: 90px; }
+.audio-listener-player-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+@media (max-width: 500px) {
+  .audio-listener-title-row h1 { font-size: 1.2rem; }
+  .audio-listener-waveform { height: 60px; }
+  .audio-listener-play { width: 60px; height: 60px; }
+  .audio-listener-pills .audio-pill { padding: 6px 12px; font-size: .74rem; }
+}

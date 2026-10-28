@@ -1403,6 +1403,15 @@ document.addEventListener("click", function (event) {
     });
   } else if (action === "return-to-live-audio") {
     returnToLiveAudio(main.querySelector('[data-audio-player="live"]'));
+  } else if (action === "skip-audio") {
+    const skipAudio = main.querySelector('[data-audio-player="' + target.dataset.playerType + '"]');
+    if (skipAudio && !skipAudio.dataset.live) {
+      const skipDuration = skipAudio.duration;
+      if (Number.isFinite(skipDuration) && skipDuration > 0) {
+        const skipTo = Math.max(0, Math.min(skipDuration, skipAudio.currentTime + Number(target.dataset.skipSeconds || 0)));
+        seekAudioPlayer(skipAudio, Math.round(skipTo / skipDuration * 1000));
+      }
+    }
   } else if (action === "toggle-audio-mute") {
     toggleAudioMute(main.querySelector('[data-audio-player="' + target.dataset.playerType + '"]'));
   } else if (action === "audio-reaction") {
