@@ -126,17 +126,14 @@ test("cached data keeps both uploaded collections and filters legacy CAC rows", 
   assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [10000, 20001]);
 });
 
-test("a successful empty result clears the cache and stays empty offline", async () => {
+test("a successful empty result never overwrites a non-empty cache", async () => {
   const values = installStorage();
   values.set(PUBLISHED_CACHE_KEY, JSON.stringify([
     { hymn_number: 10000, title_en: "Uploaded hymn", source_hymnal: "Uploaded Hymn Collection", status: "published", verses_en: ["Uploaded verse"] }
   ]));
   globalThis.fetch = async function () { return response([]); };
   assert.deepEqual(await getAllHymns(), []);
-  assert.deepEqual(JSON.parse(values.get(PUBLISHED_CACHE_KEY)), []);
-
-  globalThis.fetch = async function () { throw new Error("offline"); };
-  assert.deepEqual(await getAllHymns(), []);
+  assert.equal(JSON.parse(values.get(PUBLISHED_CACHE_KEY)).length, 1);
 });
 
 test("hymn lookup uses the same two-collection catalog as the app", async () => {

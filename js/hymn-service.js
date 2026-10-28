@@ -20,7 +20,6 @@ const PUBLIC_HYMN_COLUMNS = [
   "source_hymnal",
   "source_publication_year",
   "source_hymn_number",
-  "language",
   "source_first_line_en",
   "source_hymnary_url",
   "lyrics_source_url",
@@ -126,7 +125,9 @@ async function fetchPublishedHymns() {
     if (!response.ok) return null;
     const rows = normalizePublishedRows(await response.json());
     if (rows === null) return null;
-    writeLocal(PUBLISHED_HYMNS_CACHE_KEY, rows);
+    // Never overwrite a non-empty cache with an empty result.
+    const previous = normalizePublishedRows(readLocal(PUBLISHED_HYMNS_CACHE_KEY, null)) || [];
+    if (rows.length > 0 || previous.length === 0) writeLocal(PUBLISHED_HYMNS_CACHE_KEY, rows);
     return rows;
   } catch (error) {
     return null;
