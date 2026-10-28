@@ -1232,11 +1232,9 @@ root.addEventListener("submit", async function (event) {
      try {
        const admin = await loginAdmin(email.value.trim(), password.value);
        password.value = "";
-       const importResult = await initializeAdminData();
        state.authStatus = { configured: true, authenticated: true, admin: admin };
        state.activeView = "dashboard";
        renderShell();
-        if (importResult.imported) showToast(importResult.imported + " missing hymns added to Drafts.");
      }
      catch (error) { feedback.textContent = error && error.message ? error.message : "Admin sign-in failed."; }
     finally { submit.disabled = false; submit.removeAttribute("aria-busy"); label.textContent = "Sign in"; }
@@ -1327,10 +1325,8 @@ initializeAdminAuth().then(async function (result) {
   state.authStatus = result;
   if (!result.authenticated) return;
   try {
-    const importResult = await initializeAdminData();
     state.activeView = "dashboard";
     renderShell();
-    if (importResult.imported) showToast(importResult.imported + " missing hymns added to Drafts.");
   } catch (error) {
     state.authStatus = { configured: true, authenticated: false, admin: null };
     await logoutAdmin();
