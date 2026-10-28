@@ -8,7 +8,6 @@ import hymns from "../data/uploaded-yoruba-hymns.js";
   assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), Array.from({ length: 122 }, function (_, index) { return 20001 + index; }));
   assert.ok(hymns.every(function (hymn) {
     return hymn.source_hymnal === "Uploaded Yorùbá Hymn Collection" &&
-      hymn.category === "Yorùbá Hymn Book" &&
       Number.isInteger(hymn.source_hymn_number) &&
       hymn.title_yoruba && hymn.verses_yoruba.length > 0 &&
       hymn.title_en === "" && hymn.verses_en.length === 0 &&

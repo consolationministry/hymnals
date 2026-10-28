@@ -669,9 +669,6 @@ async function renderSettingsWorkspace() {
     const themeMode = ["system", "light", "dark"].includes(settings.defaultTheme) ? settings.defaultTheme : "system";
     applyAdminTheme(themeMode);
     const darkEnabled = themeMode === "dark" || (themeMode === "system" && getSystemTheme() === "dark");
-    const options = categories.map(function (category) { return '<option value="' + escapeHtml(category) + '"' + (category === settings.defaultHymnCategory ? " selected" : "") + '>' + escapeHtml(category) + '</option>'; }).join("");
-    const panel = make("section", "panel form-panel settings-preferences");
-    panel.innerHTML = '<form id="settings-form" novalidate><h2 class="form-section-title">Hymn editor</h2><p class="form-section-help">Set a default for the next hymn you add. Existing hymns are not changed by this preference.</p><div class="admin-field"><label for="default-hymn-category">Default category for new hymns</label><select class="form-select" id="default-hymn-category" name="default_hymn_category"><option value=""' + (!settings.defaultHymnCategory ? " selected" : "") + '>Choose a category each time</option>' + options + '</select><p class="field-hint">The selected category will be prefilled in the Add New Hymn form. You can change it before saving.</p></div><div id="settings-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-primary" type="submit">Save Preference</button></div></div></form>';
     const appearancePanel = make("section", "panel settings-appearance");
     appearancePanel.innerHTML = '<header class="panel-header"><div><h2>Appearance</h2><p>Set the default theme for the admin web app.</p></div></header><div class="panel-body"><div class="theme-setting-row"><div><strong>Dark theme</strong><p id="theme-current-description">' + (themeMode === "system" ? "Following device theme (currently " + getSystemTheme() + ")." : (themeMode === "dark" ? "Dark theme is set for this admin workspace." : "Light theme is set for this admin workspace.")) + '</p></div><button type="button" id="admin-theme-switch" class="theme-switch-control" role="switch" aria-label="Dark theme" aria-checked="' + String(darkEnabled) + '" data-action="toggle-admin-theme"><span class="theme-switch-track" aria-hidden="true"><span></span></span></button></div><div class="theme-system-row"><span>Let this device choose light or dark.</span><button type="button" class="button button-secondary" data-action="use-system-theme" aria-pressed="' + String(themeMode === "system") + '">Use device theme</button></div></div>';
     const statusPanel = make("section", "panel settings-status");
@@ -681,7 +678,7 @@ async function renderSettingsWorkspace() {
     const statusList = make("ul", "settings-status-list", "");
     statusList.append(make("li", "", "Administrator access and edit actions are protected by Supabase Auth and row-level security."), make("li", "", "Hymns, categories, service plans, events, and settings are saved to the shared database."), make("li", "", "Published hymns, events, and service plans from any date appear in the member app when the public-content migrations are applied. Admin preferences remain private; anonymous attendance vote totals are not shown in this workspace yet."));
     statusBody.append(statusList); statusPanel.append(statusHeader, statusBody);
-    const grid = make("div", "settings-grid", ""); grid.append(panel, appearancePanel, statusPanel); content.append(grid);
+    const grid = make("div", "settings-grid", ""); grid.append(appearancePanel, statusPanel); content.append(grid);
     const programSettings = make("section", "panel settings-module");
     programSettings.innerHTML = '<header class="panel-header"><div><h2>Upcoming Programmes</h2><p>Create and manage member-facing programme announcements on a separate page.</p></div></header><div class="panel-body"><p class="settings-module-copy">Programmes from any date appear in the member app after the public-content migrations are applied. Past entries are labeled. Attendance responses and view counts are not connected yet.</p><button class="button button-secondary" type="button" data-action="navigate" data-view="programs">Open Upcoming Programmes</button></div>';
     const quotePanel = make("section", "panel settings-module quote-settings");
@@ -695,7 +692,7 @@ async function renderSettingsWorkspace() {
     const modules = make("div", "settings-modules-grid");
     modules.append(programSettings, quotePanel, cloudinaryPanel.firstElementChild);
     content.append(modules);
-    state.settingsFormStart = settings.defaultHymnCategory || "";
+    state.settingsFormStart = "";
     state.quoteSettingsFormStart = quoteSettingsFormSignature();
   } catch (error) {
     content.append(make("section", "list-empty", "Workspace settings could not be loaded."));
@@ -704,17 +701,6 @@ async function renderSettingsWorkspace() {
 function showSettingsErrors(message) {
   const box = document.getElementById("settings-errors"); if (!box) return;
   box.textContent = message || ""; box.hidden = !message;
-}
-async function saveSettingsForm() {
-  const select = document.getElementById("default-hymn-category"); if (!select) return;
-  try {
-    const mode = await updateAdminSettings({ defaultHymnCategory: select.value });
-    state.settingsFormStart = null;
-    await renderSettingsWorkspace();
-    showToast(mode === "browser" ? "Workspace preference saved in this browser." : "Preference saved for this open session only; browser storage is unavailable.");
-  } catch (error) {
-    showSettingsErrors(error && error.message ? error.message : "The preference could not be saved.");
-  }
 }
 
 function quoteSettingsFormSignature() {
@@ -832,7 +818,7 @@ async function renderHymnList() {
   content.append(heading);
   const controls = make("section", "hymn-toolbar");
   const left = make("div", "hymn-toolbar-left");
-  const search = make("input", "hymn-search"); search.type = "search"; search.id = "hymn-search"; search.placeholder = "Search number, title, first line, category…"; search.setAttribute("aria-label", "Search hymns"); search.dataset.filter = "search"; search.value = state.search;
+  const search = make("input", "hymn-search"); search.type = "search"; search.id = "hymn-search"; search.placeholder = "Search number, title, or first line"; search.setAttribute("aria-label", "Search hymns"); search.dataset.filter = "search"; search.value = state.search;
   left.append(search);
   const filters = make("div", "hymn-filters");
   const status = make("select", "filter-select"); status.setAttribute("aria-label", "Filter by publication status"); status.dataset.filter = "status";
@@ -850,7 +836,7 @@ async function renderHymnList() {
   const bulkApply = make("button", "button button-secondary", "Apply"); bulkApply.type = "button"; bulkApply.dataset.action = "bulk-hymn-action"; bulkApply.disabled = true;
   bulkToolbar.append(bulkCount, bulkAction, bulkApply); content.append(bulkToolbar);
   const tableWrap = make("div", "hymn-table-wrap"); tableWrap.id = "hymn-table-wrap";
-  tableWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col" class="hymn-select-heading"><input type="checkbox" data-select-all-hymns aria-label="Select all visible hymns"></th><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody id="hymn-table-body"></tbody></table>';
+  tableWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col" class="hymn-select-heading"><input type="checkbox" data-select-all-hymns aria-label="Select all visible hymns"></th><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody id="hymn-table-body"></tbody></table>';
   content.append(tableWrap);
   await refreshHymnRows();
   }
@@ -894,7 +880,7 @@ async function refreshHymnRows() {
     const requiredStatus = draftsOnly ? "draft" : state.statusFilter;
     if (requiredStatus && hymn.status !== requiredStatus) return false;
     if (!query) return true;
-    return [hymn.hymn_number, hymn.source_hymn_number, hymn.title_en, hymn.title_yoruba, hymn.first_line_en, hymn.first_line_yoruba, hymn.category].join(" ").toLowerCase().includes(query);
+    return [hymn.hymn_number, hymn.source_hymn_number, hymn.title_en, hymn.title_yoruba, hymn.first_line_en, hymn.first_line_yoruba].join(" ").toLowerCase().includes(query);
   });
   const label = root.querySelector(".hymn-results-label"); if (label) label.textContent = matching.length + (matching.length === 1 ? " hymn" : " hymns");
   const currentWrap = document.getElementById("hymn-table-wrap"); if (!currentWrap) return;
@@ -905,7 +891,7 @@ async function refreshHymnRows() {
     return;
   }
   currentWrap.className = "hymn-table-wrap";
-  currentWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col" class="hymn-select-heading"><input type="checkbox" data-select-all-hymns aria-label="Select all visible hymns"></th><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody>' + matching.map(function (hymn) {
+  currentWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col" class="hymn-select-heading"><input type="checkbox" data-select-all-hymns aria-label="Select all visible hymns"></th><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody>' + matching.map(function (hymn) {
     const updated = new Date(hymn.updated_at);
     const date = Number.isNaN(updated.getTime()) ? "—" : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(updated);
     const firstLine = hymn.first_line_en || hymn.first_line_yoruba || "No first line yet";
@@ -914,7 +900,7 @@ async function refreshHymnRows() {
     const nextStatus = hymn.status === "published" ? "draft" : "published";
     const toggleLabel = draftsOnly ? "Publish" : (nextStatus === "published" ? "Mark published" : "Save as draft");
     const checked = state.selectedHymnIds.has(String(hymn.id)) ? " checked" : "";
-    return '<tr><td class="hymn-select-cell"><input type="checkbox" data-select-hymn data-id="' + escapeHtml(hymn.id) + '"' + checked + ' aria-label="Select ' + escapeHtml(adminHymnNumberLabel(hymn)) + '"></td><td><span class="hymn-row-title">' + escapeHtml(adminHymnTitle(hymn)) + '</span><span class="hymn-row-subtitle">' + escapeHtml(adminHymnNumberLabel(hymn)) + '</span></td><td>' + escapeHtml(firstLine) + '</td><td>' + escapeHtml(hymn.category || "—") + '</td><td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td><td>' + date + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Edit ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Edit</button><button class="row-action" type="button" data-action="set-status" data-id="' + escapeHtml(hymn.id) + '" data-status="' + nextStatus + '">' + toggleLabel + '</button><button class="row-action row-action-danger" type="button" data-action="delete-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Delete ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Delete</button></div></td></tr>';
+    return '<tr><td class="hymn-select-cell"><input type="checkbox" data-select-hymn data-id="' + escapeHtml(hymn.id) + '"' + checked + ' aria-label="Select ' + escapeHtml(adminHymnNumberLabel(hymn)) + '"></td><td><span class="hymn-row-title">' + escapeHtml(adminHymnTitle(hymn)) + '</span><span class="hymn-row-subtitle">' + escapeHtml(adminHymnNumberLabel(hymn)) + '</span></td><td>' + escapeHtml(firstLine) + '</td><td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td><td>' + date + '</td><td><div class="row-actions"><button class="row-action" type="button" data-action="edit-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Edit ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Edit</button><button class="row-action" type="button" data-action="set-status" data-id="' + escapeHtml(hymn.id) + '" data-status="' + nextStatus + '">' + toggleLabel + '</button><button class="row-action row-action-danger" type="button" data-action="delete-hymn" data-id="' + escapeHtml(hymn.id) + '" aria-label="Delete ' + escapeHtml(adminHymnNumberLabel(hymn)) + '">Delete</button></div></td></tr>';
   }).join("") + '</tbody></table>';
   updateBulkHymnControls();
 }
@@ -940,7 +926,7 @@ function currentFormData(status) {
   const chorusEn = plainTextFromHtml(chorusEnHtml); const chorusYo = plainTextFromHtml(chorusYoHtml);
   return {
     hymn_number: Number(field("hymn-number")), title_en: field("title-en"), title_yoruba: field("title-yoruba"),
-    first_line_en: field("first-line-en"), first_line_yoruba: field("first-line-yoruba"), category: field("hymn-category"),
+    first_line_en: field("first-line-en"), first_line_yoruba: field("first-line-yoruba"),
     verses_en: getEditorLines("verses_en"), verses_yoruba: getEditorLines("verses_yoruba"), chorus_en: chorusEn, chorus_yoruba: chorusYo,
     body_html_en: bodyEnHtml, body_html_yoruba: bodyYoHtml, chorus_html_en: chorusEnHtml, chorus_html_yoruba: chorusYoHtml,
     status: status || "draft"
@@ -961,10 +947,7 @@ function isServiceFormDirty() {
   const signature = serviceFormSignature();
   return state.serviceMode === "form" && state.serviceFormStart !== null && signature !== null && signature !== state.serviceFormStart;
 }
-function isSettingsFormDirty() {
-  const select = document.getElementById("default-hymn-category");
-  return state.activeView === "settings" && state.settingsFormStart !== null && select && select.value !== state.settingsFormStart;
-}
+function isSettingsFormDirty() { return false; }
 function isQuoteSettingsFormDirty() {
   const signature = quoteSettingsFormSignature();
   return state.activeView === "settings" && state.quoteSettingsFormStart !== null && signature !== null && signature !== state.quoteSettingsFormStart;
@@ -985,21 +968,16 @@ async function renderHymnForm() {
   const content = document.getElementById("admin-content"); if (!content) return;
   const existing = state.editingHymnId ? await getHymn(state.editingHymnId) : null;
   if (state.editingHymnId && !existing) { state.hymnMode = "list"; showToast("That hymn is no longer available."); return renderHymnList(); }
-  const results = await Promise.all([getCategories(), getAdminSettings()]);
-  const categories = results[0]; const settings = results[1];
   const hymn = existing || { hymn_number: "", title_en: "", title_yoruba: "", first_line_en: "", first_line_yoruba: "", category: "", verses_en: [], verses_yoruba: [], chorus_en: "", chorus_yoruba: "", body_html_en: "", body_html_yoruba: "", chorus_html_en: "", chorus_html_yoruba: "", status: "draft" };
-  const defaultCategory = !existing && categories.includes(settings.defaultHymnCategory) ? settings.defaultHymnCategory : "";
-  const selectedCategory = categories.indexOf(hymn.category) >= 0 ? hymn.category : defaultCategory;
-  const categoryHtml = '<option value="">Choose a category</option>' + categories.map(function (category) { return '<option value="' + escapeHtml(category) + '"' + (category === selectedCategory ? " selected" : "") + '>' + escapeHtml(category) + '</option>'; }).join("");
   const englishBody = hymn.body_html_en || escapeLines(hymn.verses_en);
   const yorubaBody = hymn.body_html_yoruba || escapeLines(hymn.verses_yoruba);
   const englishChorus = hymn.chorus_html_en || (hymn.chorus_en ? "<p>" + escapeHtml(hymn.chorus_en) + "</p>" : "");
   const yorubaChorus = hymn.chorus_html_yoruba || (hymn.chorus_yoruba ? "<p>" + escapeHtml(hymn.chorus_yoruba) + "</p>" : "");
   content.innerHTML = '<div class="page-heading"><div><h1>' + (existing ? "Edit Hymn" : "Add New Hymn") + '</h1><p>' + (existing ? "Edit the hymn in the shared admin database." : "Create a hymn record. New hymns start as drafts unless you mark them published.") + '</p></div><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button></div>';
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit hymn form" : "Add hymn form");
-  panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn number, English title, category, and at least one opening line and verse are required. Yorùbá text is optional. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number <span aria-hidden="true">*</span></label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="hymn-category">Category <span aria-hidden="true">*</span></label><select class="form-select" id="hymn-category" name="category" required>' + categoryHtml + '</select></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use one paragraph for each verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use one paragraph for each verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
+  panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn number, English title, and at least one opening line and verse are required. Yorùbá text is optional. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number <span aria-hidden="true">*</span></label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use one paragraph for each verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use one paragraph for each verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
   const formHelp = panel.querySelector(".form-section-help");
-  if (formHelp) formHelp.textContent = "Enter a title in English or Yorùbá, choose a category, and add at least one opening line and verse. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.";
+  if (formHelp) formHelp.textContent = "Enter a title in English or Yorùbá, and add at least one opening line and verse. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.";
   const englishTitle = panel.querySelector("#title-en");
   const englishTitleLabel = panel.querySelector('label[for="title-en"]');
   if (englishTitle) englishTitle.required = false;
@@ -1024,7 +1002,6 @@ function validateHymn(data, existingId) {
   const errors = [];
   if (!Number.isInteger(data.hymn_number) || data.hymn_number < 1) errors.push("Enter a whole hymn number greater than zero.");
   if (!hasAdminHymnTitle(data)) errors.push("Enter an English or Yorùbá hymn title.");
-  if (!data.category) errors.push("Choose a category.");
   if (!data.first_line_en && !data.first_line_yoruba) errors.push("Enter at least one English or Yoruba first line.");
   if (!data.verses_en.length && !data.verses_yoruba.length) errors.push("Enter at least one verse in English or Yoruba.");
   if (data.title_en.length > 160 || data.title_yoruba.length > 160) errors.push("Titles must be 160 characters or fewer.");
@@ -1038,7 +1015,7 @@ async function saveHymnForm(status) {
   const data = currentFormData(status); const errors = await validateHymn(data, state.editingHymnId);
   if (errors.length) {
     showFormErrors(errors);
-    const focusId = !Number.isInteger(data.hymn_number) || data.hymn_number < 1 ? "hymn-number" : (!hasAdminHymnTitle(data) ? "title-en" : (!data.category ? "hymn-category" : null));
+    const focusId = !Number.isInteger(data.hymn_number) || data.hymn_number < 1 ? "hymn-number" : (!hasAdminHymnTitle(data) ? "title-en" : null);
     if (focusId) document.getElementById(focusId).focus(); else document.getElementById("hymn-errors").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
@@ -1265,8 +1242,6 @@ root.addEventListener("submit", async function (event) {
     finally { submit.disabled = false; submit.removeAttribute("aria-busy"); label.textContent = "Sign in"; }
   } else if (event.target.id === "category-form") {
     event.preventDefault(); await saveCategoryForm(event.submitter);
-  } else if (event.target.id === "settings-form") {
-    event.preventDefault(); await saveSettingsForm();
   } else if (event.target.id === "daily-quote-form") {
     event.preventDefault(); await saveDailyQuoteSettings();
   } else if (event.target.id === "cloudinary-settings-form") {

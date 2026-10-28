@@ -32,7 +32,6 @@ test("the bundled catalog contains only the 128 uploaded hymns", () => {
   assert.equal(uploadedHymns.length, 128);
   assert.ok(uploadedHymns.every(function (hymn) {
     return hymn.source_hymnal === "Uploaded Hymn Collection" &&
-      hymn.category === "Consolation Hymn" &&
       Number.isInteger(hymn.source_hymn_number) &&
       hymn.verses_en.length > 0;
   }));

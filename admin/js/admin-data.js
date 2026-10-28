@@ -8,6 +8,7 @@ import { supabaseRequest } from "./supabase-client.js?v=31";
 const GLOBAL_ROW_ID = "global";
 const DAILY_QUOTE_BOOKS = ["Psalms", "Proverbs"];
 const HYMNS_PAGE_SIZE = 100;
+const HYMN_DB_CATEGORY = "Praise"; // NOT NULL + FK column in Supabase; never shown in the UI
 const ADMIN_HYMN_LIST_COLUMNS = "id,hymn_number,title_en,title_yoruba,first_line_en,first_line_yoruba,verses_en,keywords,source_hymnal,source_hymn_number,source_first_line_en,category,status,updated_at";
 const HYMN_CATALOG_SYNC_VERSION = "uploaded-and-yoruba-hymn-collections-v8";
 const HYMN_CATALOG_SYNC_KEY = "consolation-admin-hymn-catalog-sync";
@@ -171,13 +172,11 @@ function normalizeServiceData(value, knownHymnIds) {
 function normalizeHymnData(value, existing) {
   const data = value || {};
   const hymnNumber = Number(data.hymn_number);
-  const category = typeof data.category === "string" ? data.category.trim() : "";
   if (!Number.isInteger(hymnNumber) || hymnNumber < 1) throw new Error("Enter a valid hymn number.");
-  if (!category) throw new Error("Choose a category for this hymn.");
   const status = data.status === "published" ? "published" : "draft";
   const record = Object.assign({}, existing || {}, copy(data), {
     hymn_number: hymnNumber,
-    category,
+    category: existing ? existing.category : HYMN_DB_CATEGORY,
     status,
     updated_at: nowIso(),
     published_at: status === "published" ? ((existing && existing.published_at) || nowIso()) : null
@@ -218,7 +217,7 @@ export async function initializeAdminData() {
       body_html_yoruba: paragraphHtml(versesYoruba),
       chorus_html_en: paragraphHtml(hymn.chorus_en ? [hymn.chorus_en] : []),
       chorus_html_yoruba: paragraphHtml(hymn.chorus_yoruba ? [hymn.chorus_yoruba] : []),
-      category: hymn.category || "Praise",
+      category: HYMN_DB_CATEGORY,
       status: "draft",
       published_at: null
     };
@@ -237,11 +236,6 @@ export async function initializeAdminData() {
     if (!rowsToImport.length) return { imported: 0 };
   }
 
-  const categories = await getCategories();
-  const requiredCategories = Array.from(new Set(rowsToImport.map(function (hymn) { return hymn.category; })));
-  for (const category of requiredCategories) {
-    if (!categories.includes(category)) await createCategory(category);
-  }
 
   const batchSize = 200;
   const batches = [];
@@ -359,12 +353,9 @@ export async function getAdminSettings() {
 export async function updateAdminSettings(value) {
   const data = value || {};
   const current = await getAdminSettings();
-  const category = typeof data.defaultHymnCategory === "string" ? data.defaultHymnCategory.trim() : current.defaultHymnCategory;
   const theme = typeof data.defaultTheme === "string" ? data.defaultTheme : current.defaultTheme;
-  const categories = await getCategories();
-  if (category && !categories.includes(category)) throw new Error("Choose a category that still exists.");
   if (!["system", "light", "dark"].includes(theme)) throw new Error("Choose light, dark, or device theme.");
-  const settingsUpdate = { default_hymn_category: category || null, default_theme: theme };
+  const settingsUpdate = { default_theme: theme };
   await adminRequest("rest/v1/admin_settings?id=eq." + GLOBAL_ROW_ID, {
     method: "PATCH",
     prefer: "return=representation",
