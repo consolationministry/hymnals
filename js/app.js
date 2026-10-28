@@ -18,7 +18,8 @@ import {
   loadPublicLiveAudioData,
   recordPublicLiveAudioListen,
   submitPublicLiveAudioComment,
-  togglePublicLiveAudioReaction
+  togglePublicLiveAudioReaction,
+  sendPublicLiveAudioBurst
 } from "./live-audio-public-data.js";
 import { createLiveAudioId } from "./live-audio-realtime.js";
 import { publicLiveAudioConnectionMessage, publicLiveAudioJoinError, publicLiveAudioNetworkIssue } from "./live-audio-status.js";
@@ -119,10 +120,6 @@ function languageToggle() {
 
 function renderHeader() {
   const activeView = state.view === "reader" ? state.readerReturnView : state.view;
-  const items = [["home", "Home"], ["listen", "Stream Live", "mic"], ["hymns", "Hymns"], ["programs", "Upcoming Programmes"], ["services", "Service Plans"], ["favorites", "Favorites"], ["recent", "Recently viewed"], ["settings", "Settings"]];
-  const menu = '<nav id="header-nav-menu" class="header-nav-menu" aria-label="Main menu"' + (state.menuOpen ? "" : " hidden") + '>' + items.map(function (item) {
-      return '<button class="header-nav-item" type="button" data-action="navigate" data-view="' + item[0] + '" aria-current="' + (activeView === item[0] ? "page" : "false") + '" data-testid="menu-' + item[0] + '">' + (item[2] ? icon(item[2], "header-nav-item-icon") : "") + '<span>' + item[1] + '</span></button>';
-    }).join("") + '</nav>'
   const searchExpanded = state.view === "home"
     ? state.searchOpen || Boolean(state.query)
     : state.view === "hymns";
@@ -136,7 +133,7 @@ function renderNav() {
     ["hymns", "Hymns", "book"],
     ["programs", "Programs", "sparkle"],
     ["services", "Services", "calendar"],
-    ["favorites", "Favorites", "heart"],
+    ["listen", "Stream", "mic"],
     ["recent", "Recent", "history"],
     ["settings", "Settings", "settings"]
   ];
@@ -1107,7 +1104,33 @@ async function connectLiveAudioProgram(programId) {
   }
 }
 
-async function handleLiveAudioReaction(programId, reaction) {
+function spawnFloatingReaction(target) {
+  const page = document.querySelector(".audio-listener-page");
+  if (!page || !target) return;
+  const emoji = target.dataset.emoji || "👍";
+  const float = document.createElement("span");
+  float.className = "audio-float-emoji";
+  float.setAttribute("aria-hidden", "true");
+  float.textContent = emoji;
+  const rect = target.getBoundingClientRect();
+  const pageRect = page.getBoundingClientRect();
+  float.style.left = (rect.left - pageRect.left + rect.width / 2 + (Math.random() * 40 - 20)) + "px";
+  float.style.top = (rect.top - pageRect.top) + "px";
+  float.style.setProperty("--drift", String(Math.round(Math.random() * 60 - 30)) + "px");
+  page.appendChild(float);
+  window.setTimeout(function () { float.remove(); }, 1400);
+}
+
+async function handleLiveAudioReaction(programId, reaction, target) {
+  if (reaction !== "like") {
+    spawnFloatingReaction(target);
+    try {
+      await sendPublicLiveAudioBurst(programId, reaction);
+    } catch (error) {
+      showToast(error && error.message ? error.message : "The reaction could not be sent.");
+    }
+    return;
+  }
   try {
     await togglePublicLiveAudioReaction(programId, reaction);
     await refreshLiveAudioData();
@@ -1321,10 +1344,6 @@ window.addEventListener("online", function () {
 
 document.addEventListener("click", function (event) {
   const target = event.target.closest("[data-action]");
-  if (state.menuOpen && !header.contains(event.target)) {
-    state.menuOpen = false;
-    renderHeader();
-  }
   if (!target) {
     return;
   }
@@ -1345,9 +1364,6 @@ document.addEventListener("click", function (event) {
     render();
     const input = document.getElementById("hymn-search");
     if (input) input.focus();
-  } else if (action === "toggle-menu") {
-    state.menuOpen = !state.menuOpen;
-    renderHeader();
   } else if (action === "close-search" || action === "clear-home-search") {
     state.query = "";
     state.searchOpen = false;
@@ -1393,7 +1409,7 @@ document.addEventListener("click", function (event) {
   } else if (action === "toggle-audio-mute") {
     toggleAudioMute(main.querySelector('[data-audio-player="' + target.dataset.playerType + '"]'));
   } else if (action === "audio-reaction") {
-    void handleLiveAudioReaction(target.dataset.programId, target.dataset.reaction);
+    void handleLiveAudioReaction(target.dataset.programId, target.dataset.reaction, target);
   }
   else if (action === "toggle-programme-description") {
     const programId = target.dataset.programId;
@@ -1441,11 +1457,6 @@ document.addEventListener("click", function (event) {
 });
 
 document.addEventListener("keydown", function (event) {
-  if (event.key === "Escape" && state.menuOpen) {
-    state.menuOpen = false;
-    renderHeader();
-    document.querySelector('[data-testid="button-header-menu"]').focus();
-  }
 });
 
 document.addEventListener("input", function (event) {

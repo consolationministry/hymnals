@@ -91,7 +91,7 @@ function audioLibraryProgramRow(program, data, isSaved, isSavedFilter) {
 }
 
 function audioWaveformBars() {
-  return Array.from({ length: 40 }, function () { return "<span></span>"; }).join("");
+  return Array.from({ length: 40 }, function (_, index) { return '<span style="--i:' + index + '"></span>'; }).join("");
 }
 
 function audioPlayerButton(playerType, action, label, icon) {
@@ -231,8 +231,8 @@ export function renderLiveAudioListener(data, programId, options) {
     });
   const meta = [program.date ? formattedDate(program.date) : "", program.venue].filter(Boolean).map(escapeHtml);
   const artwork = program.imageUrl
-    ? '<div class="audio-listener-art"><img src="' + escapeHtml(program.imageUrl) + '" alt="" loading="eager"></div>'
-    : '<div class="audio-listener-art audio-listener-art-empty"><span class="audio-listener-art-placeholder">' + radioIcon() + '</span></div>';
+    ? '<div class="audio-listener-art audio-listener-disc"><img class="audio-listener-disc-image" src="' + escapeHtml(program.imageUrl) + '" alt="" loading="eager"></div>'
+    : '<div class="audio-listener-art audio-listener-art-empty audio-listener-disc"><span class="audio-listener-art-placeholder">' + radioIcon() + '</span></div>';
   const player = isLive
     ? '<section class="audio-player audio-listener-player" aria-label="Live audio player"><div class="audio-listener-player-heading"><span class="audio-listener-player-live"><i></i> LIVE AUDIO</span><span class="audio-listener-player-caption">' +
       (opts.connecting ? "Joining the live broadcast…" : opts.connected ? "Live audio connected" : "Live broadcast audio") + '</span></div>' +
@@ -277,9 +277,10 @@ export function renderLiveAudioListener(data, programId, options) {
   const interactions = offlinePlayback
     ? '<p class="audio-offline-interactions-note">Comments and reactions need an internet connection. Your saved recording is playing from this device.</p>'
     : '<div class="audio-reactions" aria-label="Reactions">' +
-      '<button class="audio-reaction-button" type="button" data-action="audio-reaction" data-reaction="love" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "love") + '"><span class="audio-reaction-emoji">❤️</span><span>Love</span><span class="audio-reaction-count">' + counts.love + '</span></button>' +
-      '<button class="audio-reaction-button" type="button" data-action="audio-reaction" data-reaction="clap" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "clap") + '"><span class="audio-reaction-emoji">👏</span><span>React</span><span class="audio-reaction-count">' + counts.clap + '</span></button>' +
-      '<button class="audio-reaction-button" type="button" data-action="audio-reaction" data-reaction="fire" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "fire") + '"><span class="audio-reaction-emoji">🙏</span><span>Amen</span><span class="audio-reaction-count">' + counts.fire + '</span></button>' +
+      '<button class="audio-reaction-button audio-like-button" type="button" data-action="audio-reaction" data-reaction="like" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "like") + '"><svg class="audio-like-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 9h4v12H2zM8 21V9.5l4.2-6.9c.4-.7 1.4-.6 1.7.2.3.6.2 1.3-.1 1.9L13 9h6.4c1.2 0 2.1 1.1 1.9 2.3l-1.3 7.6c-.2 1.3-1.3 2.2-2.6 2.2H8z"/></svg><span>Like</span><span class="audio-reaction-count">' + counts.like + '</span></button>' +
+      '<button class="audio-reaction-button audio-burst-button" type="button" data-action="audio-reaction" data-reaction="love" data-emoji="❤️" data-program-id="' + escapeHtml(program.id) + '" aria-label="Send love reaction"><span class="audio-reaction-emoji">❤️</span></button>' +
+      '<button class="audio-reaction-button audio-burst-button" type="button" data-action="audio-reaction" data-reaction="clap" data-emoji="👏" data-program-id="' + escapeHtml(program.id) + '" aria-label="Send clap reaction"><span class="audio-reaction-emoji">👏</span></button>' +
+      '<button class="audio-reaction-button audio-burst-button" type="button" data-action="audio-reaction" data-reaction="fire" data-emoji="🔥" data-program-id="' + escapeHtml(program.id) + '" aria-label="Send fire reaction"><span class="audio-reaction-emoji">🔥</span></button>' +
       '<button class="audio-reaction-button audio-share-button" type="button" data-action="share-live-audio" data-program-id="' + escapeHtml(program.id) + '" aria-label="Share this programme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg><span>Share</span></button></div>' +
       '<section class="audio-comments" aria-labelledby="audio-comments-heading"><div class="audio-comments-heading"><div><span class="audio-comments-live-dot"></span><h2 id="audio-comments-heading">Live Comments</h2></div>' +
       '<span class="audio-comment-watchers">' + (isLive ? listenerCount + ' watching' : 'Programme comments') + '</span></div>' +

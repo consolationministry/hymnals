@@ -122,7 +122,7 @@ test("public audio loads published Supabase programmes and shared listener inter
   assert.equal(program.liveSessionId, SESSION_ID);
   assert.equal(program.streamUrl, "");
   assert.equal(program.listenCount, 3);
-  assert.deepEqual(data.reactions[PROGRAM_ID], { love: 4, clap: 2, fire: 1 });
+  assert.deepEqual(data.reactions[PROGRAM_ID], { love: 4, clap: 2, fire: 1, like: 0 });
   assert.equal(liveAudioReactionSelected(data, PROGRAM_ID, "love"), true);
   assert.deepEqual(data.comments.map(comment => comment.body), ["Amen!"]);
   assert.ok(calls.some(call => call.path.endsWith("/live_audio_segments")));

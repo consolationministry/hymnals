@@ -141,6 +141,7 @@ export async function loadAdminLiveAudioInteractions(programId) {
     loveCount: Math.max(0, Number(row.love_count) || 0),
     clapCount: Math.max(0, Number(row.clap_count) || 0),
     fireCount: Math.max(0, Number(row.fire_count) || 0),
+    likeCount: Math.max(0, Number(row.like_count) || 0),
     commentCount: Math.max(0, Number(row.comment_count) || 0),
     listenCount: Math.max(0, Number(row.listener_count) || 0),
     comments: comments.filter(comment => comment && String(comment.body || "").trim()).map(comment => ({
@@ -426,4 +427,17 @@ export async function endAdminLiveAudioProgram(programId, status) {
   const row = asArray(rows)[0];
   if (!row) throw new Error("The broadcast could not be ended.");
   return normalizeProgram(row);
+}
+
+export async function loadAdminLiveAudioBursts(programId, afterId) {
+  if (!programId) return [];
+  const rows = await supabaseRequest("rest/v1/rpc/get_live_audio_recent_bursts", {
+    method: "POST",
+    body: { p_program_id: programId, p_after_id: afterId == null ? null : Number(afterId) }
+  });
+  return asArray(rows).map(row => ({
+    id: Number(row.id) || 0,
+    reaction: String(row.reaction || ""),
+    createdAt: String(row.created_at || "")
+  })).filter(row => row.id > 0);
 }

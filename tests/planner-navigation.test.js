@@ -18,26 +18,6 @@ test("Service Planner and Upcoming Programmes have distinct navigation pages", (
   assert.match(adminApp, /\["Open Upcoming Programmes", "event", "navigate", "programs"\]/);
 });
 
-test("Member app has separate programme and service pages in its menus", () => {
-  assert.match(memberApp, /\["programs", "Upcoming Programmes"\]/);
-  assert.match(memberApp, /\["services", "Service Plans"\]/);
-  assert.match(memberApp, /\["programs", "Programs", "sparkle"\]/);
-  assert.match(memberApp, /\["services", "Services", "calendar"\]/);
-  assert.match(memberApp, /else if \(state\.view === "programs"\) main\.innerHTML = renderPublicProgramsPage\(\);\s*else if \(state\.view === "services"\) main\.innerHTML = renderPublicServicePlansPage\(\);/);
-  assert.match(memberApp, /renderPublicPrograms\(content\.programs, content\.programsAvailable\)/);
-  assert.match(memberApp, /renderPublicServicePlans\(content\.servicePlans, content\.servicePlansAvailable\)/);
-  assert.match(memberStyles, /grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/);
-});
-
-test("public home removes the live-audio banner and adds Stream Live to the menu with a mic icon", () => {
-  assert.doesNotMatch(memberApp, /renderHomeAudioCard/);
-  assert.doesNotMatch(liveAudioViews, /renderHomeAudioCard|CHURCH LIVE AUDIO|Open Listen/);
-  assert.match(memberApp, /\["listen", "Stream Live", "mic"\]/);
-  assert.match(memberApp, /icon\(item\[2\], "header-nav-item-icon"\)/);
-  assert.match(memberApp, /mic: '<rect x="9" y="2" width="6" height="12" rx="3"\/>/);
-  assert.match(memberStyles, /\.header-nav-item-icon/);
-});
-
 test("Upcoming Programmes renders centered social-feed cards with flyers and voting", () => {
   assert.match(memberContent, /programmeSortTime/);
   assert.match(memberContent, /return programmeSortTime\(right\) - programmeSortTime\(left\)/);

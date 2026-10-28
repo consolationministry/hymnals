@@ -209,7 +209,7 @@ export function toggleLiveAudioReaction(programId, type) {
   if (!data.programs.some(function (program) { return program.id === programId && program.status === "published"; })) {
     throw new Error("This program is not available for reactions.");
   }
-  if (!data.reactions[programId]) data.reactions[programId] = { love: 0, clap: 0, fire: 0 };
+  if (!data.reactions[programId]) data.reactions[programId] = { love: 0, clap: 0, fire: 0, like: 0 };
   if (!data.visitorReactions[programId]) data.visitorReactions[programId] = {};
   const id = visitorId();
   const current = data.visitorReactions[programId][type] === id;
@@ -243,6 +243,7 @@ export function liveAudioCounts(data, programId) {
   return {
     love: Math.max(0, Number(counts.love) || 0),
     clap: Math.max(0, Number(counts.clap) || 0),
-    fire: Math.max(0, Number(counts.fire) || 0)
+    fire: Math.max(0, Number(counts.fire) || 0),
+    like: Math.max(0, Number(counts.like) || 0)
   };
 }

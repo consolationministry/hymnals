@@ -2,6 +2,7 @@ import {
   deleteAdminLiveAudioProgram,
   endAdminLiveAudioProgram,
   loadAdminLiveAudioInteractions,
+  loadAdminLiveAudioBursts,
   loadAdminLiveAudioData,
   saveAdminLiveAudioCategories,
   saveAdminLiveAudioProgram,
@@ -47,6 +48,9 @@ let activeNetworkStatus = { level: 0, label: "Checking", connectedListeners: 0, 
 let networkAlertKey = "";
 let networkToastTimer = null;
 let studioInteractions = null;
+let studioBurstCursor = null;
+let studioBurstTimer = null;
+const FEED_EMOJI = { love: "❤️", clap: "👏", fire: "🔥", like: "👍" };
 let studioInteractionsError = "";
 let studioRefreshTimer = null;
 let studioClockTimer = null;
@@ -664,9 +668,11 @@ export function renderLiveAudioStudio(program) {
     '<button class="button audio-studio-mute" type="button" data-action="audio-admin-toggle-mic" data-mic-mute-button aria-pressed="' + String(activeMicMuted) + '">' +
     (activeMicMuted ? "Unmute microphone" : "Mute microphone") + '</button></section></div>' +
     '<section class="audio-studio-reactions" aria-label="Listener reactions"><div class="audio-studio-reaction-heading"><div><p class="audio-studio-kicker">LIVE ENGAGEMENT</p><h2>Listener reactions</h2></div><span>All-time counts</span></div>' +
+    '<div class="audio-studio-reaction-feed" data-studio-burst-feed aria-live="polite" aria-label="Live reactions feed"></div>' +
     '<div class="audio-studio-reaction-list">' +
     '<article><span aria-hidden="true">❤️</span><strong data-studio-love-count>' + (interactions ? String(interactions.loveCount) : "—") + '</strong><small>Love</small></article>' +
     '<article><span aria-hidden="true">👏</span><strong data-studio-clap-count>' + (interactions ? String(interactions.clapCount) : "—") + '</strong><small>Claps</small></article>' +
+    '<article><span aria-hidden="true">👍</span><strong data-studio-like-count>' + (interactions ? String(interactions.likeCount) : "—") + '</strong><small>Likes</small></article>' +
     '<article><span aria-hidden="true">🔥</span><strong data-studio-fire-count>' + (interactions ? String(interactions.fireCount) : "—") + '</strong><small>Fire</small></article>' +
     '<article><span aria-hidden="true">✉</span><strong data-studio-comment-count>' + (interactions ? String(interactions.commentCount) : "—") + '</strong><small>Comments</small></article></div></section>' +
     '</div><aside class="audio-studio-chat"><header><div><p class="audio-studio-kicker">LISTENER MESSAGES</p><h2>Live comments</h2></div><span class="audio-studio-chat-count" data-studio-chat-count>' + (interactions ? String(interactions.commentCount) : "—") + '</span></header>' +
@@ -753,23 +759,51 @@ async function refreshStudioActivity(programId) {
   updateStudioActivity();
 }
 
+async function pollStudioBursts(programId) {
+  if (!programId) return;
+  try {
+    const bursts = await loadAdminLiveAudioBursts(programId, studioBurstCursor);
+    if (!bursts.length) return;
+    studioBurstCursor = bursts[bursts.length - 1].id;
+    const feed = document.querySelector("[data-studio-burst-feed]");
+    if (!feed) return;
+    bursts.forEach(function (burst) {
+      const chip = document.createElement("span");
+      chip.className = "audio-studio-burst";
+      chip.textContent = FEED_EMOJI[burst.reaction] || "•";
+      feed.appendChild(chip);
+      window.setTimeout(function () { chip.remove(); }, 2600);
+    });
+    while (feed.children.length > 60) feed.removeChild(feed.firstChild);
+  } catch (error) {
+    // Burst polling is best effort; the main activity refresh still reports errors.
+  }
+}
+
 function updateStudioClock() {
   const node = document.querySelector("[data-studio-duration]");
   if (node) node.textContent = formatElapsed(node.dataset.startedAt);
 }
 
 function startStudioTimers() {
+  studioBurstCursor = null;
   if (studioRefreshTimer) window.clearInterval(studioRefreshTimer);
   if (studioClockTimer) window.clearInterval(studioClockTimer);
   studioRefreshTimer = window.setInterval(() => {
     if (activeBroadcastId) void refreshStudioActivity(activeBroadcastId);
   }, 15000);
   studioClockTimer = window.setInterval(updateStudioClock, 1000);
+  if (studioBurstTimer) window.clearInterval(studioBurstTimer);
+  studioBurstTimer = window.setInterval(() => {
+    if (activeBroadcastId) void pollStudioBursts(activeBroadcastId);
+  }, 2000);
 }
 
 function stopStudioTimers() {
   if (studioRefreshTimer) window.clearInterval(studioRefreshTimer);
   if (studioClockTimer) window.clearInterval(studioClockTimer);
+  if (studioBurstTimer) window.clearInterval(studioBurstTimer);
+  studioBurstTimer = null;
   studioRefreshTimer = null;
   studioClockTimer = null;
 }

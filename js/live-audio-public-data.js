@@ -2,7 +2,7 @@ import { createLiveAudioId, createLiveAudioRecordingSignedUrl, getLiveAudioVisit
 import { createCloudinaryLiveAudioPlaybackUrl, parseCloudinaryLiveAudioReference } from "./cloudinary-live-audio.js";
 
 const DEFAULT_CATEGORIES = ["Bible Study", "Sunday Service", "Prayer Meeting", "Worship", "Youth Service", "Other"];
-const REACTION_TYPES = ["love", "clap", "fire"];
+const REACTION_TYPES = ["love", "clap", "fire", "like"];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECORDING_URL_CACHE = new Map();
 const LIVE_SEGMENT_URL_CACHE = new Map();
@@ -195,7 +195,8 @@ export async function loadPublicLiveAudioData() {
     data.reactions[programId] = {
       love: Math.max(0, Number(row.love_count) || 0),
       clap: Math.max(0, Number(row.clap_count) || 0),
-      fire: Math.max(0, Number(row.fire_count) || 0)
+      fire: Math.max(0, Number(row.fire_count) || 0),
+      like: Math.max(0, Number(row.like_count) || 0)
     };
     data.myReactions[programId] = Array.isArray(row.my_reactions)
       ? row.my_reactions.filter(reaction => REACTION_TYPES.includes(reaction))
@@ -257,5 +258,14 @@ export async function recordPublicLiveAudioListen(programId, sessionId) {
       p_visitor_id: getLiveAudioVisitorId(),
       p_session_id: eventId
     }
+  });
+}
+
+export async function sendPublicLiveAudioBurst(programId, reaction) {
+  if (!["love", "clap", "fire", "like"].includes(reaction)) throw new Error("Choose a supported reaction.");
+  if (!UUID_PATTERN.test(String(programId || ""))) throw new Error("This programme is not available for reactions.");
+  return liveAudioRequest("rpc/send_live_audio_burst", {
+    method: "POST",
+    body: { p_program_id: programId, p_visitor_id: getLiveAudioVisitorId(), p_reaction: reaction }
   });
 }
