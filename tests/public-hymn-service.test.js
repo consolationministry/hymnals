@@ -4,7 +4,7 @@ import uploadedHymns from "../data/uploaded-hymns.js";
 import { getAllHymns, getHymnByNumber } from "../js/hymn-service.js";
 import { writeLocal } from "../js/local-store.js";
 
-const PUBLISHED_CACHE_KEY = "cerc-published-hymns-unified-v10";
+const PUBLISHED_CACHE_KEY = "cerc-published-hymns-unified-v11";
 
 function installStorage() {
   const values = new Map();

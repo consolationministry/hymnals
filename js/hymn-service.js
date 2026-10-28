@@ -3,7 +3,7 @@ import { readLocal, writeLocal } from "./local-store.js";
 import { normalizeHymnVerses } from "./hymn-stanzas.js";
 import { isManagedHymnSource, UPLOADED_HYMN_SOURCE, UPLOADED_YORUBA_HYMN_SOURCE } from "./hymnal-selection.js";
 
-const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-unified-v10";
+const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-unified-v11";
 const PUBLIC_HYMN_COLUMNS = [
   "id",
   "hymn_number",
