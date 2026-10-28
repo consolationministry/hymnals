@@ -3,7 +3,6 @@ import { createCategory, createHymn, createProgram, createService, deleteCategor
 
 import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "./admin-hymn-display.js?v=1";
 import { ACTIVE_HYMNALS, isActiveHymnalId, normalizeActiveHymnal } from "../../js/hymnal-selection.js";
-import { GROQ_API_KEY_STORAGE_KEY, requestGroqHymnEdit, validateGroqApiKey } from "./groq-hymn-editor.js?v=1";
 import { handleLiveAudioAdminAction, handleLiveAudioAdminSubmit, renderLiveAudioAdmin, stopAdminAudioMicTest } from "./live-audio-admin.js?v=11";
 import { getCloudinarySettings, renderCloudinarySettingsPanel, removeCloudinarySettings, saveCloudinarySettings } from "./cloudinary-settings.js?v=2";
 import { getProgrammeInteractions } from "../../js/programme-interactions.js";
@@ -110,89 +109,6 @@ function getEditorLines(key) {
   if (!editor) return [];
   const text = (editor.innerText || editor.textContent || "").replace(/\u00a0/g, " ");
   return text.split(/\n+/).map(function (line) { return line.trim(); }).filter(Boolean);
-}
-function getGroqApiKey() {
-  try { return window.sessionStorage.getItem(GROQ_API_KEY_STORAGE_KEY) || ""; }
-  catch (error) { return ""; }
-}
-function groqSettingsStatus(message, isError) {
-  const status = document.getElementById("groq-key-status");
-  if (!status) return;
-  status.textContent = message;
-  status.classList.toggle("is-error", Boolean(isError));
-}
-function saveGroqApiKey() {
-  const input = document.getElementById("groq-api-key");
-  const key = input ? input.value.trim() : "";
-  if (!key) { groqSettingsStatus("Enter your Groq API key first.", true); return; }
-  try {
-    window.sessionStorage.setItem(GROQ_API_KEY_STORAGE_KEY, key);
-    if (input) input.value = key;
-    groqSettingsStatus("Key saved for this browser tab. It is not saved with shared hymns.", false);
-  } catch (error) {
-    groqSettingsStatus("This browser blocked session storage. Your key was not saved.", true);
-  }
-}
-function clearGroqApiKey() {
-  try { window.sessionStorage.removeItem(GROQ_API_KEY_STORAGE_KEY); }
-  catch (error) { /* The key can still be cleared from the field below. */ }
-  const input = document.getElementById("groq-api-key");
-  if (input) input.value = "";
-  groqSettingsStatus("Groq API key cleared from this browser tab.", false);
-}
-async function checkGroqConnection(button) {
-  const key = getGroqApiKey();
-  if (!key) { groqSettingsStatus("Save a Groq API key for this tab before testing the connection.", true); return; }
-  const originalText = button.textContent;
-  button.disabled = true; button.setAttribute("aria-busy", "true"); button.textContent = "Checking…";
-  groqSettingsStatus("Checking the Groq connection…", false);
-  try {
-    await validateGroqApiKey(key);
-    groqSettingsStatus("Connection verified. Groq is ready for hymn editing in this tab.", false);
-  } catch (error) {
-    groqSettingsStatus(error && error.message ? error.message : "Could not verify the Groq connection.", true);
-  } finally {
-    button.disabled = false; button.removeAttribute("aria-busy"); button.textContent = originalText;
-  }
-}
-async function generateHymnEdit(button) {
-  const promptInput = document.getElementById("ai-hymn-prompt");
-  const feedback = document.getElementById("ai-hymn-feedback");
-  const key = getGroqApiKey();
-  if (!feedback || !promptInput) return;
-  if (!key) { feedback.textContent = "Add your Groq API key in Admin Settings first."; feedback.classList.add("is-error"); return; }
-  const prompt = promptInput.value.trim();
-  if (!prompt) { feedback.textContent = "Describe how you want this hymn changed."; feedback.classList.add("is-error"); promptInput.focus(); return; }
-  const current = currentFormData("draft");
-  const hymn = {
-    title_en: current.title_en, title_yoruba: current.title_yoruba,
-    first_line_en: current.first_line_en, first_line_yoruba: current.first_line_yoruba,
-    verses_en: current.verses_en, verses_yoruba: current.verses_yoruba,
-    chorus_en: current.chorus_en, chorus_yoruba: current.chorus_yoruba
-  };
-  const originalText = button.textContent;
-  button.disabled = true; button.setAttribute("aria-busy", "true"); button.textContent = "Generating…";
-  feedback.classList.remove("is-error"); feedback.textContent = "Sending the prompt and current hymn text to Groq…";
-  try {
-    const edited = await requestGroqHymnEdit({ apiKey: key, prompt: prompt, hymn: hymn });
-    const setValue = function (id, value) { const input = document.getElementById(id); if (input) input.value = value; };
-    setValue("title-en", edited.title_en); setValue("title-yoruba", edited.title_yoruba);
-    setValue("first-line-en", edited.first_line_en); setValue("first-line-yoruba", edited.first_line_yoruba);
-    const setEditor = function (key, paragraphs) {
-      const editor = root.querySelector('[data-rich-editor="' + key + '"]');
-      if (editor) editor.innerHTML = escapeLines(paragraphs);
-    };
-    setEditor("verses_en", edited.verses_en); setEditor("verses_yoruba", edited.verses_yoruba);
-    setEditor("chorus_en", edited.chorus_en ? edited.chorus_en.split(/\n+/).map(function (line) { return line.trim(); }).filter(Boolean) : []);
-    setEditor("chorus_yoruba", edited.chorus_yoruba ? edited.chorus_yoruba.split(/\n+/).map(function (line) { return line.trim(); }).filter(Boolean) : []);
-    state.formDirty = isFormDirty();
-    feedback.textContent = "AI draft ready. Review the fields above, make any corrections, then save when you are satisfied. Nothing was saved automatically.";
-  } catch (error) {
-    feedback.textContent = error && error.message ? error.message : "Groq could not edit this hymn. Check your key and try again.";
-    feedback.classList.add("is-error");
-  } finally {
-    button.disabled = false; button.removeAttribute("aria-busy"); button.textContent = originalText;
-  }
 }
 function safeEditorContent(value) { return sanitizeRichHtml(value || ""); }
 
@@ -801,22 +717,16 @@ async function renderSettingsWorkspace() {
     const programSettings = make("section", "panel settings-module");
     programSettings.innerHTML = '<header class="panel-header"><div><h2>Upcoming Programmes</h2><p>Create and manage member-facing programme announcements on a separate page.</p></div></header><div class="panel-body"><p class="settings-module-copy">Programmes from any date appear in the member app after the public-content migrations are applied. Past entries are labeled. Attendance responses and view counts are not connected yet.</p><button class="button button-secondary" type="button" data-action="navigate" data-view="programs">Open Upcoming Programmes</button></div>';
     const quotePanel = make("section", "panel settings-module quote-settings");
-    quotePanel.innerHTML = '<header class="panel-header"><div><h2>Daily Scripture Quote</h2><p>Choose the scripture sources and when the quote should refresh.</p></div></header><div class="panel-body"><form id="daily-quote-form" novalidate><label class="quote-enable-row"><input id="daily-quote-enabled" name="enabled" type="checkbox"' + (quoteSettings.enabled ? " checked" : "") + '><span><strong>Enable the quote feature</strong><small>Controls the planned quote feature in the member hymnal.</small></span></label><fieldset class="quote-source-fieldset"><legend>Allowed Bible books</legend><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Psalms"' + (quoteSettings.books.includes("Psalms") ? " checked" : "") + '><span>Psalms</span></label><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Proverbs"' + (quoteSettings.books.includes("Proverbs") ? " checked" : "") + '><span>Proverbs</span></label></fieldset><div class="admin-field"><label for="quote-refresh-mode">When should a new quote be generated?</label><select class="form-select" id="quote-refresh-mode" name="refreshMode"><option value="on-open"' + (quoteSettings.refreshMode === "on-open" ? " selected" : "") + '>Every time a user opens the app</option><option value="daily"' + (quoteSettings.refreshMode === "daily" ? " selected" : "") + '>Once per day</option></select><p class="field-hint">This preference is saved in the browser preview; the public quote will be wired in the backend phase.</p></div><div class="quote-provider-notice"><strong>Groq connection · Not configured</strong><p>Add the Groq API key as a server secret in the backend phase. It should never be entered or stored in this browser page.</p></div><div id="quote-settings-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-primary" type="submit">Save Quote Settings</button></div></div></form></div>';
+    quotePanel.innerHTML = '<header class="panel-header"><div><h2>Daily Scripture Quote</h2><p>Choose the scripture sources and when the quote should refresh.</p></div></header><div class="panel-body"><form id="daily-quote-form" novalidate><label class="quote-enable-row"><input id="daily-quote-enabled" name="enabled" type="checkbox"' + (quoteSettings.enabled ? " checked" : "") + '><span><strong>Enable the quote feature</strong><small>Controls the planned quote feature in the member hymnal.</small></span></label><fieldset class="quote-source-fieldset"><legend>Allowed Bible books</legend><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Psalms"' + (quoteSettings.books.includes("Psalms") ? " checked" : "") + '><span>Psalms</span></label><label class="quote-source-option"><input type="checkbox" name="quote_books" value="Proverbs"' + (quoteSettings.books.includes("Proverbs") ? " checked" : "") + '><span>Proverbs</span></label></fieldset><div class="admin-field"><label for="quote-refresh-mode">When should a new quote be generated?</label><select class="form-select" id="quote-refresh-mode" name="refreshMode"><option value="on-open"' + (quoteSettings.refreshMode === "on-open" ? " selected" : "") + '>Every time a user opens the app</option><option value="daily"' + (quoteSettings.refreshMode === "daily" ? " selected" : "") + '>Once per day</option></select><p class="field-hint">This preference is saved in the browser preview; the public quote will be wired in the backend phase.</p></div><div id="quote-settings-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><div class="form-actions"><div class="form-actions-left"></div><div class="form-actions-right"><button class="button button-primary" type="submit">Save Quote Settings</button></div></div></form></div>';
     quotePanel.innerHTML = quotePanel.innerHTML.replace(
       "This preference is saved in the browser preview; the public quote will be wired in the backend phase.",
       "These preferences are saved to Supabase. Quote generation and display in the member app are separate work."
-    ).replace("Add the Groq API key as a server secret in the backend phase.", "Add the Groq API key as a server secret when quote generation is implemented.");
-    const groqPanel = make("section", "panel settings-module groq-settings");
-    groqPanel.innerHTML = '<header class="panel-header"><div><h2>Groq AI for hymn editing</h2><p>Use your own Groq API key to request edits in the hymn form.</p></div></header><div class="panel-body"><p class="groq-key-warning"><strong>Browser-only key:</strong> it is kept in this browser tab session storage and sent directly to Groq when you test or generate an edit. Your prompt and hymn text are sent to Groq too. Do not use a shared device or paste sensitive information. For a multi-user production setup, use a server-side secret and backend proxy instead.</p><div class="admin-field"><label for="groq-api-key">Groq API key</label><input class="form-input" id="groq-api-key" type="password" autocomplete="new-password" spellcheck="false" placeholder="Paste your Groq API key"><p class="field-hint">The key is not uploaded to Supabase or committed to GitHub. It remains available only for this browser tab session.</p></div><div class="groq-key-actions"><button class="button button-primary" type="button" data-action="save-groq-key">Save for this tab</button><button class="button button-secondary" type="button" data-action="toggle-groq-key">Show key</button><button class="button button-secondary" type="button" data-action="test-groq-key">Test connection</button><button class="button button-secondary" type="button" data-action="clear-groq-key">Clear key</button></div><p id="groq-key-status" class="groq-key-status" role="status" aria-live="polite"></p></div>';
-    const groqKeyInput = groqPanel.querySelector("#groq-api-key");
-    if (groqKeyInput) groqKeyInput.value = getGroqApiKey();
-    const groqStatus = groqPanel.querySelector("#groq-key-status");
-    if (groqStatus) groqStatus.textContent = getGroqApiKey() ? "A key is available in this browser tab session." : "No key saved in this browser tab.";
+    );
     const cloudinaryPanel = make("div", "");
     cloudinaryPanel.innerHTML = renderCloudinarySettingsPanel(cloudinarySettings);
     const modules = make("div", "settings-modules-grid");
     modules.append(programSettings, quotePanel, cloudinaryPanel.firstElementChild);
-    content.append(modules); content.append(groqPanel);
+    content.append(modules);
     state.settingsFormStart = settings.defaultHymnCategory || "";
     state.quoteSettingsFormStart = quoteSettingsFormSignature();
   } catch (error) {
@@ -1142,7 +1052,7 @@ async function renderHymnForm() {
   const yorubaChorus = hymn.chorus_html_yoruba || (hymn.chorus_yoruba ? "<p>" + escapeHtml(hymn.chorus_yoruba) + "</p>" : "");
   content.innerHTML = '<div class="page-heading"><div><h1>' + (existing ? "Edit Hymn" : "Add New Hymn") + '</h1><p>' + (existing ? "Edit the hymn in the shared admin database." : "Create a hymn record. New hymns start as drafts unless you mark them published.") + '</p></div><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button></div>';
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit hymn form" : "Add hymn form");
-  panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn number, English title, category, and at least one opening line and verse are required. Yorùbá text is optional. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number <span aria-hidden="true">*</span></label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="hymn-category">Category <span aria-hidden="true">*</span></label><select class="form-select" id="hymn-category" name="category" required>' + categoryHtml + '</select></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use one paragraph for each verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use one paragraph for each verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section ai-hymn-editor"><h2>AI hymn editor</h2><p>Describe the changes you want in plain language. Groq will prepare a draft in the fields above; check the result and save it yourself.</p><div class="admin-field"><label for="ai-hymn-prompt">Your instructions</label><textarea class="form-textarea" id="ai-hymn-prompt" rows="4" maxlength="3000" placeholder="For example: Rewrite the English verses in clear, modern language while preserving the original meaning and verse order."></textarea><p class="field-hint">Your instruction and the hymn text currently in this form will be sent to Groq. Changes stay here until you save.</p></div><div class="groq-ai-actions"><button class="button button-secondary" type="button" data-action="ai-edit-hymn">Generate hymn edit</button><p id="ai-hymn-feedback" class="groq-key-status" role="status" aria-live="polite"></p></div></section><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
+  panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn number, English title, category, and at least one opening line and verse are required. Yorùbá text is optional. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number <span aria-hidden="true">*</span></label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="hymn-category">Category <span aria-hidden="true">*</span></label><select class="form-select" id="hymn-category" name="category" required>' + categoryHtml + '</select></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use one paragraph for each verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use one paragraph for each verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
   const formHelp = panel.querySelector(".form-section-help");
   if (formHelp) formHelp.textContent = "Enter a title in English or Yorùbá, choose a category, and add at least one opening line and verse. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.";
   const englishTitle = panel.querySelector("#title-en");
@@ -1288,19 +1198,8 @@ root.addEventListener("click", async function (event) {
   const button = event.target.closest("[data-action]"); if (!button) return;
   if (state.activeView === "live-audio" && await handleLiveAudioAdminAction(button)) return;
   const action = button.dataset.action;
-  if (action === "save-groq-key") {
-    saveGroqApiKey();
-  } else if (action === "clear-groq-key") {
-    clearGroqApiKey();
-  } else if (action === "remove-cloudinary-settings") {
+  if (action === "remove-cloudinary-settings") {
     await disconnectCloudinarySettings();
-  } else if (action === "toggle-groq-key") {
-    const input = document.getElementById("groq-api-key"); if (!input) return;
-    const show = input.type === "password"; input.type = show ? "text" : "password"; button.textContent = show ? "Hide key" : "Show key";
-  } else if (action === "test-groq-key") {
-    await checkGroqConnection(button);
-  } else if (action === "ai-edit-hymn") {
-    await generateHymnEdit(button);
   } else if (action === "toggle-password") {
     const input = document.getElementById("admin-password"); if (!input) return;
     const show = input.type === "password"; input.type = show ? "text" : "password"; button.textContent = show ? "Hide" : "Show"; button.setAttribute("aria-label", show ? "Hide password" : "Show password");

@@ -11,6 +11,7 @@ import { shareHymn } from "./sharing.js";
 import { applyAvailableUpdate, initializeUpdates } from "./updates.js";
 import { APP_VERSION } from "./version.js";
 import { remainingSplashMs } from "./splash-timing.js";
+import { quoteBannerHtml, startQuoteBanner, stopQuoteBanner } from "./quote-banner.js";
 import { displayCollectionLabel, displayHymnalName } from "./hymnal-labels.js";
 import {
   emptyLiveAudioData,
@@ -752,6 +753,11 @@ function render() {
       nextAudioPlayer.replaceWith(preservedAudioPlayer);
       if (liveSegments !== undefined) preservedAudioPlayer.dataset.liveAudioSegments = liveSegments;
     }
+  }
+  stopQuoteBanner();
+  if (state.view === "home" || state.view === "listen") {
+    main.insertAdjacentHTML("afterbegin", quoteBannerHtml());
+    startQuoteBanner(main);
   }
   main.querySelectorAll("[data-audio-player]").forEach(function (audio) {
     mountAudioPlayer(audio, audio.closest(".audio-listener-player"));

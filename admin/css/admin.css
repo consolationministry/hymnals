@@ -440,9 +440,6 @@ a { color: inherit; }
 .quote-source-fieldset { display: flex; flex-wrap: wrap; gap: 9px 18px; margin: 0 0 18px; padding: 13px 14px 14px; border: 1px solid var(--line); border-radius: 10px; }
 .quote-source-fieldset legend { padding: 0 5px; color: var(--ink); font-size: .82rem; font-weight: 700; }
 .quote-source-option { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-size: .84rem; cursor: pointer; }
-.quote-provider-notice { margin-top: 16px; padding: 12px 13px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--surface-soft); }
-.quote-provider-notice strong { font-size: .8rem; }
-.quote-provider-notice p { margin: 5px 0 0; color: var(--muted); font-size: .76rem; line-height: 1.5; }
 @media (max-width: 760px) {
   .settings-modules-grid { grid-template-columns: 1fr; }
   .program-card { grid-template-columns: 1fr; }
@@ -454,21 +451,6 @@ a { color: inherit; }
   .program-card-actions { align-items: flex-start; flex-direction: column; }
 }
 
-/* Groq-assisted hymn editing */
-.groq-settings { margin-top: 18px; }
-.groq-key-warning { margin: 0 0 17px; padding: 12px 14px; border: 1px solid #ecd6a7; border-radius: 9px; color: #594319; background: #fff9e9; font-size: .83rem; line-height: 1.55; }
-.groq-key-actions, .groq-ai-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
-.groq-key-status { min-height: 1.5em; margin: 12px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
-.groq-key-status.is-error { color: #9c1f42; }
-.ai-hymn-editor { padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--purple-soft) 28%, var(--surface)); }
-.ai-hymn-editor h2 { margin: 0 0 6px; font-size: 1.12rem; }
-.ai-hymn-editor > p { margin: 0 0 15px; color: var(--muted); font-size: .84rem; line-height: 1.55; }
-.ai-hymn-editor .form-textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
-.ai-hymn-editor .groq-ai-actions { align-items: flex-start; }
-.ai-hymn-editor .groq-key-status { flex: 1 1 240px; margin: 7px 0 0; }
-@media (max-width: 760px) { .groq-key-actions .button { flex: 1 1 auto; } .ai-hymn-editor { padding: 16px; } }
-@media (prefers-color-scheme: dark) { :root:not([data-admin-theme]) .groq-key-warning { border-color: #6b5835; color: #f2d89d; background: #332b1d; } }
-:root[data-admin-theme="dark"] .groq-key-warning { border-color: #6b5835; color: #f2d89d; background: #332b1d; }
 
 .hymnal-activation-panel { margin-top: 16px; }
 .hymnal-activation-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -482,3 +464,6 @@ a { color: inherit; }
   .hymnal-activation-options { grid-template-columns: 1fr; }
   .hymnal-activation-option { align-items: flex-start; }
 }
+
+.cloudinary-status { min-height: 1.5em; margin: 12px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.cloudinary-status.is-error { color: #9c1f42; }

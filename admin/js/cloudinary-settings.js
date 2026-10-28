@@ -60,7 +60,7 @@ export function renderCloudinarySettingsPanel(config) {
     '<div class="admin-field"><label for="cloudinary-cloud-name">Cloud name</label><input class="form-input" id="cloudinary-cloud-name" name="cloudName" type="text" maxlength="64" autocomplete="off" value="' + escapeHtml(settings.cloudName || "") + '" required><p class="field-hint">Find this in your Cloudinary dashboard.</p></div>' +
     '<div class="admin-field"><label for="cloudinary-api-key">API key</label><input class="form-input" id="cloudinary-api-key" name="apiKey" type="password" autocomplete="new-password" spellcheck="false" placeholder="' + (configured ? "Leave blank to keep the saved key" : "Cloudinary API key") + '"></div>' +
     '<div class="admin-field"><label for="cloudinary-api-secret">API secret</label><input class="form-input" id="cloudinary-api-secret" name="apiSecret" type="password" autocomplete="new-password" spellcheck="false" placeholder="' + (configured ? "Leave blank to keep the saved secret" : "Cloudinary API secret") + '"><p class="field-hint">' + secretHint + '</p></div>' +
-    '<div id="cloudinary-settings-status" class="groq-key-status" role="status" aria-live="polite">' + initialStatus + '</div>' +
+    '<div id="cloudinary-settings-status" class="cloudinary-status" role="status" aria-live="polite">' + initialStatus + '</div>' +
     '<div class="form-actions"><div class="form-actions-left">' +
     (configured ? '<button class="button button-secondary" type="button" data-action="remove-cloudinary-settings">Disconnect Cloudinary</button>' : "") +
     '</div><div class="form-actions-right"><button class="button button-primary" type="submit"' + (available ? "" : " disabled") + '>Save Cloudinary settings</button></div></div>' +
