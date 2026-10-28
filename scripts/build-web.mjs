@@ -20,7 +20,7 @@ await copyFile(path.join(root, "assets/demo-church-mark.svg"), path.join(dist, "
 // GitHub Pages must include the separate static admin app and the source modules it imports.
 await cp(path.join(root, "admin"), path.join(dist, "admin"), { recursive: true });
 for (const [directory, filenames] of [
-  ["js", ["hymnal-selection.js", "programme-interactions.js", "programme-feed-utils.js", "cloudinary-live-audio.js", "live-audio-recording.js", "live-audio-realtime.js", "live-audio-webrtc.js"]],
+  ["js", ["hymnal-selection.js", "programme-interactions.js", "programme-feed-utils.js", "local-store.js", "cloudinary-live-audio.js", "live-audio-recording.js", "live-audio-realtime.js", "live-audio-webrtc.js"]],
   ["data", ["uploaded-hymns.js", "uploaded-yoruba-hymns.js"]]
 ]) {
   await mkdir(path.join(dist, directory), { recursive: true });
