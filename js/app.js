@@ -196,7 +196,7 @@ function pageHeading(title, subtitle) {
 }
 
 function renderHome() {
-  const matchingHymns = rankHymnResults(state.hymns, state.query);
+  const matchingHymns = state.query ? rankHymnResults(state.hymns, state.query) : state.hymns.slice().sort(function (a, b) { return Number(a.hymn_number) - Number(b.hymn_number); });
   const visibleHymns = matchingHymns;
   let collection;
   if (!visibleHymns.length) {
@@ -207,11 +207,11 @@ function renderHome() {
   return '<section class="page home-page">' + renderHomeSearch() + collection + '</section>';
 }
 function renderHymnLibrary() {
-  const results = searchHymns(state.hymns, state.query, state.category);
-  const caption = state.category ? displayCollectionLabel(state.category) : (state.query ? "Search results" : "All hymns");
+  const results = searchHymns(state.hymns, state.query, "").slice().sort(function (a, b) { return Number(a.hymn_number) - Number(b.hymn_number); });
+  const caption = state.query ? "Search results" : "All hymns";
   const emptyTitle = "No matching hymns";
   const emptyMessage = state.query ? "Try another number, title, word, or first line." : "No hymns are available.";
-  return '<section class="page">' + pageHeading("Hymn library", "Browse by number, title, collection, keyword, or first line.") + renderSearchBar() + '<section class="library-tools"><div class="section-title-row"><div><h2>Browse hymn collections</h2></div></div>' + categoryButtons(state.category) + '</section><div class="results-meta"><span>' + escapeHtml(caption) + '</span><span>' + results.length + (results.length === 1 ? " hymn" : " hymns") + '</span></div>' + hymnList(results, emptyTitle, emptyMessage) + '</section>';
+  return '<section class="page">' + pageHeading("Hymn library", "Browse by number, title, keyword, or first line.") + renderSearchBar() + '<div class="results-meta"><span>' + escapeHtml(caption) + '</span><span>' + results.length + (results.length === 1 ? " hymn" : " hymns") + '</span></div>' + hymnList(results, emptyTitle, emptyMessage) + '</section>';
 }
 
 function renderFavorites() {

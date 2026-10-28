@@ -2,11 +2,9 @@ function fold(value) {
   return String(value == null ? "" : value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
 }
 
-export function searchHymns(hymns, query, category) {
+export function searchHymns(hymns, query) {
   const term = fold(query).trim();
   return hymns.filter(function (hymn) {
-    const inCategory = !category || hymn.category === category;
-    if (!inCategory) return false;
     if (!term) return true;
     const fields = [
       hymn.hymn_number,
@@ -21,7 +19,6 @@ export function searchHymns(hymns, query, category) {
       hymn.first_line_yoruba,
       hymn.hymnal_note,
       hymn.author_en,
-      hymn.category,
       hymn.chorus_en,
       hymn.chorus_yoruba,
       ...(hymn.verses_en || []),
@@ -36,7 +33,7 @@ export function searchHymns(hymns, query, category) {
 // that start with the typed digits, then title matches, then everything else.
 export function rankHymnResults(hymns, query) {
   const term = fold(query).trim();
-  const matches = searchHymns(hymns, term, "");
+  const matches = searchHymns(hymns, term);
   if (!term) return matches;
   const numberTerm = term.replace(/^0+(?=\d)/, "");
   const score = function (hymn) {
@@ -47,6 +44,7 @@ export function rankHymnResults(hymns, query) {
     return 3;
   };
   return matches
+    .sort(function (a, b) { return Number(a.hymn_number) - Number(b.hymn_number); })
     .map(function (hymn, index) { return { hymn, index, rank: score(hymn) }; })
     .sort(function (a, b) { return a.rank - b.rank || a.index - b.index; })
     .map(function (entry) { return entry.hymn; });

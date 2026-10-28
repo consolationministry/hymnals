@@ -839,8 +839,7 @@ async function renderHymnList() {
   status.innerHTML = draftsOnly ? '<option value="draft">Drafts only</option>' : '<option value="">All statuses</option><option value="draft">Drafts</option><option value="published">Published</option>';
   status.value = draftsOnly ? "draft" : state.statusFilter;
   status.disabled = draftsOnly;
-  const category = make("select", "filter-select"); category.setAttribute("aria-label", "Filter by category"); category.dataset.filter = "category"; category.innerHTML = '<option value="">All categories</option>';
-  filters.append(status, category); controls.append(left, filters); content.append(controls);
+  filters.append(status); controls.append(left, filters); content.append(controls);
   const resultsLabel = make("p", "hymn-results-label", draftsOnly ? "Loading draft hymns…" : "Loading hymns…");
   content.append(resultsLabel);
   const bulkToolbar = make("div", "hymn-bulk-toolbar");
@@ -853,13 +852,8 @@ async function renderHymnList() {
   const tableWrap = make("div", "hymn-table-wrap"); tableWrap.id = "hymn-table-wrap";
   tableWrap.innerHTML = '<table class="hymn-table"><thead><tr><th scope="col" class="hymn-select-heading"><input type="checkbox" data-select-all-hymns aria-label="Select all visible hymns"></th><th scope="col">Hymn</th><th scope="col">First line</th><th scope="col">Category</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody id="hymn-table-body"></tbody></table>';
   content.append(tableWrap);
-  const categoriesRequest = categoryOptions(state.categoryFilter, true).then(function (options) {
-    if (category.isConnected) category.innerHTML = options;
-  }).catch(function () {
-    if (category.isConnected) category.innerHTML = '<option value="">All categories</option>';
-  });
   await refreshHymnRows();
-  await categoriesRequest;}
+  }
 async function refreshHymnRows() {
   const content = document.getElementById("admin-content");
   if (!content || (state.activeView !== "hymns" && state.activeView !== "drafts") || state.hymnMode !== "list") return;
@@ -899,7 +893,6 @@ async function refreshHymnRows() {
   const matching = hymns.filter(function (hymn) {
     const requiredStatus = draftsOnly ? "draft" : state.statusFilter;
     if (requiredStatus && hymn.status !== requiredStatus) return false;
-    if (state.categoryFilter && hymn.category !== state.categoryFilter) return false;
     if (!query) return true;
     return [hymn.hymn_number, hymn.source_hymn_number, hymn.title_en, hymn.title_yoruba, hymn.first_line_en, hymn.first_line_yoruba, hymn.category].join(" ").toLowerCase().includes(query);
   });
@@ -1293,7 +1286,6 @@ root.addEventListener("input", function (event) {
 });
 root.addEventListener("change", function (event) {
   if (event.target.matches('[data-filter="status"]')) { state.statusFilter = event.target.value; state.selectedHymnIds.clear(); refreshHymnRows(); }
-  if (event.target.matches('[data-filter="category"]')) { state.categoryFilter = event.target.value; state.selectedHymnIds.clear(); refreshHymnRows(); }
   if (event.target.matches("[data-select-all-hymns]")) {
     root.querySelectorAll("[data-select-hymn]").forEach(function (checkbox) {
       const id = String(checkbox.dataset.id); checkbox.checked = event.target.checked;
