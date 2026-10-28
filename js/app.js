@@ -61,7 +61,7 @@ const updateMessage = document.getElementById("update-message");
 const updateVersion = document.getElementById("update-version");
 const updateStatus = document.getElementById("update-status");
 const updateInstallButton = document.getElementById("update-install");
-const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioJoinError: null, liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioSegmentPollTimer: null, liveAudioSegmentRequest: false, liveAudioSegmentRequestToken: 0, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
+const state = { hymns: [], publicContent: null, programmeInteractions: {}, programmeInteractionsAvailable: null, programmeVotesAvailable: null, programmeVotePending: {}, programmeDescriptionsExpanded: {}, programmeSelectedId: null, programmeCategoryFilter: "", liveAudioData: emptyLiveAudioData(), savedLiveAudioPrograms: getSavedLiveAudioPrograms(), savingLiveAudioIds: new Set(), liveAudioPlaybackUrl: "", liveAudioOfflinePlayback: false, liveAudioOpenToken: 0, liveAudioLoading: false, liveAudioError: "", liveAudioJoinError: null, liveAudioQuery: "", liveAudioCategory: "", selectedLiveAudioProgramId: null, liveAudioStartedAt: null, liveAudioTimer: null, liveAudioPollTimer: null, liveAudioSegmentPollTimer: null, liveAudioSegmentRequest: false, liveAudioSegmentRequestToken: 0, liveAudioRequestToken: 0, liveAudioConnectToken: 0, liveAudioListener: null, liveAudioConnecting: false, liveAudioConnectionStatus: "", liveAudioStatusCode: "", liveAudioCountRecorded: false, liveAudioListenEventId: "", view: "home", readerReturnView: "home", selectedNumber: null, query: "", category: "", searchOpen: false, menuOpen: false, settings: getSettings(), toastTimer: null };
 
 const iconPaths = {
   home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/>',
@@ -348,56 +348,81 @@ function renderProgrammeInteractions(program) {
     '</div><p class="programme-vote-status" aria-live="polite">' + escapeHtml(voteStatus) + '</p></div></section>';
 }
 
-function renderPublicPrograms(programs, available) {
+function programmeCategory(program) {
+  return repairMojibake(String(program && program.category || "")).trim();
+}
+
+function renderProgrammeCard(program, detail) {
+  const title = escapeHtml(repairMojibake(program.title || "Untitled programme"));
+  const programId = escapeHtml(program.id);
+  const category = programmeCategory(program);
+  const startDateValue = String(program.start_date || "").slice(0, 10);
+  const startDate = publicDate(program.start_date);
+  const endDate = publicDate(program.end_date);
+  const status = publicStatus(program.start_date, program.end_date);
+  const dateLabel = startDate && endDate && String(program.end_date).slice(0, 10) !== startDateValue
+    ? startDate + " – " + endDate
+    : startDate;
+  const flyer = typeof program.flyer_data_url === "string"
+    && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(program.flyer_data_url)
+    && program.flyer_data_url.length <= 1900000
+    ? '<img class="public-program-post-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
+    : "";
+  const media = flyer ? '<div class="public-program-post-media">' + flyer + '</div>' : "";
+  const venue = repairMojibake(String(program.venue || "")).trim();
+  const venueMarkup = venue
+    ? '<span class="public-program-post-venue"><span class="public-program-post-detail-label">Location</span><span>' + escapeHtml(venue) + '</span></span>'
+    : "";
+  const description = repairMojibake(String(program.description || "")).trim();
+  const expanded = detail || Boolean(state.programmeDescriptionsExpanded[program.id]);
+  const descriptionId = "programme-description-" + String(program.id || "programme").replace(/[^a-z0-9_-]/gi, "").slice(0, 80);
+  const descriptionIsLong = !detail && Array.from(description).length > PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT;
+  const descriptionMarkup = description
+    ? '<div class="public-program-post-description"><p class="public-program-post-description-copy" id="' + descriptionId + '">' + escapeHtml(expanded ? description : excerptProgrammeDescription(description)) + '</p>' +
+      (descriptionIsLong ? '<button class="public-program-read-more" type="button" data-action="toggle-programme-description" data-program-id="' + programId + '" aria-controls="' + descriptionId + '" aria-expanded="' + expanded + '">' + (expanded ? "See less" : "See more") + '</button>' : "") + '</div>'
+    : "";
+  const minister = repairMojibake(String(program && program.minister || "")).trim();
+  const eventDate = dateLabel
+    ? '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time>'
+    : "";
+  const ministerMarkup = minister
+    ? '<span class="public-program-post-minister"><span class="public-program-post-detail-label">Minister</span><span>' + escapeHtml(minister) + '</span></span>'
+    : "";
+  // The date is shown under the title (see the header below), so the meta row only holds minister, venue and status.
+  const eventMetadata = ministerMarkup || venueMarkup || status
+    ? '<div class="public-program-post-meta">' + ministerMarkup + venueMarkup + publicStatusBadge(status) + '</div>'
+    : "";
+  const titleMarkup = detail
+    ? '<h1 class="public-program-post-title">' + title + '</h1>'
+    : '<h2 class="public-program-post-title"><button class="public-program-post-title-button" type="button" data-action="open-programme" data-program-id="' + programId + '">' + title + '</button></h2>';
+  const categoryMarkup = category
+    ? '<button class="public-program-post-category" type="button" data-action="filter-programme-category" data-category="' + escapeHtml(category) + '">' + escapeHtml(category) + '</button>'
+    : "";
+  const header = '<header class="public-program-post-header"><img class="public-program-post-avatar" src="./assets/consolation-launcher.png" alt="" width="42" height="42"><div class="public-program-post-identity">' + titleMarkup + eventDate + '</div>' + categoryMarkup + '</header>';
+  const descriptionSection = descriptionMarkup
+    ? '<div class="public-program-post-body">' + descriptionMarkup + '</div>'
+    : "";
+  // Detail view only: Venue and Ministers rows below the image, styled like the survey block.
+  const detailsBlock = detail
+    ? '<section class="public-program-details" aria-label="Programme details">' +
+      '<div class="public-program-detail-row"><span class="public-program-detail-title">Venue</span><span class="public-program-detail-value">' + escapeHtml(venue || "Not listed yet") + '</span></div>' +
+      '<div class="public-program-detail-row"><span class="public-program-detail-title">Ministers</span><span class="public-program-detail-value">' + escapeHtml(minister || "Not listed yet") + '</span></div>' +
+      '</section>'
+    : "";
+  // Votes/reactions come last, after the image and (in detail view) the Venue/Ministers block.
+  return '<article class="public-program-post' + (detail ? ' public-program-post-detail' : '') + '">' + header + eventMetadata + descriptionSection + media + detailsBlock + renderProgrammeInteractions(program) + '</article>';
+}
+
+function renderPublicPrograms(allPrograms, available) {
+  const category = state.programmeCategoryFilter;
+  const programs = category ? allPrograms.filter(function (program) { return programmeCategory(program) === category; }) : allPrograms;
+  if (!programs.length && category) return '<div class="public-content-empty">No programmes in this category yet.</div>';
   if (!programs.length) {
     const message = available ? "No programmes have been posted yet." : "Programme announcements are unavailable right now. Please try again later.";
     return '<div class="public-content-empty">' + escapeHtml(message) + '</div>';
   }
   return '<div class="public-program-list">' + programs.map(function (program) {
-    const title = escapeHtml(repairMojibake(program.title || "Untitled programme"));
-    const category = repairMojibake(String(program && program.category || "")).trim();
-    const startDateValue = String(program.start_date || "").slice(0, 10);
-    const startDate = publicDate(program.start_date);
-    const endDate = publicDate(program.end_date);
-    const status = publicStatus(program.start_date, program.end_date);
-    const dateLabel = startDate && endDate && String(program.end_date).slice(0, 10) !== startDateValue
-      ? startDate + " – " + endDate
-      : startDate;
-    const flyer = typeof program.flyer_data_url === "string"
-      && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(program.flyer_data_url)
-      && program.flyer_data_url.length <= 1900000
-      ? '<img class="public-program-post-flyer" src="' + escapeHtml(program.flyer_data_url) + '" alt="Flyer for ' + title + '" loading="lazy">'
-      : "";
-    const media = flyer ? '<div class="public-program-post-media">' + flyer + '</div>' : "";
-    const venue = repairMojibake(String(program.venue || "")).trim();
-    const venueMarkup = venue
-      ? '<span class="public-program-post-venue"><span class="public-program-post-detail-label">Location</span><span>' + escapeHtml(venue) + '</span></span>'
-      : "";
-    const description = repairMojibake(String(program.description || "")).trim();
-    const expanded = Boolean(state.programmeDescriptionsExpanded[program.id]);
-    const descriptionId = "programme-description-" + String(program.id || "programme").replace(/[^a-z0-9_-]/gi, "").slice(0, 80);
-    const descriptionIsLong = Array.from(description).length > PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT;
-    const descriptionMarkup = description
-      ? '<div class="public-program-post-description"><p class="public-program-post-description-copy" id="' + descriptionId + '">' + escapeHtml(expanded ? description : excerptProgrammeDescription(description)) + '</p>' +
-        (descriptionIsLong ? '<button class="public-program-read-more" type="button" data-action="toggle-programme-description" data-program-id="' + escapeHtml(program.id) + '" aria-controls="' + descriptionId + '" aria-expanded="' + expanded + '">' + (expanded ? "Show less" : "Read more") + '</button>' : "") + '</div>'
-      : "";
-    const minister = repairMojibake(String(program && program.minister || "")).trim();
-    const eventDate = dateLabel
-      ? '<time class="public-program-post-event-date" datetime="' + escapeHtml(startDateValue) + '">' + escapeHtml(dateLabel) + '</time>'
-      : "";
-    const ministerMarkup = minister
-      ? '<span class="public-program-post-minister"><span class="public-program-post-detail-label">Minister</span><span>' + escapeHtml(minister) + '</span></span>'
-      : "";
-    const categoryMarkup = category
-      ? '<span class="public-program-post-category">' + escapeHtml(category) + '</span>'
-      : "";
-    const eventMetadata = eventDate || ministerMarkup || venueMarkup || status
-      ? '<div class="public-program-post-meta">' + eventDate + ministerMarkup + venueMarkup + publicStatusBadge(status) + '</div>'
-      : "";
-    const descriptionSection = descriptionMarkup
-      ? '<div class="public-program-post-body">' + descriptionMarkup + '</div>'
-      : "";
-    return '<article class="public-program-post"><header class="public-program-post-header"><h2 class="public-program-post-title">' + title + '</h2>' + categoryMarkup + '</header>' + eventMetadata + descriptionSection + media + renderProgrammeInteractions(program) + '</article>';
+    return renderProgrammeCard(program, false);
   }).join("") + '</div>';
 }
 
@@ -423,8 +448,42 @@ function renderPublicServicePlans(plans, available) {
 
 function renderPublicProgramsPage() {
   const content = state.publicContent || { programs: [], servicePlans: [], programsAvailable: false, servicePlansAvailable: false };
+  const programs = Array.isArray(content.programs) ? content.programs : [];
+  if (state.programmeSelectedId) {
+    const selected = programs.find(function (program) { return String(program.id) === String(state.programmeSelectedId); });
+    if (selected) {
+      return '<section class="page public-programs-page public-programs-detail-page">' +
+        '<button class="reader-back public-program-back" type="button" data-action="close-programme">← Back to programmes</button>' +
+        '<section class="public-content-section" aria-label="Programme post">' + renderProgrammeCard(selected, true) + '</section></section>';
+    }
+    state.programmeSelectedId = null;
+  }
+  const category = state.programmeCategoryFilter;
+  const filterMarkup = category
+    ? '<div class="public-program-filter"><span>Showing <strong>' + escapeHtml(category) + '</strong> programmes</span><button class="text-link" type="button" data-action="clear-programme-category">Show all</button></div>'
+    : "";
+  const listMarkup = renderPublicPrograms(content.programs, content.programsAvailable);
   return '<section class="page public-programs-page">' + pageHeading("Upcoming Programmes") +
-    '<section class="public-content-section" aria-label="Programme announcements">' + renderPublicPrograms(content.programs, content.programsAvailable) + '</section></section>';
+    '<section class="public-content-section" aria-label="Programme announcements">' + filterMarkup + listMarkup + '</section></section>';
+}
+
+function openProgrammePost(programId) {
+  state.programmeSelectedId = String(programId);
+  render();
+  window.scrollTo(0, 0);
+}
+
+function closeProgrammePost() {
+  state.programmeSelectedId = null;
+  render();
+  window.scrollTo(0, 0);
+}
+
+function showProgrammeCategory(category) {
+  state.programmeSelectedId = null;
+  state.programmeCategoryFilter = String(category || "");
+  render();
+  window.scrollTo(0, 0);
 }
 
 async function refreshProgrammeInteractions() {
@@ -678,6 +737,10 @@ function navigate(view) {
     state.liveAudioError = "";
   }
   if (view !== "hymns") state.category = "";
+  if (view === "programs") {
+    state.programmeSelectedId = null;
+    state.programmeCategoryFilter = "";
+  }
   render();
   window.scrollTo(0, 0);
   main.focus({ preventScroll: true });
@@ -1271,6 +1334,10 @@ document.addEventListener("click", function (event) {
     const nextButton = descriptionButtons.find(function (button) { return button.dataset.programId === programId; });
     if (nextButton) nextButton.focus();
   }
+  else if (action === "open-programme") openProgrammePost(target.dataset.programId);
+  else if (action === "close-programme") closeProgrammePost();
+  else if (action === "filter-programme-category") showProgrammeCategory(target.dataset.category);
+  else if (action === "clear-programme-category") showProgrammeCategory("");
   else if (action === "cast-programme-vote") castPublicProgrammeVote(target.dataset.programId, target.dataset.choice);
   else if (action === "back") {
     state.view = state.readerReturnView;
