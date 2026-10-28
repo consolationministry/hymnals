@@ -7,7 +7,7 @@ export const AUDIO_EQ_BANDS = Object.freeze([40, 60, 90, 125, 180, 250, 355, 500
 export const AUDIO_CONTROL_SPECS = Object.freeze([
   ...AUDIO_EQ_BANDS.map(freq => Object.freeze({
     key: "eq" + freq,
-    label: freq >= 1000 ? (freq / 1000) + " kHz band" : freq + " Hz band",
+    label: freq >= 1000 ? (freq / 1000) + "kHz" : freq + "Hz",
     group: "eq", min: -12, max: 12, step: 1, unit: " dB", default: 0
   })),
   { key: "bass", label: "Bass shelf", group: "tone", min: -12, max: 12, step: 1, unit: " dB", default: 0 },

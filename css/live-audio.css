@@ -525,3 +525,9 @@ body.audio-listener-mode .toast { bottom:calc(16px + env(safe-area-inset-bottom)
 .audio-stream-network-error p { margin: 0 0 12px; font-size: .9rem; opacity: .92; }
 .audio-stream-network-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
+
+.audio-stream-loading-overlay { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(10, 4, 12, .45); }
+.audio-stream-loading-panel { display: grid; justify-items: center; gap: 12px; color: #f3e6c4; font-size: .9rem; }
+.audio-stream-loading-ring { width: 46px; height: 46px; border-radius: 50%; border: 4px solid rgba(216, 178, 98, .25); border-top-color: #d8b262; animation: audio-stream-spin .9s linear infinite; }
+@keyframes audio-stream-spin { to { transform: rotate(360deg); } }
+.audio-listener-disc { border-radius: 50%; aspect-ratio: 1 / 1; }

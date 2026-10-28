@@ -724,7 +724,10 @@ function render() {
         joinError: state.liveAudioJoinError,
         loading: state.liveAudioLoading && navigator.onLine !== false && !liveAudioViewData.programs.length,
         networkError: navigator.onLine === false || Boolean(state.liveAudioError && /network|connection|reach/i.test(state.liveAudioError)),
-        liveEnded: state.liveAudioStatusCode === "ended"
+        liveEnded: state.liveAudioStatusCode === "ended",
+        opening: Boolean(state.liveAudioOpening),
+        previousProgramId: liveAudioNeighbourId(-1),
+        nextProgramId: liveAudioNeighbourId(1)
       }
     )
     : renderLiveAudioPage(
@@ -1185,6 +1188,13 @@ async function removeLiveAudioFromOffline(programId) {
   }
 }
 
+function liveAudioNeighbourId(direction) {
+  const list = state.liveAudioData && Array.isArray(state.liveAudioData.programs) ? state.liveAudioData.programs : [];
+  const index = list.findIndex(function (item) { return item.id === state.selectedLiveAudioProgramId; });
+  const neighbour = index >= 0 ? list[index + direction] : null;
+  return neighbour ? neighbour.id : "";
+}
+
 async function openLiveAudioProgram(programId) {
   const program = state.liveAudioData.programs.find(function (item) {
     return item.id === programId;
@@ -1200,6 +1210,13 @@ async function openLiveAudioProgram(programId) {
   state.selectedLiveAudioProgramId = programId;
   state.view = "listen";
   stopLiveAudioTimer();
+  state.liveAudioOpening = true;
+  window.setTimeout(function () {
+    if (state.liveAudioOpening && state.selectedLiveAudioProgramId === programId) {
+      state.liveAudioOpening = false;
+      if (state.view === "listen") render();
+    }
+  }, 1400);
   render();
   window.scrollTo(0, 0);
   main.focus({ preventScroll: true });
@@ -1406,15 +1423,9 @@ document.addEventListener("click", function (event) {
     });
   } else if (action === "return-to-live-audio") {
     returnToLiveAudio(main.querySelector('[data-audio-player="live"]'));
-  } else if (action === "skip-audio") {
-    const skipAudio = main.querySelector('[data-audio-player="' + target.dataset.playerType + '"]');
-    if (skipAudio && !skipAudio.dataset.live) {
-      const skipDuration = skipAudio.duration;
-      if (Number.isFinite(skipDuration) && skipDuration > 0) {
-        const skipTo = Math.max(0, Math.min(skipDuration, skipAudio.currentTime + Number(target.dataset.skipSeconds || 0)));
-        seekAudioPlayer(skipAudio, Math.round(skipTo / skipDuration * 1000));
-      }
-    }
+  } else if (action === "switch-audio-program") {
+    const neighbourId = liveAudioNeighbourId(Number(target.dataset.direction || 0));
+    if (neighbourId) void openLiveAudioProgram(neighbourId);
   } else if (action === "toggle-audio-mute") {
     toggleAudioMute(main.querySelector('[data-audio-player="' + target.dataset.playerType + '"]'));
   } else if (action === "audio-reaction") {

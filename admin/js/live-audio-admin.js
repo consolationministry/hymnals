@@ -504,8 +504,8 @@ function renderAudioMixerControls() {
         const value = Number.isFinite(Number(audioSettings[spec.key])) ? audioSettings[spec.key] : spec.default;
         return rangeControl(spec.key, spec.label, spec.min, spec.max, spec.step, value, spec.unit);
       }).join("");
-    return '<details class="audio-mixer-group"' + (group === "eq" ? " open" : "") + '><summary>' +
-      escapeHtml(AUDIO_GROUP_TITLES[group]) + '</summary><div class="audio-mixer-grid">' + controls + "</div></details>";
+    return '<section class="audio-mixer-section" data-mixer-section="' + group + '"><h3 class="audio-mixer-heading">' +
+      escapeHtml(AUDIO_GROUP_TITLES[group]) + '</h3><div class="audio-mixer-grid">' + controls + "</div></section>";
   }).join("");
   return renderAudioPresetButtons() + sections;
 }
@@ -691,19 +691,19 @@ export function renderLiveAudioStudio(program) {
     '<p class="audio-studio-church">CONSOLATION EVANGELICAL AND REVIVAL CHURCH</p><h2>' + escapeHtml(program.title) + '</h2>' +
     '<p class="audio-studio-program-meta">' + escapeHtml(program.speaker || "Minister not set") + " · " + escapeHtml(program.category) + '</p>' +
      '<div class="audio-studio-wave-wrap"><canvas class="audio-waveform audio-studio-waveform" data-audio-waveform width="920" height="124" aria-label="Live music-style audio waveform" role="img"></canvas></div>' +
+     '<div class="audio-studio-mic-meter-row"><span class="audio-studio-mic-meter-label">MIC LEVEL</span><div class="audio-mic-meter audio-studio-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-audio-mic-level></span></div></div>' +
     '<div class="audio-studio-stage-footer"><span>Audio-only broadcast · Listen on the public web player</span><span class="audio-studio-connection" role="status"><i></i><span data-studio-connection>' + escapeHtml(studioConnectionLabel()) + '</span></span></div></div></div></section>' +
     '<section class="audio-studio-metrics" aria-label="Live broadcast metrics">' +
     '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">◷</span><div><small>STREAM DURATION</small><strong data-studio-duration data-started-at="' + escapeHtml(program.liveStartedAt) + '">' + duration + '</strong></div></article>' +
     '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">◉</span><div><small>CONNECTED LISTENERS</small><strong data-studio-live-listeners>' + String(activeListenerCount) + '</strong></div></article>' +
     '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">♫</span><div><small>TOTAL LISTENS</small><strong data-studio-total-listens>' + (interactions ? String(interactions.listenCount) : "—") + '</strong></div></article>' +
     '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">♡</span><div><small>REACTIONS</small><strong data-studio-reaction-total>' + (reactionTotal === null ? "—" : String(reactionTotal)) + '</strong></div></article></section>' +
-    '<div class="audio-studio-workspace">' +
+    '<div class="audio-studio-workspace"><div class="audio-studio-mixer-col">' +
     '<section class="audio-studio-panel audio-studio-mixer"><header><div><p class="audio-studio-kicker">SOUND MIXER</p><h2>Microphone controls</h2></div><span class="audio-studio-mic-live"><i></i>MIC LIVE</span></header>' +
     renderAudioMixerControls() +
     '<p class="audio-studio-panel-note">Changes apply to the live microphone immediately.</p></section>' +
     '<section class="audio-studio-panel audio-studio-mic-panel"><header><div><p class="audio-studio-kicker">INPUT MONITOR</p><h2>Microphone level</h2></div></header>' +
-    '<div class="audio-mic-meter audio-studio-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-audio-mic-level></span></div>' +
-     '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">' + keepOpenMessage + '</p>' +
+    '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">' + keepOpenMessage + '</p>' +
     '<button class="button audio-studio-mute" type="button" data-action="audio-admin-toggle-mic" data-mic-mute-button aria-pressed="' + String(activeMicMuted) + '">' +
     (activeMicMuted ? "Unmute microphone" : "Mute microphone") + '</button></section></div>' +
     '<section class="audio-studio-reactions" aria-label="Listener reactions"><div class="audio-studio-reaction-heading"><div><p class="audio-studio-kicker">LIVE ENGAGEMENT</p><h2>Listener reactions</h2></div><span>All-time counts</span></div>' +

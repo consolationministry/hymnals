@@ -29,7 +29,7 @@ test("audio timestamps are formatted as minutes or hours", () => {
 test("waveform heights reflect the audio samples in each bar", () => {
   assert.deepEqual(
     getAudioWaveformHeights(new Uint8Array([128, 255, 128, 128]), 2),
-    [99, 5]
+    [100, 8]
   );
   assert.deepEqual(getAudioWaveformHeights(new Uint8Array(), 3), [5, 5, 5]);
 });

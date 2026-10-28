@@ -674,3 +674,13 @@
 .audio-studio-reaction-feed { position: relative; display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; min-height: 44px; max-height: 96px; overflow: hidden; margin-top: 10px; }
 .audio-studio-burst { display: inline-block; font-size: 1.25rem; animation: audio-studio-burst-rise 2.6s ease-out forwards; }
 @keyframes audio-studio-burst-rise { 0% { opacity: 0; transform: translateY(14px) scale(.7); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-40px) scale(1.15); } }
+
+.audio-studio-workspace { grid-template-columns: minmax(0, 1fr) !important; }
+.audio-studio-mixer-col { display: grid; gap: 12px; min-width: 0; }
+.audio-studio-mixer .audio-mixer-section { display: grid; gap: 8px; padding: 10px 0 12px; border-top: 1px solid #1b3554; }
+.audio-studio-mixer .audio-mixer-heading { margin: 0; color: #dbe8fa; font-size: .8rem; text-transform: uppercase; }
+.audio-studio-mixer .audio-mixer-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.audio-studio-mic-meter-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.audio-studio-mic-meter-label { color: #8da2bc; font-size: .6rem; white-space: nowrap; }
+.audio-studio-mic-meter-row .audio-studio-meter { flex: 1; height: 8px; }
+.audio-studio-chat { min-height: 0 !important; max-height: 260px !important; position: static !important; }

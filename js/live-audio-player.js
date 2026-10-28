@@ -111,7 +111,8 @@ export function getAudioWaveformHeights(samples, barCount = 40) {
         : Math.abs(sample);
       peak = Math.max(peak, amplitude);
     }
-    return Math.max(5, Math.min(100, Math.round(peak * 100)));
+    // Lift quiet passages so small audio still shows visible bars; sqrt keeps real variation.
+    return Math.max(8, Math.min(100, Math.round(Math.sqrt(Math.min(1, peak * 1.6)) * 100)));
   });
 }
 
