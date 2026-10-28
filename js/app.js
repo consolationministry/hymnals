@@ -1316,7 +1316,7 @@ function showUpdateNotice(update) {
   updateDialog.dataset.updateKind = update.kind;
   updateDialog.dataset.releaseUrl = update.releaseUrl || "";
   updateVersion.textContent = update.version ? "Version " + update.version : "";
-  updateMessage.textContent = update.kind === "android"
+  updateMessage.textContent = update.message || update.kind === "android"
     ? "Download the Android update now. Android will ask you to confirm installation before replacing this app."
     : "A newer offline-ready version of the hymnal is ready to install.";
   updateInstallButton.textContent = update.kind === "android" ? "Download & install" : "Install update";

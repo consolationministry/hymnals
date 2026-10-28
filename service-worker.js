@@ -1,4 +1,4 @@
-const CACHE_NAME = "consolation-hymnal-1.1.131-unified";
+const CACHE_NAME = "consolation-hymnal-1.1.132-unified";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
@@ -49,7 +49,7 @@ self.addEventListener("activate", function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
       return Promise.all(keys.filter(function (key) {
-        return key.startsWith("consolation-hymnal-") && key !== CACHE_NAME;
+        return key !== CACHE_NAME;
       }).map(function (key) {
         return caches.delete(key);
       }));
