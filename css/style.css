@@ -115,14 +115,14 @@ button { -webkit-tap-highlight-color: transparent; }
 .reading-size { display: flex; align-items: center; gap: 6px; padding: 4px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
 .reading-size button { display: grid; place-items: center; width: 42px; height: 40px; border: 0; border-radius: 9px; color: var(--purple); background: transparent; font-weight: 800; cursor: pointer; }
 .reading-size output { min-width: 46px; color: var(--muted); font-size: .82rem; text-align: center; }
-.hymn-reading { display: grid; gap: 15px; }
+.hymn-reading { display: grid; gap: 22px; }
 .language-reading { padding: 20px clamp(18px, 5vw, 30px); border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
 .language-reading h2 { margin: 0 0 17px; color: var(--purple); font-family: var(--font-reading); font-size: 1.2rem; }
 .verse-block { margin: 0 0 21px; }
 .verse-block:last-child { margin-bottom: 0; }
 .verse-label { display: block; margin-bottom: 7px; color: var(--muted); font-size: .73rem; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
-.verse-text { margin: 0; color: var(--ink); font-family: var(--font-reading); font-size: var(--hymn-size); line-height: 1.75; white-space: pre-line; }
-.chorus-block { margin-top: 23px; padding: 17px; border-left: 4px solid var(--accent); border-radius: 0 14px 14px 0; background: var(--accent-soft); }
+.verse-text { margin: 0; color: var(--ink); font-family: var(--font-reading); font-size: var(--hymn-size); line-height: 1.85; white-space: pre-line; }
+.chorus-block { margin: 26px 0 30px; padding: 20px 22px; border-left: 5px solid var(--accent); border-radius: 14px; background: var(--accent-soft); }
 .chorus-block .verse-text { font-weight: 600; }
 .reader-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0; padding: 13px 2px; color: var(--muted); font-size: .86rem; }
 .source-link { color: var(--accent); font-weight: 650; text-decoration: none; }
@@ -409,7 +409,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .reader-heading .reader-first-line { position: relative; margin-top: 10px; color: rgba(255,255,255,.86); font-family: var(--font-reading); font-size: 1.04rem; }
 .reader-heading .hymn-category { display: inline-flex; position: relative; margin-top: 15px; padding: 5px 10px; border: 1px solid rgba(255,255,255,.26); border-radius: 999px; color: #fff; font-size: .72rem; }
 .reader-meta { margin: 0 0 14px; }
-.hymn-reading { display: grid; gap: 15px; }
+.hymn-reading { display: grid; gap: 22px; }
 .language-reading {
   padding: 25px clamp(19px, 5vw, 34px);
   border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--line));
@@ -417,11 +417,21 @@ button { -webkit-tap-highlight-color: transparent; }
   background: var(--surface);
   box-shadow: 0 7px 22px rgba(34, 30, 51, .055);
 }
-.language-reading h2 { padding-bottom: 13px; border-bottom: 1px solid var(--line); text-align: center; }
-.verse-block { padding-bottom: 17px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
-.verse-block:last-child { padding-bottom: 0; border-bottom: 0; }
-.verse-label { color: var(--accent); font-size: .68rem; letter-spacing: .14em; }
-.chorus-block { border-left-color: var(--accent); }
+.language-reading h2 { padding-bottom: 13px; margin-bottom: 22px; border-bottom: 1px solid var(--line); text-align: center; }
+.verse-block { margin: 0 0 28px; padding: 0; border: 0; }
+.verse-block:last-child { margin-bottom: 0; }
+.verse-label { display: block; margin-bottom: 8px; color: var(--accent); font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.verse-text { line-height: 1.85; letter-spacing: .01em; word-spacing: .04em; white-space: pre-line; }
+.chorus-block {
+  margin: 26px 0 30px;
+  padding: 20px clamp(16px, 4vw, 24px);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-left: 5px solid var(--accent);
+  border-radius: 14px;
+  background: var(--accent-soft);
+}
+.chorus-block .verse-label { color: var(--purple); letter-spacing: .16em; }
+.chorus-block .verse-text { font-weight: 600; line-height: 1.85; }
 .reader-footer { margin-top: 13px; }
 
 .accent-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 9px; }

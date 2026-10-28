@@ -7,8 +7,19 @@ test("places the chorus after the first verse", () => {
     { type: "verse", number: 1, text: "first verse" },
     { type: "chorus", text: "the chorus" },
     { type: "verse", number: 2, text: "second verse" },
-    { type: "verse", number: 3, text: "third verse" }
+    { type: "verse", number: 3, text: "third verse" },
+    { type: "chorus", text: "the chorus" }
   ]);
+});
+
+test("repeats the chorus after verse 5 and at the end for hymns longer than 5 verses", () => {
+  const verses = ["v1", "v2", "v3", "v4", "v5", "v6"];
+  assert.deepEqual(getReadingParts(verses, "the chorus").map((p) => p.type === "chorus" ? "C" : p.number), [1, "C", 2, 3, 4, 5, "C", 6, "C"]);
+});
+
+test("does not repeat the chorus after verse 5 for a five-verse hymn", () => {
+  const verses = ["v1", "v2", "v3", "v4", "v5"];
+  assert.deepEqual(getReadingParts(verses, "the chorus").map((p) => p.type === "chorus" ? "C" : p.number), [1, "C", 2, 3, 4, 5, "C"]);
 });
 
 test("keeps the meter and scripture preface separate from numbered lyric verses", () => {
@@ -17,7 +28,8 @@ test("keeps the meter and scripture preface separate from numbered lyric verses"
     { type: "heading", text: heading },
     { type: "verse", number: 1, text: "Holy Father, hear me" },
     { type: "chorus", text: "the chorus" },
-    { type: "verse", number: 2, text: "Jesus, blessed Master" }
+    { type: "verse", number: 2, text: "Jesus, blessed Master" },
+    { type: "chorus", text: "the chorus" }
   ]);
 });
 
