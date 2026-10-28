@@ -4,7 +4,7 @@ import uploadedHymns from "../data/uploaded-hymns.js";
 import { getAllHymns, getHymnByNumber } from "../js/hymn-service.js";
 import { writeLocal } from "../js/local-store.js";
 
-const PUBLISHED_CACHE_KEY = "cerc-published-hymns-unified-v8";
+const PUBLISHED_CACHE_KEY = "cerc-published-hymns-unified-v9";
 
 function installStorage() {
   const values = new Map();
@@ -82,12 +82,12 @@ test("published results include both uploaded collections and keep drafts hidden
   };
 
   const hymns = await getAllHymns();
-  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [10000, 10038, 20001]);
-  assert.deepEqual(hymns.map(function (hymn) { return hymn.source_hymnal; }), ["Uploaded Hymn Collection", "Uploaded Hymn Collection", "Uploaded Yorùbá Hymn Collection"]);
-  assert.equal(hymns[1].source_number_label, "63V");
-  assert.equal(hymns[2].source_number_label, "002");
-  assert.equal(hymns[2].hymnal_note, "Ifi 19:1");
-  assert.deepEqual(JSON.parse(values.get(PUBLISHED_CACHE_KEY)).map(function (hymn) { return hymn.hymn_number; }), [10000, 10038, 20001]);
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.hymn_number; }), [10000, 20001, 10038]);
+  assert.deepEqual(hymns.map(function (hymn) { return hymn.source_hymnal; }), ["Uploaded Hymn Collection", "Uploaded Yorùbá Hymn Collection", "Uploaded Hymn Collection"]);
+  assert.equal(hymns[2].source_number_label, "63V");
+  assert.equal(hymns[1].source_number_label, "002");
+  assert.equal(hymns[1].hymnal_note, "Ifi 19:1");
+  assert.deepEqual(JSON.parse(values.get(PUBLISHED_CACHE_KEY)).map(function (hymn) { return hymn.hymn_number; }), [10000, 20001, 10038]);
   assert.match(hymnRequest.url, /hymnal_note/);
   assert.match(hymnRequest.url, /status=eq\.published/);
   assert.match(hymnRequest.url, /hymn_number\.asc/);

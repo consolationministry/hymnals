@@ -2,7 +2,7 @@ import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
 import { isManagedHymnSource, UPLOADED_HYMN_SOURCE, UPLOADED_YORUBA_HYMN_SOURCE } from "./hymnal-selection.js";
 
-const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-unified-v8";
+const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-unified-v9";
 const PUBLIC_HYMN_COLUMNS = [
   "id",
   "hymn_number",
@@ -20,6 +20,7 @@ const PUBLIC_HYMN_COLUMNS = [
   "source_hymnal",
   "source_publication_year",
   "source_hymn_number",
+  "language",
   "source_first_line_en",
   "source_hymnary_url",
   "lyrics_source_url",
@@ -90,10 +91,11 @@ function normalizePublishedRows(rows) {
         source_first_line_en: hasMeterTitle ? lyricLine : asString(row.source_first_line_en),
         source_hymnary_url: asString(row.source_hymnary_url),
         lyrics_source_url: asString(row.lyrics_source_url),
+        language: asString(row.language) === "yoruba" || (!asString(row.language) && isYorubaCollection) ? "yoruba" : "english",
         status: "published"
       };
     })
-    .sort(function (a, b) { return a.hymn_number - b.hymn_number; });
+    .sort(function (a, b) { return Number(a.source_hymn_number || a.hymn_number) - Number(b.source_hymn_number || b.hymn_number) || a.hymn_number - b.hymn_number; });
 
   return normalized;
 }

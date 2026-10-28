@@ -188,19 +188,36 @@ function compareByPrintedNumber(a, b) {
   return pa - pb || Number(a.hymn_number) - Number(b.hymn_number);
 }
 
+function languageLabel(language) {
+  return { english: "English", yoruba: "Yorùbá" }[language] || "English";
+}
+
+function languageToggle() {
+  const choices = ["english", "yoruba"];
+  return '<div class="language-toggle" role="group" aria-label="Hymn language">' + choices.map(function (language) {
+    return '<button type="button" data-action="language" data-language="' + language + '" aria-pressed="' + (state.settings.language === language) + '" data-testid="button-language-' + language + '">' + languageLabel(language) + '</button>';
+  }).join("") + '</div>';
+}
+
+function inActiveLanguage(hymn) {
+  return (hymn.language || "english") === state.settings.language;
+}
+
 function renderHome() {
-  const matchingHymns = state.query ? rankHymnResults(state.hymns, state.query) : state.hymns.slice().sort(compareByPrintedNumber);
+  const activeHymns = state.hymns.filter(inActiveLanguage);
+  const matchingHymns = state.query ? rankHymnResults(activeHymns, state.query) : activeHymns.slice().sort(compareByPrintedNumber);
   const visibleHymns = matchingHymns;
+  const emptyWord = state.settings.language === "yoruba" ? "Yorùbá hymns" : "hymns";
   let collection;
   if (!visibleHymns.length) {
-    collection = '<section class="empty-state home-empty" aria-live="polite"><h2>No matching hymns</h2><p>Try another number, title, word, or first line.</p><button class="button-secondary" type="button" data-action="clear-home-search" data-testid="button-clear-home-search">Clear search</button></section>';
+    collection = '<section class="empty-state home-empty" aria-live="polite"><h2>No matching ' + emptyWord + '</h2><p>Try another number, title, word, or first line.</p><button class="button-secondary" type="button" data-action="clear-home-search" data-testid="button-clear-home-search">Clear search</button></section>';
   } else {
     collection = '<div class="home-hymn-list" aria-live="polite">' + visibleHymns.map(homeHymn).join("") + '</div>';
   }
-  return '<section class="page home-page">' + renderHomeSearch() + collection + '</section>';
+  return '<section class="page home-page">' + renderHomeSearch() + '<div class="home-language">' + languageToggle() + '</div>' + collection + '</section>';
 }
 function renderHymnLibrary() {
-  const results = searchHymns(state.hymns, state.query, "").slice().sort(compareByPrintedNumber);
+  const results = searchHymns(state.hymns.filter(inActiveLanguage), state.query, "").slice().sort(compareByPrintedNumber);
   const caption = state.query ? "Search results" : "All hymns";
   const emptyTitle = "No matching hymns";
   const emptyMessage = state.query ? "Try another number, title, word, or first line." : "No hymns are available.";
@@ -1400,6 +1417,7 @@ document.addEventListener("click", function (event) {
   else if (action === "install-update") installAvailableUpdate();
   else if (action === "save-settings") saveCurrentSettings();
   else if (action === "navigate") navigate(target.dataset.view);
+  else if (action === "language") setSettings({ language: target.dataset.language === "yoruba" ? "yoruba" : "english" });
   else if (action === "header-search") {
       if (state.view === "home") {
       state.searchOpen = state.query ? true : !state.searchOpen;
