@@ -145,7 +145,7 @@ test("public audio loads published Supabase programmes and shared listener inter
   assert.match(listener, /shared with other listeners/);
   assert.match(listener, /audio-listener-header/);
   assert.match(listener, /Live Comments/);
-  assert.match(listener, /data-action="share-live-audio"/);
+  assert.doesNotMatch(listener, /data-action="share-live-audio"/);
   assert.match(listener, /3 watching/);
 });
 

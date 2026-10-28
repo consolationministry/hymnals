@@ -1,11 +1,42 @@
 import { connectLiveAudioChannel, createLiveAudioId, makeAudioPeerConnection } from "./live-audio-realtime.js";
 
-export const DEFAULT_AUDIO_SETTINGS = Object.freeze({
-  bass: 0,
-  mid: 0,
-  treble: 0,
-  pitch: 0,
-  gain: 0
+export const AUDIO_EQ_BANDS = Object.freeze([40, 60, 90, 125, 180, 250, 355, 500, 710, 1000, 1400, 2000, 2800, 4000, 5600, 8000]);
+
+// Every adjustable audio control. Each one drives a real Web Audio node in the
+// microphone chain (see createLiveAudioMicEngine). Keep keys in sync with the engine.
+export const AUDIO_CONTROL_SPECS = Object.freeze([
+  ...AUDIO_EQ_BANDS.map(freq => Object.freeze({
+    key: "eq" + freq,
+    label: freq >= 1000 ? (freq / 1000) + " kHz band" : freq + " Hz band",
+    group: "eq", min: -12, max: 12, step: 1, unit: " dB", default: 0
+  })),
+  { key: "bass", label: "Bass shelf", group: "tone", min: -12, max: 12, step: 1, unit: " dB", default: 0 },
+  { key: "mid", label: "Mid boost", group: "tone", min: -12, max: 12, step: 1, unit: " dB", default: 0 },
+  { key: "midFreq", label: "Mid frequency", group: "tone", min: 200, max: 5000, step: 50, unit: " Hz", default: 1100 },
+  { key: "midQ", label: "Mid width (Q)", group: "tone", min: 0.3, max: 4, step: 0.05, unit: "", default: 0.85 },
+  { key: "treble", label: "Treble shelf", group: "tone", min: -12, max: 12, step: 1, unit: " dB", default: 0 },
+  { key: "highpass", label: "Low cut", group: "tone", min: 20, max: 300, step: 5, unit: " Hz", default: 75 },
+  { key: "balance", label: "Balance (L/R)", group: "output", min: -1, max: 1, step: 0.05, unit: "", default: 0 },
+  { key: "pitch", label: "Pitch", group: "output", min: -4, max: 4, step: 1, unit: " st", default: 0 },
+  { key: "gain", label: "Mic level", group: "output", min: -12, max: 6, step: 1, unit: " dB", default: 0 },
+  { key: "volume", label: "Output volume", group: "output", min: 0, max: 100, step: 1, unit: "%", default: 100 },
+  { key: "threshold", label: "Compressor threshold", group: "dynamics", min: -60, max: 0, step: 1, unit: " dB", default: -18 },
+  { key: "ratio", label: "Compressor ratio", group: "dynamics", min: 1, max: 20, step: 1, unit: ":1", default: 3 },
+  { key: "knee", label: "Compressor knee", group: "dynamics", min: 0, max: 40, step: 1, unit: " dB", default: 12 },
+  { key: "attack", label: "Attack", group: "dynamics", min: 0, max: 100, step: 1, unit: " ms", default: 4 },
+  { key: "release", label: "Release", group: "dynamics", min: 20, max: 1000, step: 10, unit: " ms", default: 160 }
+]);
+
+export const DEFAULT_AUDIO_SETTINGS = Object.freeze(
+  Object.fromEntries(AUDIO_CONTROL_SPECS.map(spec => [spec.key, spec.default]))
+);
+
+export const AUDIO_PRESETS = Object.freeze({
+  flat: { label: "Flat (default)", values: {} },
+  voice: { label: "Clear voice", values: { highpass: 90, eq250: -3, eq500: -2, eq2000: 3, eq4000: 4, mid: 2, midFreq: 2800 } },
+  choir: { label: "Warm choir", values: { bass: 3, eq125: 2, eq250: 1, eq4000: -2, eq8000: -3, treble: -1 } },
+  bass: { label: "Bass boost", values: { bass: 8, eq60: 5, eq90: 4, eq125: 2, highpass: 40 } },
+  bright: { label: "Bright", values: { treble: 5, eq4000: 3, eq5600: 2, eq8000: 4 } }
 });
 
 export function getLiveAudioListenerStatus(connectionState, playbackStatus) {
@@ -195,11 +226,18 @@ export async function createLiveAudioMicEngine(options) {
     const source = context.createMediaStreamSource(rawStream);
     const highPass = context.createBiquadFilter();
     highPass.type = "highpass";
-    highPass.frequency.value = 75;
     highPass.Q.value = 0.7;
     const bass = context.createBiquadFilter();
     bass.type = "lowshelf";
     bass.frequency.value = 160;
+    const eqBands = AUDIO_EQ_BANDS.map(freq => {
+      const band = context.createBiquadFilter();
+      band.type = "peaking";
+      band.frequency.value = freq;
+      band.Q.value = 1.1;
+      band.gain.value = 0;
+      return band;
+    });
     const mid = context.createBiquadFilter();
     mid.type = "peaking";
     mid.frequency.value = 1100;
@@ -207,12 +245,8 @@ export async function createLiveAudioMicEngine(options) {
     const treble = context.createBiquadFilter();
     treble.type = "highshelf";
     treble.frequency.value = 5200;
+    const balance = typeof context.createStereoPanner === "function" ? context.createStereoPanner() : null;
     const compressor = context.createDynamicsCompressor();
-    compressor.threshold.value = -18;
-    compressor.knee.value = 12;
-    compressor.ratio.value = 3;
-    compressor.attack.value = 0.004;
-    compressor.release.value = 0.16;
     let pitchNode = null;
     let pitchAvailable = false;
 
@@ -232,31 +266,50 @@ export async function createLiveAudioMicEngine(options) {
     }
 
     const gain = context.createGain();
+    const volume = context.createGain();
     const analyser = context.createAnalyser();
     analyser.fftSize = 1024;
     analyser.smoothingTimeConstant = 0.72;
     const destination = context.createMediaStreamDestination();
-    source.connect(highPass);
-    highPass.connect(bass);
-    bass.connect(mid);
-    mid.connect(treble);
-    treble.connect(compressor);
+
+    // Serial chain: source -> low cut -> bass -> 16 EQ bands -> mid -> treble -> balance -> compressor -> pitch -> mic level -> volume -> analyser -> broadcast.
+    const serial = [source, highPass, bass, ...eqBands, mid, treble, balance, compressor];
+    for (let index = 0; index < serial.length - 1; index += 1) {
+      if (serial[index] && serial[index + 1]) serial[index].connect(serial[index + 1]);
+    }
+    const last = serial[serial.length - 1];
     if (pitchNode) {
-      compressor.connect(pitchNode);
+      last.connect(pitchNode);
       pitchNode.connect(gain);
     } else {
-      compressor.connect(gain);
+      last.connect(gain);
     }
-    gain.connect(analyser);
+    gain.connect(volume);
+    volume.connect(analyser);
     analyser.connect(destination);
 
-    const nodes = { bass, mid, treble, gain, pitchNode };
+    const nodes = { highPass, bass, eqBands, mid, treble, balance, compressor, gain, volume, pitchNode };
     const setSettings = values => {
       const settings = Object.assign({}, DEFAULT_AUDIO_SETTINGS, values || {});
-      nodes.bass.gain.setTargetAtTime(clamp(settings.bass, -12, 12), context.currentTime, 0.025);
-      nodes.mid.gain.setTargetAtTime(clamp(settings.mid, -12, 12), context.currentTime, 0.025);
-      nodes.treble.gain.setTargetAtTime(clamp(settings.treble, -12, 12), context.currentTime, 0.025);
-      nodes.gain.gain.setTargetAtTime(Math.pow(10, clamp(settings.gain, -12, 6) / 20), context.currentTime, 0.025);
+      const now = context.currentTime;
+      const ramp = (param, value) => param.setTargetAtTime(value, now, 0.025);
+      ramp(nodes.highPass.frequency, clamp(settings.highpass, 20, 300));
+      ramp(nodes.bass.gain, clamp(settings.bass, -12, 12));
+      ramp(nodes.mid.gain, clamp(settings.mid, -12, 12));
+      ramp(nodes.mid.frequency, clamp(settings.midFreq, 200, 5000));
+      ramp(nodes.mid.Q, clamp(settings.midQ, 0.3, 4));
+      ramp(nodes.treble.gain, clamp(settings.treble, -12, 12));
+      nodes.eqBands.forEach((band, index) => {
+        ramp(band.gain, clamp(settings["eq" + AUDIO_EQ_BANDS[index]], -12, 12));
+      });
+      if (nodes.balance) ramp(nodes.balance.pan, clamp(settings.balance, -1, 1));
+      ramp(nodes.compressor.threshold, clamp(settings.threshold, -60, 0));
+      ramp(nodes.compressor.knee, clamp(settings.knee, 0, 40));
+      ramp(nodes.compressor.ratio, clamp(settings.ratio, 1, 20));
+      ramp(nodes.compressor.attack, clamp(settings.attack, 0, 100) / 1000);
+      ramp(nodes.compressor.release, clamp(settings.release, 20, 1000) / 1000);
+      ramp(nodes.gain.gain, Math.pow(10, clamp(settings.gain, -12, 6) / 20));
+      ramp(nodes.volume.gain, clamp(settings.volume, 0, 100) / 100);
       if (nodes.pitchNode) nodes.pitchNode.port.postMessage({ semitones: clamp(settings.pitch, -4, 4) });
     };
     setSettings(opts.settings || DEFAULT_AUDIO_SETTINGS);
@@ -657,8 +710,8 @@ export async function startLiveAudioListener(options) {
     if (opts.onStatus) opts.onStatus("reconnecting");
     const delay = Number.isFinite(Number(delayMs))
       ? Math.max(0, Number(delayMs))
-      : Math.min(30000, 750 * Math.pow(2, reconnectAttempts));
-    reconnectAttempts = Math.min(reconnectAttempts + 1, 6);
+      : Math.min(30000, 750 * Math.pow(2, reconnectAttempts)) + Math.round(Math.random() * 400);
+    reconnectAttempts = Math.min(reconnectAttempts + 1, 8);
     reconnectTimer = globalThis.setTimeout(() => {
       reconnectTimer = null;
       void startPeer(true);

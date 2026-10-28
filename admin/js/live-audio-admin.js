@@ -18,7 +18,7 @@ import {
 let pendingAudioFile = null;
 import { createLiveAudioId } from "../../js/live-audio-realtime.js";
 import { startLiveAudioRecording } from "../../js/live-audio-recording.js?v=2";
-import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=3";
+import { AUDIO_CONTROL_SPECS, AUDIO_PRESETS, createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=4";
 import { buildWaveformBars, getWaveformDisplayGain, scaleWaveformBars } from "./live-audio-waveform.js";
 
 let activeTab = "programs";
@@ -481,6 +481,54 @@ function updateBroadcastPreview(form) {
   [placeholder, placeholderCopy].forEach(node => { if (node) node.hidden = Boolean(safeImageUrl); });
 }
 
+const AUDIO_GROUP_TITLES = Object.freeze({
+  eq: "Equalizer · 16 bands",
+  tone: "Tone & filters",
+  output: "Output & balance",
+  dynamics: "Compressor & dynamics"
+});
+
+function renderAudioPresetButtons() {
+  return '<div class="audio-preset-row" role="group" aria-label="EQ presets">' +
+    Object.keys(AUDIO_PRESETS).map(function (key) {
+      return '<button class="audio-preset-button" type="button" data-action="audio-preset" data-preset="' + key + '">' +
+        escapeHtml(AUDIO_PRESETS[key].label) + "</button>";
+    }).join("") + '<button class="audio-preset-button" type="button" data-action="audio-reset-settings">Reset all</button></div>';
+}
+
+function renderAudioMixerControls() {
+  const groups = ["eq", "tone", "output", "dynamics"];
+  const sections = groups.map(function (group) {
+    const controls = AUDIO_CONTROL_SPECS.filter(function (spec) { return spec.group === group; })
+      .map(function (spec) {
+        const value = Number.isFinite(Number(audioSettings[spec.key])) ? audioSettings[spec.key] : spec.default;
+        return rangeControl(spec.key, spec.label, spec.min, spec.max, spec.step, value, spec.unit);
+      }).join("");
+    return '<details class="audio-mixer-group"' + (group === "eq" ? " open" : "") + '><summary>' +
+      escapeHtml(AUDIO_GROUP_TITLES[group]) + '</summary><div class="audio-mixer-grid">' + controls + "</div></details>";
+  }).join("");
+  return renderAudioPresetButtons() + sections;
+}
+
+function audioControlUnit(key) {
+  const spec = AUDIO_CONTROL_SPECS.find(function (item) { return item.key === key; });
+  return spec ? spec.unit : " dB";
+}
+
+function applyAudioPreset(name) {
+  const preset = AUDIO_PRESETS[name];
+  if (!preset) return;
+  audioSettings = Object.assign({}, DEFAULT_AUDIO_SETTINGS, preset.values);
+  if (activeMicEngine) activeMicEngine.setSettings(audioSettings);
+  rerender();
+}
+
+function resetAudioSettings() {
+  audioSettings = Object.assign({}, DEFAULT_AUDIO_SETTINGS);
+  if (activeMicEngine) activeMicEngine.setSettings(audioSettings);
+  rerender();
+}
+
 function rangeControl(id, label, min, max, step, value, unit) {
   return '<label class="audio-control" for="audio-control-' + id + '"><span><strong>' + label +
     '</strong><output data-audio-output="' + id + '">' + value + unit + '</output></span><input id="audio-control-' +
@@ -570,11 +618,7 @@ function renderBroadcastSettings(data) {
     '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">' + escapeHtml(liveStatus) + '</p>' +
     (isLive ? '<p class="audio-listener-count" data-audio-listener-count>0 listeners connected</p>' : "") + '</div></section>' +
     '<section class="panel audio-mixer-panel"><header class="panel-header"><div><h2>Audio Editing &amp; Effects</h2><p>Adjust the voice signal before it reaches listeners.</p></div></header>' +
-    '<div class="audio-mixer-grid">' + rangeControl("bass", "Bass", -12, 12, 1, audioSettings.bass, " dB") +
-    rangeControl("treble", "Treble", -12, 12, 1, audioSettings.treble, " dB") +
-    rangeControl("mid", "Mid", -12, 12, 1, audioSettings.mid, " dB") +
-    rangeControl("pitch", "Pitch", -4, 4, 1, audioSettings.pitch, " st") +
-    rangeControl("gain", "Mic level", -12, 6, 1, audioSettings.gain, " dB") + '</div>' +
+    renderAudioMixerControls() +
     '<p class="field-hint">Adjustments are applied to the outgoing broadcast. Pitch shift depends on browser audio-worklet support.</p></section>' +
     '<div class="audio-mic-check-grid"><section class="panel audio-mic-device-check"><header class="panel-header"><div><h2>Audio Device Check</h2><p>Make sure your input and browser are ready.</p></div></header>' +
     '<div class="audio-check-status-grid">' + renderHealthRow("Microphone", micReady ? "Connected" : "Test required", micReady, "mic") +
@@ -655,13 +699,8 @@ export function renderLiveAudioStudio(program) {
     '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">♡</span><div><small>REACTIONS</small><strong data-studio-reaction-total>' + (reactionTotal === null ? "—" : String(reactionTotal)) + '</strong></div></article></section>' +
     '<div class="audio-studio-workspace">' +
     '<section class="audio-studio-panel audio-studio-mixer"><header><div><p class="audio-studio-kicker">SOUND MIXER</p><h2>Microphone controls</h2></div><span class="audio-studio-mic-live"><i></i>MIC LIVE</span></header>' +
-    '<div class="audio-mixer-grid">' +
-    rangeControl("bass", "Bass", -12, 12, 1, audioSettings.bass, " dB") +
-    rangeControl("mid", "Mid", -12, 12, 1, audioSettings.mid, " dB") +
-    rangeControl("treble", "Treble", -12, 12, 1, audioSettings.treble, " dB") +
-    rangeControl("pitch", "Pitch", -4, 4, 1, audioSettings.pitch, " st") +
-    rangeControl("gain", "Mic level", -12, 6, 1, audioSettings.gain, " dB") +
-    '</div><p class="audio-studio-panel-note">Changes apply to the live microphone immediately.</p></section>' +
+    renderAudioMixerControls() +
+    '<p class="audio-studio-panel-note">Changes apply to the live microphone immediately.</p></section>' +
     '<section class="audio-studio-panel audio-studio-mic-panel"><header><div><p class="audio-studio-kicker">INPUT MONITOR</p><h2>Microphone level</h2></div></header>' +
     '<div class="audio-mic-meter audio-studio-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-audio-mic-level></span></div>' +
      '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">' + keepOpenMessage + '</p>' +
@@ -972,8 +1011,11 @@ async function beginBroadcast(programId, recordBroadcast) {
         activeSignalStatus = status;
         const node = document.querySelector("[data-audio-mic-status]");
         if (node && status === "connected") node.textContent = "Connected. Waiting for listeners…";
-        if (node && (status === "reconnecting" || status === "disconnected") && activeBroadcaster) {
-          node.textContent = "Connection interrupted. Reconnecting automatically…";
+        if (node && status === "reconnecting" && activeBroadcaster) {
+          node.textContent = "Reconnecting… auto-retrying with backoff (listeners will resume when the link returns).";
+        }
+        if (node && status === "disconnected" && activeBroadcaster) {
+          node.textContent = "Disconnected. Check your network; retrying automatically.";
         }
         const connection = document.querySelector("[data-studio-connection]");
         if (connection) {
@@ -1265,6 +1307,14 @@ export async function handleLiveAudioAdminAction(button) {
     rerender();
     return true;
   }
+  if (action === "audio-preset") {
+    applyAudioPreset(button.dataset.preset);
+    return true;
+  }
+  if (action === "audio-reset-settings") {
+    resetAudioSettings();
+    return true;
+  }
   if (action === "audio-admin-edit" || action === "audio-admin-go-live") {
     editingId = button.dataset.id;
     wizardStep = 1;
@@ -1537,7 +1587,7 @@ if (typeof document !== "undefined" && document.addEventListener) {
     const key = input.dataset.audioControl;
     audioSettings[key] = Number(input.value);
     const output = document.querySelector('[data-audio-output="' + key + '"]');
-    const unit = key === "pitch" ? " st" : " dB";
+    const unit = audioControlUnit(key);
     if (output) output.value = input.value + unit;
     if (activeMicEngine) activeMicEngine.setSettings(audioSettings);
   });

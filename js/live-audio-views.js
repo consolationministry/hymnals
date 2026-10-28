@@ -90,8 +90,41 @@ function audioLibraryProgramRow(program, data, isSaved, isSavedFilter) {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 9 6-9 6z"/></svg></button></article>';
 }
 
+const AUDIO_WAVE_BAR_COUNT = 96;
+
+// Deterministic, smooth pseudo-audio envelope: quiet passages stay short, loud
+// passages reach tall bars. Same shape every render, so bars never jump.
+function audioWaveformHeights(count) {
+  const total = count || AUDIO_WAVE_BAR_COUNT;
+  const heights = [];
+  let seed = 1103515245;
+  for (let index = 0; index < total; index += 1) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const noise = (seed / 4294967295);
+    const phrase = 0.5 + 0.5 * Math.sin(index / 9.5) * Math.cos(index / 23.0);
+    const swell = 0.5 + 0.5 * Math.sin(index / 3.1 + 1.7);
+    const quietGap = (index % 31 > 26) ? 0.25 : 1;
+    const level = (0.18 + 0.82 * (0.45 * phrase + 0.35 * swell + 0.2 * noise)) * quietGap;
+    heights.push(Math.max(6, Math.min(100, Math.round(level * 100))));
+  }
+  return heights;
+}
+
 function audioWaveformBars() {
-  return Array.from({ length: 40 }, function (_, index) { return '<span style="--i:' + index + '"></span>'; }).join("");
+  return audioWaveformHeights(AUDIO_WAVE_BAR_COUNT).map(function (height, index) {
+    return '<span style="--i:' + index + ';height:' + height + '%"></span>';
+  }).join("");
+}
+
+function publicStreamOfflineSaved(data) {
+  return Array.isArray(data.savedPrograms) ? data.savedPrograms : [];
+}
+
+function liveEndedBanner(program) {
+  return '<div class="audio-live-ended-banner" role="status" aria-live="polite">' +
+    '<span class="audio-live-ended-icon" aria-hidden="true">■</span>' +
+    '<div><strong>This live broadcast has ended</strong>' +
+    '<span>' + escapeHtml(program.title) + ' is no longer streaming. Thank you for listening.</span></div></div>';
 }
 
 function audioPlayerButton(playerType, action, label, icon) {
@@ -231,8 +264,8 @@ export function renderLiveAudioListener(data, programId, options) {
     });
   const meta = [program.date ? formattedDate(program.date) : "", program.venue].filter(Boolean).map(escapeHtml);
   const artwork = program.imageUrl
-    ? '<div class="audio-listener-art audio-listener-square"><img src="' + escapeHtml(program.imageUrl) + '" alt="" loading="eager"></div>'
-    : '<div class="audio-listener-art audio-listener-art-empty audio-listener-square"><span class="audio-listener-art-placeholder">' + radioIcon() + '</span></div>';
+    ? '<div class="audio-listener-art audio-listener-square audio-listener-disc"><img class="audio-listener-disc-image" src="' + escapeHtml(program.imageUrl) + '" alt="" loading="eager"></div>'
+    : '<div class="audio-listener-art audio-listener-art-empty audio-listener-square audio-listener-disc"><span class="audio-listener-art-placeholder">' + radioIcon() + '</span></div>';
   const skipBackIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11 18V6l-8.5 6zM19.5 18V6L11 12z"/></svg>';
   const skipForwardIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6z"/></svg>';
   const skipButton = function (playerType, seconds, label, icon, disabled) {
@@ -252,6 +285,7 @@ export function renderLiveAudioListener(data, programId, options) {
     return '<div class="audio-listener-times"><output class="audio-listener-time" data-audio-current-time="' + playerType + '">0:00</output>' + (middle || "") +
       '<output class="audio-listener-time" data-audio-duration="' + playerType + '">--:--</output></div>';
   };
+  const endedNotice = opts.liveEnded && !isLive ? liveEndedBanner(program) : "";
   const player = isLive
     ? '<section class="audio-player audio-listener-player" aria-label="Live audio player"><div class="audio-listener-player-heading"><span class="audio-listener-player-live"><i></i> LIVE AUDIO</span><span class="audio-listener-player-caption">' +
       (opts.connecting ? "Joining the live broadcast…" : opts.connected ? "Live audio connected" : "Live broadcast audio") + '</span></div>' +
@@ -279,22 +313,11 @@ export function renderLiveAudioListener(data, programId, options) {
         '<div class="audio-listener-secondary">' + muteButton("recorded") + volumeControl("recorded", "Recording volume") + '</div>' +
         '</div><p class="audio-player-note" data-audio-player-status="recorded">' + (offlinePlayback ? "Saved on this device · available offline." : "This recording was published by the church.") + '</p></section>'
       : '<section class="audio-player audio-listener-player"><p class="audio-player-note">This programme is not live right now. Return to the library to see when the next broadcast begins.</p></section>';
-  let downloadPill;
-  if (isSavedOffline) {
-    downloadPill = '<span class="audio-pill is-done">Saved offline</span>';
-  } else if (!isLive && program.recordingUrl && program.recordingPath) {
-    const saving = data.savingProgramIds && data.savingProgramIds.has(program.id);
-    downloadPill = '<button class="audio-pill" type="button" data-action="save-live-audio" data-program-id="' + escapeHtml(program.id) + '"' + (saving ? " disabled" : "") + '>' + (saving ? "Downloading…" : "Download") + '</button>';
-  } else {
-    downloadPill = '<button class="audio-pill" type="button" disabled>Download</button>';
-  }
   const pills = offlinePlayback
     ? ""
     : '<div class="audio-listener-pills" role="group" aria-label="Programme actions">' +
       '<button class="audio-pill audio-like-button" type="button" data-action="audio-reaction" data-reaction="like" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "like") + '"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 9h4v12H2zM8 21V9.5l4.2-6.9c.4-.7 1.4-.6 1.7.2.3.6.2 1.3-.1 1.9L13 9h6.4c1.2 0 2.1 1.1 1.9 2.3l-1.3 7.6c-.2 1.3-1.3 2.2-2.6 2.2H8z"/></svg><span>Like</span><span class="audio-reaction-count">' + counts.like + '</span></button>' +
-      '<button class="audio-pill" type="button" disabled aria-label="Playlist (coming soon)">Playlist</button>' +
-      downloadPill +
-      '<button class="audio-pill audio-share-button" type="button" data-action="share-live-audio" data-program-id="' + escapeHtml(program.id) + '" aria-label="Share this programme"><span>Share</span></button></div>';
+      '</div>';
   const commentList = comments.length
     ? '<ul class="audio-comment-list" aria-live="polite">' + comments.map(function (comment) {
       return '<li class="audio-comment"><span class="audio-comment-avatar" aria-hidden="true">•</span><div class="audio-comment-message"><div class="audio-comment-byline"><span>Listener</span><time datetime="' + escapeHtml(comment.createdAt) + '">' + escapeHtml(formattedTime(comment.createdAt)) + '</time></div><p>' + escapeHtml(comment.body) + '</p></div></li>';
@@ -313,8 +336,16 @@ export function renderLiveAudioListener(data, programId, options) {
       '<button class="button-primary audio-comment-send" type="submit" aria-label="Post comment"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6 3 10l12 2-12 2z"/></svg></button></form>' +
       commentList + '</section>';
   const badge = isLive ? '<span class="live-audio-badge is-live">On air</span>' : '<span class="live-audio-badge">Published programme</span>';
-  return '<section class="page audio-listener-page">' + header + joinOverlay + '<div class="audio-listener-content">' +
-    (data.error ? '<p class="audio-service-error" role="alert">' + escapeHtml(data.error) + '</p>' : "") + '<article class="audio-listener-card">' + artwork +
+  const libraryLoading = opts.loading
+    ? '<div class="audio-stream-loading-overlay" role="status" aria-live="polite"><div class="audio-stream-loading-panel"><span class="audio-stream-loading-ring" aria-hidden="true"></span><p>loading audio programmes</p></div></div>'
+    : "";
+  const networkError = opts.networkError
+    ? '<div class="audio-stream-network-error" role="alert"><strong>Network error</strong><p>We could not reach the stream. Check your connection, or listen to programmes saved on this device.</p>' +
+      '<div class="audio-stream-network-actions"><button type="button" class="audio-live-join-retry" data-action="retry-live-audio" data-program-id="' + escapeHtml(program.id) + '">Try again</button>' +
+      '<button type="button" class="audio-pill" data-action="navigate" data-view="listen" data-category="__saved__">View saved programmes offline</button></div></div>'
+    : "";
+  return '<section class="page audio-listener-page">' + header + joinOverlay + libraryLoading + '<div class="audio-listener-content">' +
+    (data.error ? '<p class="audio-service-error" role="alert">' + escapeHtml(data.error) + '</p>' : "") + networkError + endedNotice + '<article class="audio-listener-card">' + artwork +
     '<div class="audio-listener-art-overlay">' +
     (isLive ? '<span class="audio-listener-live-badge"><i></i> LIVE</span><span class="audio-listener-viewers"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.2 0-7 2.1-7 4.5V21h14v-2.5c0-2.4-2.8-4.5-7-4.5Z"/></svg>' + listenerCount + '</span>' : '<span class="audio-listener-featured-badge">PUBLISHED PROGRAMME</span>') +
     '</div><div class="audio-listener-body">' +

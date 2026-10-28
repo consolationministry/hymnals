@@ -721,7 +721,10 @@ function render() {
         connecting: state.liveAudioConnecting,
         connected: Boolean(state.liveAudioListener),
         offlinePlayback: state.liveAudioOfflinePlayback,
-         joinError: state.liveAudioJoinError
+        joinError: state.liveAudioJoinError,
+        loading: state.liveAudioLoading && navigator.onLine !== false && !liveAudioViewData.programs.length,
+        networkError: navigator.onLine === false || Boolean(state.liveAudioError && /network|connection|reach/i.test(state.liveAudioError)),
+        liveEnded: state.liveAudioStatusCode === "ended"
       }
     )
     : renderLiveAudioPage(
