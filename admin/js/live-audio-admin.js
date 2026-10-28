@@ -48,6 +48,7 @@ let activeNetworkStatus = { level: 0, label: "Checking", connectedListeners: 0, 
 let networkAlertKey = "";
 let networkToastTimer = null;
 let studioInteractions = null;
+let activeMixerTab = "eq";
 let studioBurstCursor = null;
 let studioBurstTimer = null;
 let studioBurstSub = null;
@@ -499,16 +500,20 @@ function renderAudioPresetButtons() {
 
 function renderAudioMixerControls() {
   const groups = ["eq", "tone", "output", "dynamics"];
+  const tabs = '<div class="audio-mixer-tabs" role="tablist" aria-label="Mixer sections">' + groups.map(function (group) {
+    const active = group === activeMixerTab;
+    return '<button type="button" class="audio-mixer-tab' + (active ? " is-active" : "") + '" role="tab" aria-selected="' + String(active) + '" data-action="audio-mixer-tab" data-mixer-tab="' + group + '">' + escapeHtml(AUDIO_GROUP_TITLES[group]) + '</button>';
+  }).join("") + '</div>';
   const sections = groups.map(function (group) {
     const controls = AUDIO_CONTROL_SPECS.filter(function (spec) { return spec.group === group; })
       .map(function (spec) {
         const value = Number.isFinite(Number(audioSettings[spec.key])) ? audioSettings[spec.key] : spec.default;
         return rangeControl(spec.key, spec.label, spec.min, spec.max, spec.step, value, spec.unit);
       }).join("");
-    return '<section class="audio-mixer-section" data-mixer-section="' + group + '"><h3 class="audio-mixer-heading">' +
+    return '<section class="audio-mixer-section' + (group === activeMixerTab ? "" : " is-hidden") + '" data-mixer-section="' + group + '"' + (group === activeMixerTab ? "" : " hidden") + '><h3 class="audio-mixer-heading">' +
       escapeHtml(AUDIO_GROUP_TITLES[group]) + '</h3><div class="audio-mixer-grid">' + controls + "</div></section>";
   }).join("");
-  return renderAudioPresetButtons() + sections;
+  return renderAudioPresetButtons() + tabs + sections;
 }
 
 function audioControlUnit(key) {
@@ -687,13 +692,18 @@ export function renderLiveAudioStudio(program) {
     '<div class="audio-network-toast" data-network-toast role="alert" aria-live="assertive" hidden><span class="audio-network-toast-icon" aria-hidden="true">!</span><div>' +
     '<strong data-network-toast-title>Network needs attention</strong><p data-network-toast-message>The connection is retrying automatically.</p></div></div>' +
     '<div class="audio-studio-layout"><div class="audio-studio-main">' +
-    '<section class="audio-studio-stage" aria-label="Live audio programme"><div class="audio-studio-artwork-wrap">' + artwork + '<div class="audio-studio-artwork-shade"></div>' +
+    '<div class="audio-studio-hero-row"><section class="audio-studio-stage" aria-label="Live audio programme"><div class="audio-studio-artwork-wrap">' + artwork + '<div class="audio-studio-artwork-shade"></div>' +
     '<div class="audio-studio-stage-content"><span class="audio-studio-live-pill"><i></i> LIVE</span>' +
     '<p class="audio-studio-church">CONSOLATION EVANGELICAL AND REVIVAL CHURCH</p><h2>' + escapeHtml(program.title) + '</h2>' +
     '<p class="audio-studio-program-meta">' + escapeHtml(program.speaker || "Minister not set") + " · " + escapeHtml(program.category) + '</p>' +
      '<div class="audio-studio-wave-wrap"><canvas class="audio-waveform audio-studio-waveform" data-audio-waveform width="920" height="124" aria-label="Live music-style audio waveform" role="img"></canvas></div>' +
      '<div class="audio-studio-mic-meter-row"><span class="audio-studio-mic-meter-label">MIC LEVEL</span><div class="audio-mic-meter audio-studio-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-audio-mic-level></span></div></div>' +
     '<div class="audio-studio-stage-footer"><span>Audio-only broadcast · Listen on the public web player</span><span class="audio-studio-connection" role="status"><i></i><span data-studio-connection>' + escapeHtml(studioConnectionLabel()) + '</span></span></div></div></div></section>' +
+    '<aside class="audio-studio-chat"><header><div><p class="audio-studio-kicker">LISTENER MESSAGES</p><h2>Live comments</h2></div><span class="audio-studio-chat-count" data-studio-chat-count>' + (interactions ? String(interactions.commentCount) : "—") + '</span></header>' +
+    '<p class="audio-studio-chat-subtitle">Recent messages from listeners on the public player.</p><p class="audio-studio-refresh-error" data-studio-refresh-error role="status" hidden></p>' +
+    '<div class="audio-studio-chat-list" data-live-comments role="log" aria-live="polite" aria-relevant="additions">' + renderStudioComments(interactions ? interactions.comments : []) + '</div>' +
+    '<footer><span class="audio-studio-chat-foot-dot"></span>Updates automatically while you’re live</footer></aside>' +
+    '</div>' +
     '<section class="audio-studio-metrics" aria-label="Live broadcast metrics">' +
     '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">◷</span><div><small>STREAM DURATION</small><strong data-studio-duration data-started-at="' + escapeHtml(program.liveStartedAt) + '">' + duration + '</strong></div></article>' +
     '<article class="audio-studio-metric"><span class="audio-studio-metric-icon">◉</span><div><small>CONNECTED LISTENERS</small><strong data-studio-live-listeners>' + String(activeListenerCount) + '</strong></div></article>' +
@@ -715,10 +725,7 @@ export function renderLiveAudioStudio(program) {
     '<article><span aria-hidden="true">👍</span><strong data-studio-like-count>' + (interactions ? String(interactions.likeCount) : "—") + '</strong><small>Likes</small></article>' +
     '<article><span aria-hidden="true">🔥</span><strong data-studio-fire-count>' + (interactions ? String(interactions.fireCount) : "—") + '</strong><small>Fire</small></article>' +
     '<article><span aria-hidden="true">✉</span><strong data-studio-comment-count>' + (interactions ? String(interactions.commentCount) : "—") + '</strong><small>Comments</small></article></div></section>' +
-    '</div><aside class="audio-studio-chat"><header><div><p class="audio-studio-kicker">LISTENER MESSAGES</p><h2>Live comments</h2></div><span class="audio-studio-chat-count" data-studio-chat-count>' + (interactions ? String(interactions.commentCount) : "—") + '</span></header>' +
-    '<p class="audio-studio-chat-subtitle">Recent messages from listeners on the public player.</p><p class="audio-studio-refresh-error" data-studio-refresh-error role="status" hidden></p>' +
-    '<div class="audio-studio-chat-list" data-live-comments role="log" aria-live="polite" aria-relevant="additions">' + renderStudioComments(interactions ? interactions.comments : []) + '</div>' +
-    '<footer><span class="audio-studio-chat-foot-dot"></span>Updates automatically while you’re live</footer></aside></div></section>';
+    '</div></section>';
 }
 
 function renderLiveAudioContent() {
@@ -800,14 +807,24 @@ async function refreshStudioActivity(programId) {
 }
 
 function showStudioBurst(reaction) {
-  const feed = document.querySelector("[data-studio-burst-feed]");
-  if (!feed) return;
-  const chip = document.createElement("span");
-  chip.className = "audio-studio-burst";
-  chip.textContent = FEED_EMOJI[reaction] || "•";
-  feed.appendChild(chip);
-  window.setTimeout(function () { chip.remove(); }, 2600);
-  while (feed.children.length > 60) feed.removeChild(feed.firstChild);
+  // Fullscreen layer: bursts float over the whole admin screen, not one panel.
+  let layer = document.querySelector("[data-studio-fullscreen-burst]");
+  if (!layer) {
+    layer = document.createElement("div");
+    layer.className = "audio-studio-burst-layer";
+    layer.setAttribute("data-studio-fullscreen-burst", "");
+    layer.setAttribute("aria-hidden", "true");
+    document.body.appendChild(layer);
+  }
+  const float = document.createElement("span");
+  float.className = "audio-studio-burst-emoji";
+  float.textContent = FEED_EMOJI[reaction] || "👍";
+  float.style.left = (5 + Math.random() * 90) + "%";
+  float.style.bottom = (4 + Math.random() * 12) + "%";
+  float.style.setProperty("--drift", String(Math.round(Math.random() * 80 - 40)) + "px");
+  layer.appendChild(float);
+  window.setTimeout(function () { float.remove(); }, 2200);
+  while (layer.children.length > 80) layer.removeChild(layer.firstChild);
 }
 
 // Realtime push for the admin feed. The polling below stays as the fallback.
@@ -1323,6 +1340,11 @@ export async function handleLiveAudioAdminAction(button) {
     wizardStep = 1;
     studioVisible = false;
     await stopAdminAudioMicTest();
+    rerender();
+    return true;
+  }
+  if (action === "audio-mixer-tab") {
+    activeMixerTab = button.dataset.mixerTab || "eq";
     rerender();
     return true;
   }

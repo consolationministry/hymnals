@@ -684,3 +684,8 @@
 .audio-studio-mic-meter-label { color: #8da2bc; font-size: .6rem; white-space: nowrap; }
 .audio-studio-mic-meter-row .audio-studio-meter { flex: 1; height: 8px; }
 .audio-studio-chat { min-height: 0 !important; max-height: 260px !important; position: static !important; }
+
+/* Fullscreen burst layer (admin): reactions float over the whole screen */
+.audio-studio-burst-emoji { position: absolute; font-size: 30px; line-height: 1; pointer-events: none; animation: audio-studio-burst-rise 2.2s ease-out forwards; will-change: transform, opacity; }
+@keyframes audio-studio-burst-rise { 0% { opacity: 0; transform: translate(0, 0) scale(.6); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--drift, 0px), -70vh) scale(1.2); } }
+@media (prefers-reduced-motion: reduce) { .audio-studio-burst-emoji { animation: none; opacity: 0; } }

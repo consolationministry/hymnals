@@ -1000,15 +1000,14 @@ function ensureLiveAudioBurstSubscription() {
 }
 
 function spawnFloatingBurst(reaction) {
-  const page = document.querySelector(".audio-listener-page");
-  if (!page) return;
+  const page = document.querySelector(".audio-listener-page") || document.body;
   const emoji = { love: "❤️", clap: "👏", fire: "🔥", like: "👍" }[reaction] || "👍";
   const float = document.createElement("span");
   float.className = "audio-float-emoji";
   float.setAttribute("aria-hidden", "true");
   float.textContent = emoji;
-  float.style.left = (20 + Math.random() * 60) + "%";
-  float.style.top = (40 + Math.random() * 30) + "%";
+  float.style.left = (5 + Math.random() * 90) + "%";
+  float.style.top = (10 + Math.random() * 80) + "%";
   float.style.setProperty("--drift", String(Math.round(Math.random() * 60 - 30)) + "px");
   page.appendChild(float);
   window.setTimeout(function () { float.remove(); }, 1400);

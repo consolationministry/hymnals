@@ -533,3 +533,6 @@ body.audio-listener-mode .toast { bottom:calc(16px + env(safe-area-inset-bottom)
 .audio-stream-loading-ring { width: 46px; height: 46px; border-radius: 50%; border: 4px solid rgba(216, 178, 98, .25); border-top-color: #d8b262; animation: audio-stream-spin .9s linear infinite; }
 @keyframes audio-stream-spin { to { transform: rotate(360deg); } }
 .audio-listener-disc { border-radius: 50%; aspect-ratio: 1 / 1; }
+
+/* Listener fullscreen burst fallback when no listener page wraps the bursts */
+body > .audio-float-emoji { position: fixed; z-index: 2000; }

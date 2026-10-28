@@ -203,7 +203,10 @@ export function renderLiveAudioPage(data, query, category) {
     : '<div class="audio-library-empty" aria-live="polite"><span class="audio-library-empty-icon">' + radioIcon() + '</span><h3>' +
       (data.loading && !isSavedFilter ? "Loading programmes" : programs.length ? "No programmes match" : isSavedFilter ? "No saved programmes yet" : "No programmes published yet") + '</h3><p>' +
       (data.loading && !isSavedFilter ? "Checking for current broadcasts and published programmes…" : isSavedFilter ? "Save a recording to keep it on this device for offline listening." : programs.length ? "Try another title or category." : "Published church programmes will appear here.") + '</p></div>';
-  return '<section class="page live-audio-page audio-library-page">' +
+  const libraryLoadingOverlay = data.loading
+    ? '<div class="audio-stream-loading-overlay" role="status" aria-live="polite"><div class="audio-stream-loading-panel"><span class="audio-stream-loading-ring" aria-hidden="true"></span><p>loading audio programmes</p></div></div>'
+    : "";
+  return '<section class="page live-audio-page audio-library-page">' + libraryLoadingOverlay +
     '<header class="audio-library-header"><div class="audio-library-header-inner">' +
     '<button class="audio-library-brand" type="button" data-action="navigate" data-view="home" aria-label="Go to Home"><img src="./assets/consolation-launcher.png" alt="" width="48" height="48"><span><strong>Consolation Evangelical<br>and Revival Church</strong><small>Audio Stream</small></span></button>' +
     '<div class="audio-library-header-actions"><a class="audio-library-header-icon" href="#live-audio-search" aria-label="Jump to programme search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/></svg></a>' +
@@ -329,6 +332,7 @@ export function renderLiveAudioListener(data, programId, options) {
   const pills = offlinePlayback
     ? ""
     : '<div class="audio-listener-pills" role="group" aria-label="Programme actions">' +
+      '<button class="audio-pill audio-share-button" type="button" data-action="share-live-audio" data-program-id="' + escapeHtml(program.id) + '">Share</button>' +
       '<button class="audio-pill audio-like-button" type="button" data-action="audio-reaction" data-reaction="like" data-program-id="' + escapeHtml(program.id) + '" aria-pressed="' + liveAudioReactionSelected(data, program.id, "like") + '"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 9h4v12H2zM8 21V9.5l4.2-6.9c.4-.7 1.4-.6 1.7.2.3.6.2 1.3-.1 1.9L13 9h6.4c1.2 0 2.1 1.1 1.9 2.3l-1.3 7.6c-.2 1.3-1.3 2.2-2.6 2.2H8z"/></svg><span>Like</span><span class="audio-reaction-count">' + counts.like + '</span></button>' +
       '</div>';
   const commentList = comments.length
