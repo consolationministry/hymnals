@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { afterEach, test } from "node:test";
-import { excerptProgrammeDescription, PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT } from "../js/programme-feed-utils.js";
+import { excerptProgrammeDescription, PROGRAMME_DESCRIPTION_COLLAPSE_LIMIT, repairMojibake } from "../js/programme-feed-utils.js";
 import { getMemberContent } from "../js/public-content.js";
 
 const appSource = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
@@ -32,6 +32,15 @@ function response(body, status = 200) {
   return { ok: status >= 200 && status < 300, status, async json() { return body; } };
 }
 
+test("programme display repairs common mojibake in stored strings", () => {
+  const scrambledArrow = String.fromCharCode(0xe2, 0x86, 0x90);
+  const scrambledApostrophe = String.fromCharCode(0xe2, 0x80, 0x99);
+  const scrambledYoruba = "Yor" + String.fromCharCode(0xc3, 0xb9) + "b" + String.fromCharCode(0xc3, 0xa1);
+  assert.equal(repairMojibake("Back [" + scrambledArrow + "]"), "Back [←]");
+  assert.equal(repairMojibake("I" + scrambledApostrophe + "ll be there"), "I’ll be there");
+  assert.equal(repairMojibake(scrambledYoruba), "Yorùbá");
+});
+
 test("programme descriptions expand only after the configured preview length", () => {
   const short = "A short programme description.";
   assert.equal(excerptProgrammeDescription(short), short);
@@ -61,10 +70,10 @@ test("programme announcements are sorted by latest post date", async () => {
 test("public programme cards order the header, details, description, flyer, and votes", () => {
   assert.match(appSource, /pageHeading\("Upcoming Programmes"\)/);
   assert.doesNotMatch(appSource, /Programme posts and flyers, newest announcement first/);
-  assert.match(appSource, /const category = String\(program && program\.category \|\| ""\)\.trim\(\);/);
+  assert.match(appSource, /const category = repairMojibake\(String\(program && program\.category \|\| ""\)\)\.trim\(\);/);
   assert.match(appSource, /class="public-program-post-category"/);
   assert.match(appSource, /'<\/h2>' \+ categoryMarkup \+ '<\/header>' \+ eventMetadata \+ descriptionSection \+ media \+ renderProgrammeInteractions\(program\) \+ '<\/article>'/);
-  assert.match(appSource, /const minister = String\(program && program\.minister \|\| ""\)\.trim\(\);/);
+  assert.match(appSource, /const minister = repairMojibake\(String\(program && program\.minister \|\| ""\)\)\.trim\(\);/);
   assert.match(appSource, /public-program-post-minister/);
   assert.match(adminSource, /name="minister"/);
   assert.match(publicContentSource, /id,title,minister,description/);
@@ -74,6 +83,10 @@ test("public programme cards order the header, details, description, flyer, and 
   assert.match(categoryMigrationSource, /add column if not exists category text not null default ''/i);
   assert.match(categoryMigrationSource, /grant select \(category\) on public\.programs to anon/i);
   assert.match(adminSource, /program-category/);
+  assert.match(adminSource, /getProgrammeInteractions\(programs\)/);
+  assert.match(adminSource, /voteYesCount/);
+  assert.match(adminSource, /voteNoCount/);
+  assert.doesNotMatch(adminSource, /(?:\u00c2[\u0080-\u00ff]|\u00c3[\u0080-\u00ff]|\u00e2[\u0080-\u00ff]{2})/);
   assert.match(appSource, /data-action="toggle-programme-description"/);
   assert.match(appSource, /excerptProgrammeDescription\(description\)/);
   assert.match(appSource, /startDate \+ " – " \+ endDate/);
