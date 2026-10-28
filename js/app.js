@@ -1,5 +1,5 @@
 import { getAllHymns } from "./hymn-service.js";
-import { searchHymns } from "./search.js";
+import { searchHymns, rankHymnResults } from "./search.js";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 import { addRecent, getRecentNumbers } from "./recent.js";
 import { getReadingParts } from "./hymn-reading.js";
@@ -121,9 +121,7 @@ function languageToggle() {
 
 function renderHeader() {
   const activeView = state.view === "reader" ? state.readerReturnView : state.view;
-  const searchExpanded = state.view === "home"
-    ? state.searchOpen || Boolean(state.query)
-    : state.view === "hymns";
+  const searchExpanded = state.view === "home" ? state.searchOpen || Boolean(state.query) : false;
   header.innerHTML = '<button class="brand-lockup" type="button" data-action="navigate" data-view="home" aria-label="Go to Home" data-testid="button-brand-home"><img src="./assets/consolation-launcher.png" alt="" width="60" height="60"><span><span class="brand-name">Consolation Evangelical<br class="brand-break"> and Revival Church</span><span class="brand-subtitle">' + CHURCH_MOTTO + '</span></span></button><div class="header-actions"><button class="header-icon-button" type="button" data-action="header-search" aria-label="Search hymns" aria-expanded="' + searchExpanded + '" data-testid="button-header-search">' + icon("search") + '</button></div>';
 }
 
@@ -131,7 +129,6 @@ function renderNav() {
   const activeView = state.view === "reader" ? state.readerReturnView : state.view;
   const items = [
     ["home", "Home", "home"],
-    ["hymns", "Hymns", "book"],
     ["programs", "Programs", "sparkle"],
     ["services", "Services", "calendar"],
     ["listen", "Stream", "mic"],
@@ -234,7 +231,7 @@ function pageHeading(title, subtitle) {
 }
 
 function renderHome() {
-  const matchingHymns = searchHymns(state.hymns, state.query, "");
+  const matchingHymns = rankHymnResults(state.hymns, state.query);
   const visibleHymns = matchingHymns.filter(state.settings.language === "yoruba" ? hasYorubaText : hasEnglishText);
   let collection;
   if (!visibleHymns.length && state.settings.language === "yoruba") {
@@ -643,7 +640,30 @@ function renderSettings() {
     '<section class="settings-group"><h2>About</h2><div class="setting-row"><span><strong>Consolation Evangelical and Revival Church</strong><small>Digital hymnal · Version ' + APP_VERSION + '</small></span></div><p class="about-copy">The catalog contains 128 English hymns and 122 user-provided Yorùbá hymns in separate collections. Printed numbers are preserved, and matching numbers are not treated as translations. See data/SOURCES.md for catalog notes.</p><div class="setting-note" style="margin-top:14px"><strong>Publishing and attribution</strong><br>Hymns marked Published in the admin workspace appear in the public catalog. Confirm the source attribution and publishing permission before publishing additional material.</div><div class="setting-note" style="margin-top:14px"><strong>Privacy</strong><br>There are no member accounts. Favorites and preferences are saved only in this browser on this device; they are not sent to a server.</div></section></section>';
 }
 
+let splashChimePlayed = false;
+function playSplashChime() {
+  if (splashChimePlayed) return;
+  const audio = new Audio("./assets/splash-chime.wav");
+  audio.volume = 0.6;
+  const attempt = audio.play();
+  if (attempt && typeof attempt.then === "function") {
+    attempt.then(function () { splashChimePlayed = true; }).catch(function () {
+      // Mobile browsers block autoplay: play on the first touch or tap instead.
+      const unlock = function () {
+        document.removeEventListener("pointerdown", unlock);
+        document.removeEventListener("touchend", unlock);
+        if (!splashChimePlayed) { splashChimePlayed = true; audio.play().catch(function () {}); }
+      };
+      document.addEventListener("pointerdown", unlock, { once: true });
+      document.addEventListener("touchend", unlock, { once: true });
+    });
+  } else {
+    splashChimePlayed = true;
+  }
+}
+
 function finishSplash() {
+  playSplashChime();
   const delay = remainingSplashMs(splashStartedAt);
   window.setTimeout(function () {
     splash.classList.add("is-leaving");
@@ -737,7 +757,6 @@ function render() {
       state.liveAudioQuery,
       state.liveAudioCategory
     );
-  else if (state.view === "hymns") main.innerHTML = renderHymnLibrary();
   else if (state.view === "programs") main.innerHTML = renderPublicProgramsPage();
   else if (state.view === "services") main.innerHTML = renderPublicServicePlansPage();
   else if (state.view === "favorites") main.innerHTML = renderFavorites();
@@ -795,7 +814,7 @@ function openHymn(number) {
 }
 
 function navigate(view) {
-  if (!["home", "listen", "hymns", "programs", "services", "favorites", "recent", "settings"].includes(view)) return;
+  if (!["home", "listen", "programs", "services", "favorites", "recent", "settings"].includes(view)) return;
   if (state.view === "listen" && (view !== "listen" || state.selectedLiveAudioProgramId)) {
     state.liveAudioOpenToken += 1;
     main.querySelectorAll("[data-audio-player]").forEach(stopAudioPlayer);
@@ -810,7 +829,6 @@ function navigate(view) {
     state.liveAudioLoading = navigator.onLine !== false;
     state.liveAudioError = "";
   }
-  if (view !== "hymns") state.category = "";
   if (view === "services") {
     state.serviceSelectedId = null;
     state.serviceAimId = null;
@@ -1312,12 +1330,8 @@ async function openLiveAudioProgram(programId) {
 
 function updateSearch(value, selectionStart, selectionEnd) {
   state.query = value;
-  if (state.view === "home") {
-    state.searchOpen = true;
-  } else {
-    state.view = "hymns";
-    state.category = "";
-  }
+  if (state.view !== "home") state.view = "home";
+  state.searchOpen = true;
   render();
   const input = document.getElementById("hymn-search");
   if (input) {
@@ -1450,9 +1464,8 @@ document.addEventListener("click", function (event) {
   else if (action === "header-search") {
       if (state.view === "home") {
       state.searchOpen = state.query ? true : !state.searchOpen;
-    } else if (state.view !== "hymns") {
-      state.view = "hymns";
-      state.category = "";
+    } else {
+      state.view = "home";
       state.searchOpen = true;
     }
     render();
@@ -1536,15 +1549,8 @@ document.addEventListener("click", function (event) {
     state.category = "";
     setSettings({ language: target.dataset.language }, state.view !== "settings");
   }
-  else if (action === "category") {
-    state.category = target.dataset.category || "";
-    state.view = "hymns";
+  else if (action === "clear-filters") {
     state.query = "";
-    render();
-    window.scrollTo(0, 0);
-  } else if (action === "clear-filters") {
-    state.query = "";
-    state.category = "";
     render();
   } else if (action === "font-increase") adjustFont(1);
   else if (action === "font-decrease") adjustFont(-1);
@@ -1598,10 +1604,7 @@ document.addEventListener("submit", function (event) {
     void handleLiveAudioComment(event.target);
   } else if (event.target.matches("[data-search-form]")) {
     event.preventDefault();
-    if (state.view !== "home") {
-      state.view = "hymns";
-      state.category = "";
-    }
+    if (state.view !== "home") state.view = "home";
     render();
     window.scrollTo(0, 0);
   }

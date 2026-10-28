@@ -31,3 +31,23 @@ export function searchHymns(hymns, query, category) {
     return fields.some(function (field) { return fold(field).includes(term); });
   });
 }
+
+// Beginner-friendly ordering: an exact hymn number comes first, then numbers
+// that start with the typed digits, then title matches, then everything else.
+export function rankHymnResults(hymns, query) {
+  const term = fold(query).trim();
+  const matches = searchHymns(hymns, term, "");
+  if (!term) return matches;
+  const numberTerm = term.replace(/^0+(?=\d)/, "");
+  const score = function (hymn) {
+    const num = String(hymn.hymn_number).replace(/^0+(?=\d)/, "");
+    if (/^\d+$/.test(numberTerm) && num === numberTerm) return 0;
+    if (/^\d+$/.test(numberTerm) && num.startsWith(numberTerm)) return 1;
+    if (fold(hymn.title_en).includes(term) || fold(hymn.title_yoruba).includes(term)) return 2;
+    return 3;
+  };
+  return matches
+    .map(function (hymn, index) { return { hymn, index, rank: score(hymn) }; })
+    .sort(function (a, b) { return a.rank - b.rank || a.index - b.index; })
+    .map(function (entry) { return entry.hymn; });
+}

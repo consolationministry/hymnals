@@ -1,4 +1,4 @@
-const CACHE_NAME = "consolation-hymnal-1.1.117-deep-links";
+const CACHE_NAME = "consolation-hymnal-1.1.118-deep-links";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const PRECACHE_URLS = [
   "./css/live-audio.css",
   "./assets/consolation-launcher.png",
   "./assets/consolation-launcher-192.png",
+  "./assets/splash-chime.wav",
   "./data/uploaded-hymns.js",
   "./data/uploaded-yoruba-hymns.js",
   "./js/hymnal-selection.js",
