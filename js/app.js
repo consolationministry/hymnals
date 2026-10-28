@@ -1374,13 +1374,28 @@ async function installAvailableUpdate() {
   }
 }
 
+// A programme share link is the site address plus ?program=<id>.
+function buildProgrammeShareLink(programId) {
+  const link = new URL(window.location.href);
+  link.search = "";
+  link.hash = "";
+  link.searchParams.set("program", String(programId));
+  return link.toString();
+}
+
+// When someone opens a programme link, read the id from the address bar.
+function getProgrammeIdFromLink() {
+  return new URLSearchParams(window.location.search).get("program");
+}
+
 async function shareLiveAudioProgram(programId) {
   const program = state.liveAudioData.programs.find(item => item.id === programId && item.status === "published");
   if (!program) return;
+  // Build a link to THIS programme only, e.g. https://site/hymnals/?program=abc
   const shareData = {
     title: program.title,
     text: "Listen to " + program.title + " from Consolation Evangelical and Revival Church.",
-    url: window.location.href
+    url: buildProgrammeShareLink(program.id)
   };
   try {
     if (navigator.share) {
@@ -1598,6 +1613,18 @@ window.addEventListener("online", function () {
   startLiveAudioRefresh();
 });
 
+async function openProgrammeFromLink() {
+  const programId = getProgrammeIdFromLink();
+  if (!programId) return;
+  await refreshLiveAudioData();
+  const exists = state.liveAudioData.programs.some(function (item) { return item.id === programId; });
+  if (exists) {
+    void openLiveAudioProgram(programId);
+  } else {
+    showToast("This programme link is no longer available.");
+  }
+}
+
 async function boot() {
   try {
     const results = await Promise.all([getAllHymns(), getMemberContent()]);
@@ -1608,6 +1635,7 @@ async function boot() {
     shell.hidden = false;
     finishSplash();
     initializeUpdates({ onAvailable: showUpdateNotice });
+    await openProgrammeFromLink();
   } catch (error) {
     shell.hidden = false;
     header.innerHTML = "";
