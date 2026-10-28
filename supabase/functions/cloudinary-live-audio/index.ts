@@ -393,6 +393,22 @@ Deno.serve(async request => {
       }, 200, origin);
     }
 
+    if (action === "sign-image-upload") {
+      // Signed upload for a programme thumbnail (a public image, not private audio).
+      const config = await getCloudinaryConfig(supabaseUrl, serviceRoleKey);
+      if (!config) return jsonResponse({ error: "Connect Cloudinary in Admin Settings before uploading images." }, 503, origin);
+      const timestamp = Math.floor(Date.now() / 1000);
+      const folder = "live-audio/thumbnails";
+      const signature = await sha1Hex("folder=" + folder + "&timestamp=" + timestamp + config.api_secret);
+      return jsonResponse({
+        cloudName: config.cloud_name,
+        apiKey: config.api_key,
+        timestamp,
+        folder,
+        signature
+      }, 200, origin);
+    }
+
     if (action === "resolve-playback-url") {
       const programId = String(body.programId || "");
       const sessionId = String(body.sessionId || "");

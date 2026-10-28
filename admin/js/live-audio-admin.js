@@ -8,8 +8,13 @@ import {
   setAdminLiveAudioStatus,
   startAdminLiveAudioProgram,
   uploadAdminLiveAudioSegment,
-  uploadAdminLiveAudioRecording
-} from "./live-audio-admin-data.js?v=1";
+  uploadAdminLiveAudioRecording,
+  uploadAdminLiveAudioImage,
+  uploadAdminLiveAudioFile
+} from "./live-audio-admin-data.js?v=2";
+
+// Audio file the admin picked in the details form. It uploads when the form is saved.
+let pendingAudioFile = null;
 import { createLiveAudioId } from "../../js/live-audio-realtime.js";
 import { startLiveAudioRecording } from "../../js/live-audio-recording.js?v=2";
 import { createLiveAudioMicEngine, DEFAULT_AUDIO_SETTINGS, startLiveAudioPublisher } from "../../js/live-audio-webrtc.js?v=3";
@@ -394,7 +399,8 @@ function renderProgramDetails(data) {
     '<div class="audio-thumbnail-preview">' + image + '<div data-preview-placeholder ' + (item.imageUrl ? "hidden" : "") + '><img src="../assets/demo-church-mark.svg" alt=""><span>Programme artwork</span></div>' +
     '<span class="audio-preview-badge">DRAFT</span></div>' +
     '<div class="audio-thumbnail-url"><label for="audio-image">Thumbnail image URL</label><input class="form-input" id="audio-image" name="imageUrl" type="url" inputmode="url" placeholder="https://…" value="' + escapeHtml(item.imageUrl) + '">' +
-    '<small>Use an HTTPS image address. Uploads aren’t enabled in the existing programme storage.</small></div></div>' +
+    '<label class="button button-secondary audio-file-picker">Upload image<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" data-audio-image-file hidden></label>' +
+    '<small>Upload a JPG, PNG, WebP or GIF file, or paste an HTTPS image address.</small></div></div>' +
     '<div class="audio-broadcast-primary-fields"><div class="admin-field"><label for="audio-title">Broadcast title <span aria-hidden="true">*</span></label>' +
     '<input class="form-input" id="audio-title" name="title" maxlength="120" value="' + escapeHtml(item.title) + '" placeholder="e.g. Sunday Worship Live" required>' +
     '<small class="audio-character-count"><span data-title-count>' + String(item.title.length) + '</span>/120</small></div>' +
@@ -405,7 +411,10 @@ function renderProgramDetails(data) {
     '<div class="admin-field"><label for="audio-venue">Venue / Location</label><input class="form-input" id="audio-venue" name="venue" maxlength="140" value="' + escapeHtml(item.venue) + '" placeholder="Main sanctuary"></div>' +
     '<div class="admin-field"><label for="audio-date">Broadcast date</label><input class="form-input" id="audio-date" name="date" type="date" value="' + escapeHtml(item.date) + '"></div>' +
     '<div class="admin-field"><label for="audio-category">Programme / Service type</label><select class="form-select" id="audio-category" name="category">' + categories + "</select>" +
-    '<small class="audio-field-note">This selection is also shown as the programme category.</small></div></div></section>' +
+    '<small class="audio-field-note">This selection is also shown as the programme category.</small></div></div>' +
+    '<div class="admin-field audio-audio-file"><label for="audio-file">Full audio recording (optional)</label>' +
+    '<input class="form-input" id="audio-file" type="file" accept="audio/webm,audio/ogg,audio/mp4,.webm,.ogg,.m4a" data-audio-file>' +
+    '<small class="audio-field-note">Choose a WebM, OGG or M4A file. It uploads when you save this draft.</small></div></section>' +
     '<div class="audio-broadcast-form-footer"><button class="button button-secondary" type="button" data-action="audio-admin-back">Cancel</button>' +
     '<div><button class="button button-secondary" type="submit" data-audio-status="draft">Save draft</button>' +
     '<button class="button button-primary" type="submit" data-audio-next="true">Next: Configure Stream <span aria-hidden="true">›</span></button></div></div></form>' +
@@ -1417,6 +1426,11 @@ export async function handleLiveAudioAdminSubmit(event) {
     const status = submitter && submitter.dataset.audioStatus === "draft" ? "draft" : "draft";
     try {
       const saved = await saveAdminLiveAudioProgram(Object.assign({}, values, { id: existing, status }));
+      if (pendingAudioFile) {
+        toast("Uploading audio file…");
+        await uploadAdminLiveAudioFile(saved.id, pendingAudioFile);
+        pendingAudioFile = null;
+      }
       cachedData = await loadAdminLiveAudioData();
       if (next) {
         editingId = saved.id;
@@ -1457,6 +1471,32 @@ if (typeof document !== "undefined" && document.addEventListener) {
   };
   document.addEventListener("input", updatePreviewFromEvent);
   document.addEventListener("change", updatePreviewFromEvent);
+  document.addEventListener("change", async event => {
+    const input = event.target;
+    if (!input || !input.matches) return;
+    if (input.matches("[data-audio-file]")) {
+      pendingAudioFile = input.files && input.files[0] ? input.files[0] : null;
+      return;
+    }
+    if (!input.matches("[data-audio-image-file]")) return;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const form = input.closest("#live-audio-program-form");
+    const urlInput = form && form.querySelector("#audio-image");
+    try {
+      toast("Uploading image…");
+      const url = await uploadAdminLiveAudioImage(file);
+      if (urlInput) {
+        urlInput.value = url;
+        updateBroadcastPreview(form);
+      }
+      toast("Image uploaded. Save the draft to keep it.");
+    } catch (error) {
+      toast(error.message || "The image could not be uploaded.");
+    } finally {
+      input.value = "";
+    }
+  });
   document.addEventListener("input", event => {
     const input = event.target;
     if (!input || !input.matches || !input.matches("[data-audio-control]")) return;
