@@ -418,13 +418,13 @@ button { -webkit-tap-highlight-color: transparent; }
   box-shadow: 0 7px 22px rgba(34, 30, 51, .055);
 }
 .language-reading h2 { padding-bottom: 13px; margin-bottom: 22px; border-bottom: 1px solid var(--line); text-align: center; }
-.verse-block { margin: 0 0 28px; padding: 0; border: 0; }
+.verse-block { margin: 0 0 30px; padding: 0; border: 0; }
 .verse-block:last-child { margin-bottom: 0; }
-.verse-label { display: block; margin-bottom: 8px; color: var(--accent); font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
-.verse-text { line-height: 1.85; letter-spacing: .01em; word-spacing: .04em; white-space: pre-line; }
+.verse-label { display: block; margin-bottom: 9px; color: var(--accent); font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.verse-text { line-height: 1.9; letter-spacing: .01em; word-spacing: .04em; white-space: pre-line; }
 .chorus-block {
-  margin: 26px 0 30px;
-  padding: 20px clamp(16px, 4vw, 24px);
+  margin: 30px 0 34px;
+  padding: 22px clamp(16px, 4vw, 26px);
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
   border-left: 5px solid var(--accent);
   border-radius: 14px;

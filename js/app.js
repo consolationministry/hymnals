@@ -234,14 +234,21 @@ function renderFavorites() {
   return '<section class="page">' + pageHeading("Favorites", "Your saved hymns stay on this device.") + hymnList(saved, emptyTitle, emptyMessage) + '</section>';
 }
 
-function poemSection(label, lyrics, chorus, languageCode, hasMeterPreface, hymnalNote) {
-  const readingParts = getReadingParts(lyrics, chorus);
+function poemSection(label, lyrics, chorus, languageCode, hasMeterPreface, hymnalNote, hymn) {
+  const source = String(hymn && hymn.source_hymnal || "").trim();
+  const imported = Boolean(hymn && Number.isFinite(Number(hymn.source_hymn_number)) && Number(hymn.source_hymn_number) > 0 &&
+    ((languageCode === "yo" && source === "Uploaded Yorùbá Hymn Collection") || (languageCode === "en" && source === "Uploaded Hymn Collection")));
+  const readingParts = getReadingParts(lyrics, chorus, { imported: imported, language: languageCode === "yo" ? "yoruba" : "english" });
+  if (hymnalNote) readingParts.unshift({ type: "note", text: hymnalNote });
   const partsMarkup = readingParts.map(function (part) {
+    if (part.type === "heading" || part.type === "note") {
+      return '<div class="verse-block hymnal-note" role="note"><span class="verse-label">Hymnal note</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text).replace(/\r?\n/g, "<br>") + '</p></div>';
+    }
     if (part.type === "chorus") {
       const chorusLabel = languageCode === "yo" ? "Egbe" : "Chorus";
       return '<div class="chorus-block"><span class="verse-label">' + chorusLabel + '</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text).replace(/\r?\n/g, "<br>") + '</p></div>';
     }
-    return '<div class="verse-block"><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text).replace(/\r?\n/g, "<br>") + '</p></div>';
+    return '<div class="verse-block">' + (part.label ? '<span class="verse-label">' + part.label + '</span>' : '') + '<p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text).replace(/\r?\n/g, "<br>") + '</p></div>';
   }).join("");
   return '<section class="language-reading" lang="' + languageCode + '"><h2>' + label + '</h2>' + partsMarkup + '</section>';
 }
@@ -574,8 +581,8 @@ function renderReader() {
     ? '<section class="hymn-description" lang="' + descriptionLang + '"><span class="verse-label">Description</span><p class="verse-text" lang="' + descriptionLang + '">' + escapeHtml(descriptionText) + '</p></section>'
     : "";
   const sections = descriptionMarkup + (hasEnglish
-    ? poemSection("English", hymn.verses_en, hymn.chorus_en, "en", showEnglishGospelMeterHeading)
-    : poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo", false, hymn.hymnal_note));
+    ? poemSection("English", hymn.verses_en, hymn.chorus_en, "en", showEnglishGospelMeterHeading, "", hymn)
+    : poemSection("Yorùbá", hymn.verses_yoruba, hymn.chorus_yoruba, "yo", false, hymn.hymnal_note, hymn));
   const translationNote = "";
   return '<section class="page reader-page"><div class="reader-topbar"><button class="reader-back" type="button" data-action="back" data-testid="button-reader-back">' + icon("arrow") + ' Back</button><div class="reader-actions">' + favoriteButton(hymn) + '<button class="icon-button" type="button" data-action="share" data-number="' + hymn.hymn_number + '" aria-label="Share hymn ' + number + '" data-testid="button-share-hymn">' + icon("share") + '</button></div></div><header class="reader-heading"><div class="reader-edition"><span class="hymn-number">' + number + '</span><span>' + escapeHtml(displayHymnalName(hymn)) + '</span></div><h1>' + title + '</h1><p class="reader-first-line">' + firstLine + '</p></header><div class="reader-meta">' + '<div class="reading-size" role="group" aria-label="Change hymn text size"><button type="button" data-action="font-decrease" aria-label="Decrease hymn text size" data-testid="button-font-decrease">A−</button><output id="reader-font-size">' + state.settings.fontSize + ' px</output><button type="button" data-action="font-increase" aria-label="Increase hymn text size" data-testid="button-font-increase">A+</button></div></div><div class="hymn-reading">' + translationNote + sections + '</div><footer class="reader-footer"><button class="text-link" type="button" data-action="share" data-number="' + hymn.hymn_number + '">' + icon("share") + ' Share hymn</button></footer></section>';
 }

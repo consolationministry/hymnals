@@ -844,7 +844,18 @@ function renderUploadReview() {
     const item = make("fieldset", "panel");
     const number = row.number ?? row.hymn_number ?? "";
       item.innerHTML = '<legend>Hymn ' + (index + 1) + '</legend><label>Number <input type="number" min="1" data-upload-field="number" value="' + escapeHtml(number) + '"></label><label>Title <input type="text" data-upload-field="title" value="' + escapeHtml(row.title || "") + '"></label><label>Verses, blank line starts a new verse <textarea data-upload-field="verses">' + escapeHtml((row.verses || []).join("\n\n")) + '</textarea></label><label>Chorus / Egbe <textarea data-upload-field="chorus">' + escapeHtml(row.chorus || "") + '</textarea></label>';
-    row.number = number;
+    const verses = row.verses || [];
+    const sourceNumber = Number(row.number || row.hymn_number || index + 1);
+    const language = state.hymnUploadLanguage || "english";
+    const preview = make("div", "hymn-upload-preview");
+    verses.forEach((verse, verseIndex) => {
+      preview.append(make("strong", "verse-label", (language === "yoruba" ? "Orin " : "Verse ") + (verseIndex + 1)));
+      preview.append(make("p", "verse-text", verse));
+      if (verseIndex === 0 && row.chorus) preview.append(make("p", "chorus-preview", (language === "yoruba" ? "Egbe: " : "Chorus: ") + row.chorus));
+    });
+    if (verses.length > 1 && row.chorus) preview.append(make("p", "chorus-preview", (language === "yoruba" ? "Egbe: " : "Chorus: ") + row.chorus));
+    item.append(preview);
+    row.number = sourceNumber;
     item.querySelectorAll("[data-upload-field]").forEach(input => input.addEventListener("input", () => {
       const key = input.dataset.uploadField;
       if (key === "verses") {
