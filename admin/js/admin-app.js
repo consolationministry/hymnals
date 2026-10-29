@@ -8,7 +8,7 @@ import { getProgrammeInteractions } from "../../js/programme-interactions.js";
 import { repairMojibake } from "../../js/programme-feed-utils.js";
 
 const root = document.getElementById("admin-root");
-const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null, hymnRowsCache: { hymns: null, drafts: null }, hymnRowsLoading: { hymns: null, drafts: null }, hymnRowsVersion: { hymns: 0, drafts: 0 }, selectedHymnIds: new Set() };
+const state = { view: "login", activeView: "dashboard", menuOpen: false, authStatus: null, hymnMode: "list", editingHymnId: null, hymnSaving: false, search: "", statusFilter: "", categoryFilter: "", formStart: null, categoryMode: "list", editingCategoryName: null, categoryFormStart: null, serviceMode: "list", editingServiceId: null, serviceFormStart: null, programMode: "list", editingProgramId: null, programFlyerUrl: "", programFormStart: null, settingsFormStart: null, quoteSettingsFormStart: null, toastTimer: null, hymnRowsCache: { hymns: null, drafts: null }, hymnRowsLoading: { hymns: null, drafts: null }, hymnRowsVersion: { hymns: 0, drafts: 0 }, selectedHymnIds: new Set() };
 const navigation = [
   { id: "dashboard", label: "Dashboard", icon: "grid" },
   { id: "hymns", label: "Hymns", icon: "book" },
@@ -106,8 +106,8 @@ function getEditorHtml(key) {
 function getEditorLines(key) {
   const editor = root.querySelector('[data-rich-editor="' + key + '"]');
   if (!editor) return [];
-  const text = (editor.innerText || editor.textContent || "").replace(/\u00a0/g, " ");
-  return text.split(/\n+/).map(function (line) { return line.trim(); }).filter(Boolean);
+  const text = (editor.innerText || editor.textContent || "").replace(/\u00a0/g, " ").replace(/\r\n?/g, "\n");
+  return text.split(/\n[ \t]*\n+/).map(function (verse) { return verse.split("\n").map(function (line) { return line.trim(); }).filter(Boolean).join("\n").trim(); }).filter(Boolean);
 }
 function safeEditorContent(value) { return sanitizeRichHtml(value || ""); }
 
@@ -818,8 +818,9 @@ async function renderHymnList() {
   content.append(heading);
   const controls = make("section", "hymn-toolbar");
   const left = make("div", "hymn-toolbar-left");
-  const search = make("input", "hymn-search"); search.type = "search"; search.id = "hymn-search"; search.placeholder = "Search number, title, or first line"; search.setAttribute("aria-label", "Search hymns"); search.dataset.filter = "search"; search.value = state.search;
-  left.append(search);
+  const search = make("input", "hymn-search"); search.type = "search"; search.id = "hymn-search"; search.placeholder = "Search hymn name or number"; search.setAttribute("aria-label", "Search hymns by name or number"); search.dataset.filter = "search"; search.value = state.search;
+  const searchButton = make("button", "button button-secondary", "Search"); searchButton.type = "button"; searchButton.dataset.action = "search-hymns";
+  left.append(search, searchButton);
   const filters = make("div", "hymn-filters");
   const status = make("select", "filter-select"); status.setAttribute("aria-label", "Filter by publication status"); status.dataset.filter = "status";
   status.innerHTML = draftsOnly ? '<option value="draft">Drafts only</option>' : '<option value="">All statuses</option><option value="draft">Drafts</option><option value="published">Published</option>';
@@ -880,7 +881,7 @@ async function refreshHymnRows() {
     const requiredStatus = draftsOnly ? "draft" : state.statusFilter;
     if (requiredStatus && hymn.status !== requiredStatus) return false;
     if (!query) return true;
-    return [hymn.hymn_number, hymn.source_hymn_number, hymn.title_en, hymn.title_yoruba, hymn.first_line_en, hymn.first_line_yoruba].join(" ").toLowerCase().includes(query);
+    return [hymn.hymn_number, hymn.source_hymn_number, hymn.title_en, hymn.title_yoruba].join(" ").toLowerCase().includes(query);
   });
   const label = root.querySelector(".hymn-results-label"); if (label) label.textContent = matching.length + (matching.length === 1 ? " hymn" : " hymns");
   const currentWrap = document.getElementById("hymn-table-wrap"); if (!currentWrap) return;
@@ -975,14 +976,15 @@ async function renderHymnForm() {
   const yorubaChorus = hymn.chorus_html_yoruba || (hymn.chorus_yoruba ? "<p>" + escapeHtml(hymn.chorus_yoruba) + "</p>" : "");
   content.innerHTML = '<div class="page-heading"><div><h1>' + (existing ? "Edit Hymn" : "Add New Hymn") + '</h1><p>' + (existing ? "Edit the hymn in the shared admin database." : "Create a hymn record. New hymns start as drafts unless you mark them published.") + '</p></div><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button></div>';
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit hymn form" : "Add hymn form");
-  panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn number, English title, and at least one opening line and verse are required. Yorùbá text is optional. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number <span aria-hidden="true">*</span></label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use one paragraph for each verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use one paragraph for each verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
+  panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn details are optional. Published hymns appear in the public catalog, so confirm their source and publishing permission first.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number</label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use one paragraph for each verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use one paragraph for each verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
   const formHelp = panel.querySelector(".form-section-help");
-  if (formHelp) formHelp.textContent = "Enter a title in English or Yorùbá, and add at least one opening line and verse. Mark Published to show this hymn in the public catalog; confirm its source and publishing permission first.";
+  if (formHelp) formHelp.textContent = "Hymn details are optional. Add the information you have, then save. Published hymns appear in the public catalog, so confirm their source and publishing permission first.";
   const englishTitle = panel.querySelector("#title-en");
+  const numberInput = panel.querySelector("#hymn-number");
   const englishTitleLabel = panel.querySelector('label[for="title-en"]');
+  if (numberInput) numberInput.required = false;
   if (englishTitle) englishTitle.required = false;
   if (englishTitleLabel) englishTitleLabel.textContent = "English hymn title";
-  const numberInput = panel.querySelector("#hymn-number");
   const numberLabel = panel.querySelector('label[for="hymn-number"]');
   if (existing && Number(existing.source_hymn_number) > 0) {
     if (numberInput) numberInput.readOnly = true;
@@ -1000,26 +1002,33 @@ function showFormErrors(errors) {
 }
 function validateHymn(data, existingId) {
   const errors = [];
-  if (!Number.isInteger(data.hymn_number) || data.hymn_number < 1) errors.push("Enter a whole hymn number greater than zero.");
-  if (!hasAdminHymnTitle(data)) errors.push("Enter an English or Yorùbá hymn title.");
-  if (!data.first_line_en && !data.first_line_yoruba) errors.push("Enter at least one English or Yoruba first line.");
-  if (!data.verses_en.length && !data.verses_yoruba.length) errors.push("Enter at least one verse in English or Yoruba.");
-  if (data.title_en.length > 160 || data.title_yoruba.length > 160) errors.push("Titles must be 160 characters or fewer.");
-  if (data.first_line_en.length > 240 || data.first_line_yoruba.length > 240) errors.push("First lines must be 240 characters or fewer.");
+  const hasValidNumber = Number.isInteger(data.hymn_number) && data.hymn_number > 0;
+  if (hasValidNumber && (data.title_en.length > 160 || data.title_yoruba.length > 160)) errors.push("Titles must be 160 characters or fewer.");
+  if (hasValidNumber && (data.first_line_en.length > 240 || data.first_line_yoruba.length > 240)) errors.push("First lines must be 240 characters or fewer.");
+  if (!hasValidNumber) return Promise.resolve(errors);
   return getHymns().then(function (hymns) {
-    if (Number.isInteger(data.hymn_number) && hymns.some(function (hymn) { return hymn.id !== existingId && Number(hymn.hymn_number) === data.hymn_number; })) errors.push("That hymn number is already in use. Choose a different number.");
+    if (hymns.some(function (hymn) { return hymn.id !== existingId && Number(hymn.hymn_number) === data.hymn_number; })) data.hymn_number = 0;
     return errors;
   });
 }
-async function saveHymnForm(status) {
-  const data = currentFormData(status); const errors = await validateHymn(data, state.editingHymnId);
-  if (errors.length) {
-    showFormErrors(errors);
-    const focusId = !Number.isInteger(data.hymn_number) || data.hymn_number < 1 ? "hymn-number" : (!hasAdminHymnTitle(data) ? "title-en" : null);
-    if (focusId) document.getElementById(focusId).focus(); else document.getElementById("hymn-errors").scrollIntoView({ behavior: "smooth", block: "center" });
-    return;
-  }
+async function saveHymnForm(status, submitter) {
+  if (state.hymnSaving) return;
+  const form = document.getElementById("hymn-form");
+  if (!form) return;
+  const buttons = Array.from(form.querySelectorAll('button[type="submit"]'));
+  const button = submitter || buttons[0];
+  const originalLabel = button ? button.textContent : "Save";
+  state.hymnSaving = true;
+  buttons.forEach(function (item) { item.disabled = true; item.setAttribute("aria-busy", "true"); });
+  if (button) button.textContent = "Saving…";
   try {
+    const data = currentFormData(status);
+    const errors = await validateHymn(data, state.editingHymnId);
+    if (errors.length) {
+      showFormErrors(errors);
+      if (data.hymn_number > 0) document.getElementById("hymn-errors").scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     const saved = state.editingHymnId
       ? await updateHymn(state.editingHymnId, data)
       : await createHymn(data);
@@ -1031,6 +1040,10 @@ async function saveHymnForm(status) {
     showToast(mode === "browser" ? "Hymn " + actionLabel + " in this browser's demo data only; the public hymnal is unchanged." : (status === "published" ? "Hymn published." : "Hymn saved to Drafts."));
   } catch (error) {
     showFormErrors([error && error.message ? error.message : "The hymn could not be saved."]);
+  } finally {
+    state.hymnSaving = false;
+    buttons.forEach(function (item) { item.removeAttribute("aria-busy"); if (item.isConnected) item.disabled = false; });
+    if (button && button.isConnected) button.textContent = originalLabel;
   }
 }
 async function cancelHymnForm() {
@@ -1164,6 +1177,9 @@ root.addEventListener("click", async function (event) {
   } else if (action === "retry-hymns") {
     invalidateHymnRows();
     await refreshHymnRows();
+  } else if (action === "search-hymns") {
+    const search = document.getElementById("hymn-search");
+    if (search) { state.search = search.value; state.selectedHymnIds.clear(); await refreshHymnRows(); }
   } else if (action === "clear-hymn-filters") {
     state.search = ""; state.statusFilter = ""; state.categoryFilter = ""; await renderHymnList();
   } else if (action === "new-category") {
@@ -1249,7 +1265,7 @@ root.addEventListener("submit", async function (event) {
   } else if (event.target.id === "program-form") {
     event.preventDefault(); await saveProgramForm(event.submitter);
   } else if (event.target.id === "hymn-form") {
-    event.preventDefault(); const submitter = event.submitter; await saveHymnForm(submitter && submitter.dataset.saveStatus === "published" ? "published" : "draft");
+    event.preventDefault(); const submitter = event.submitter; await saveHymnForm(submitter && submitter.dataset.saveStatus === "published" ? "published" : "draft", submitter);
   }
 });
 root.addEventListener("input", function (event) {

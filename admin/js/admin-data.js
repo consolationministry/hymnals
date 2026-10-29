@@ -172,10 +172,16 @@ function normalizeServiceData(value, knownHymnIds) {
 function normalizeHymnData(value, existing) {
   const data = value || {};
   const hymnNumber = Number(data.hymn_number);
-  if (!Number.isInteger(hymnNumber) || hymnNumber < 1) throw new Error("Enter a valid hymn number.");
+  const safeHymnNumber = Number.isInteger(hymnNumber) && hymnNumber > 0
+    ? hymnNumber
+    : (existing && Number.isInteger(Number(existing.hymn_number)) && Number(existing.hymn_number) > 0
+      ? Number(existing.hymn_number)
+      : (Number.isInteger(Number(existing && existing.source_hymn_number)) && Number(existing.source_hymn_number) > 0
+        ? Number(existing.source_hymn_number)
+        : 1));
   const status = data.status === "published" ? "published" : "draft";
   const record = Object.assign({}, existing || {}, copy(data), {
-    hymn_number: hymnNumber,
+    hymn_number: safeHymnNumber,
     category: existing ? existing.category : HYMN_DB_CATEGORY,
     status,
     updated_at: nowIso(),
@@ -394,7 +400,15 @@ export async function updateDailyQuoteSettings(value) {
 export function getStorageMode() { return "remote"; }
 
 export async function createHymn(data) {
-  const record = normalizeHymnData(data);
+  const value = Object.assign({}, data || {});
+  if (!Number.isInteger(Number(value.hymn_number)) || Number(value.hymn_number) < 1) {
+    const hymns = await getHymns();
+    const numbers = new Set(hymns.map(function (hymn) { return Number(hymn.hymn_number); }).filter(function (number) { return Number.isInteger(number) && number > 0; }));
+    let nextNumber = 1;
+    while (numbers.has(nextNumber)) nextNumber += 1;
+    value.hymn_number = nextNumber;
+  }
+  const record = normalizeHymnData(value);
   const rows = await adminRequest("rest/v1/hymns?select=*", {
     method: "POST",
     prefer: "return=representation",
