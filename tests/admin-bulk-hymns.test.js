@@ -24,7 +24,10 @@ test("upload parser does not rearrange spaces inside verse lines", () => {
 });
 
 test("admin editor and upload review use blank paragraphs, not single enters, as verse boundaries", () => {
-  assert.match(app, /return text\.split\(\/\\n\[ \\t\]\*\\n\+\/\)\.filter\(function \(verse\) \{ return verse !== ""; \}\)/);
+  assert.match(app, /bodyEnText\.split\(\/\\n\[ \\t\]\*\\n\+\/\)\.filter\(function \(verse\) \{ return verse !== ""; \}\)/);
+  assert.match(app, /data-lyrics-input="' \+ key \+ '"/);
+  assert.match(app, /class="lyrics-textarea"/);
+  assert.doesNotMatch(app, /data-action="add-verse"|Add verse/i);
   assert.match(app, /input\.value\.split\(\/\\n\[ \\t\]\*\\n\+\/\)\.filter\(verse => verse !== ""\)/);
   assert.match(app, /splitHymnText\(String\(row\.verses \|\| ""\)\)/);
 });

@@ -170,6 +170,10 @@ function normalizeServiceData(value, knownHymnIds) {
 }
 
 function normalizeHymnData(value, existing) {
+  value = Object.assign({}, value || {});
+  ["verses_en", "verses_yoruba"].forEach(function (key) {
+    if (typeof value[key] === "string") value[key] = value[key].split(/\n[ \t]*\n+/).filter(function (verse) { return verse !== ""; });
+  });
   const data = value || {};
   const hymnNumber = Number(data.hymn_number);
   const safeHymnNumber = Number.isInteger(hymnNumber) && hymnNumber > 0
@@ -410,6 +414,8 @@ export async function createHymn(data) {
     while (numbers.has(nextNumber)) nextNumber += 1;
     value.hymn_number = nextNumber;
   }
+  value.verses_en = Array.isArray(value.verses_en) ? value.verses_en : String(value.verses_en || "").split(/\n[ \t]*\n+/).filter(function (verse) { return verse !== ""; });
+  value.verses_yoruba = Array.isArray(value.verses_yoruba) ? value.verses_yoruba : String(value.verses_yoruba || "").split(/\n[ \t]*\n+/).filter(function (verse) { return verse !== ""; });
   const record = normalizeHymnData(value);
   const rows = await adminRequest("rest/v1/hymns?select=*", {
     method: "POST",
@@ -422,7 +428,10 @@ export async function createHymn(data) {
 export async function updateHymn(id, data) {
   const existing = await getHymn(id);
   if (!existing) throw new Error("This hymn could not be found.");
-  const record = normalizeHymnData(data, existing);
+  const value = Object.assign({}, data || {});
+  value.verses_en = Array.isArray(value.verses_en) ? value.verses_en : String(value.verses_en || "").split(/\n[ \t]*\n+/).filter(function (verse) { return verse !== ""; });
+  value.verses_yoruba = Array.isArray(value.verses_yoruba) ? value.verses_yoruba : String(value.verses_yoruba || "").split(/\n[ \t]*\n+/).filter(function (verse) { return verse !== ""; });
+  const record = normalizeHymnData(value, existing);
   const rows = await adminRequest("rest/v1/hymns?id=eq." + encodeURIComponent(id) + "&select=*", {
     method: "PATCH",
     prefer: "return=representation",

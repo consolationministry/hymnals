@@ -59,7 +59,7 @@ function make(tag, className, text) {
   return node;
 }
 function escapeLines(lines) {
-  return (lines || []).map(function (line) { return "<p>" + escapeHtml(line) + "</p>"; }).join("");
+  return (lines || []).join("\n\n");
 }
 function sanitizeRichHtml(input) {
   const parsed = new DOMParser().parseFromString(String(input || ""), "text/html");
@@ -100,15 +100,17 @@ function plainTextFromHtml(html) {
   const parsed = new DOMParser().parseFromString(sanitizeRichHtml(html), "text/html");
   return (parsed.body.innerText || parsed.body.textContent || "").replace(/\u00a0/g, " ").trim();
 }
+
 function getEditorHtml(key) {
   const editor = root.querySelector('[data-rich-editor="' + key + '"]');
   return editor ? sanitizeRichHtml(editor.innerHTML) : "";
 }
+function getLyricsText(key) {
+  const editor = root.querySelector('[data-lyrics-input="' + key + '"]');
+  return editor ? editor.value.replace(/\r\n?/g, "\n") : "";
+}
 function getEditorLines(key) {
-  const editor = root.querySelector('[data-rich-editor="' + key + '"]');
-  if (!editor) return [];
-  const text = (editor.innerText || editor.textContent || "").replace(/\u00a0/g, " ").replace(/\r\n?/g, "\n");
-  return text.split(/\n[ \t]*\n+/).filter(function (verse) { return verse !== ""; });
+  return getLyricsText(key).split(/\n[ \t]*\n+/).filter(function (verse) { return verse !== ""; });
 }
 function safeEditorContent(value) { return sanitizeRichHtml(value || ""); }
 
@@ -1013,12 +1015,15 @@ function toolbarMarkup(key, title) {
     '</div>';
 }
 function editorMarkup(title, key, content, hint) {
+  if (key === "verses_en" || key === "verses_yoruba") {
+    return '<section class="editor-card lyrics-card" data-editor-card="' + key + '"><header class="editor-card-header"><h3>' + title + '</h3><p>' + hint + '</p></header><textarea class="lyrics-textarea" id="editor-' + key + '" data-lyrics-input="' + key + '" aria-label="' + title + ' lyrics" rows="14" spellcheck="true">' + escapeHtml(content) + '</textarea></section>';
+  }
   const safe = safeEditorContent(content);
   return '<section class="editor-card" data-editor-card="' + key + '"><header class="editor-card-header"><h3>' + title + '</h3><p>' + hint + '</p></header>' + toolbarMarkup(key, title) + '<div class="rich-editor-content" id="editor-' + key + '" data-rich-editor="' + key + '" contenteditable="true" role="textbox" aria-label="' + title + ' rich text editor" aria-multiline="true" data-placeholder="Start typing here…" spellcheck="true">' + safe + '</div></section>';
 }
 function currentFormData(status) {
   const field = function (id) { const element = document.getElementById(id); return element ? element.value.trim() : ""; };
-  const bodyEnHtml = getEditorHtml("verses_en"); const bodyYoHtml = getEditorHtml("verses_yoruba");
+  const bodyEnText = getLyricsText("verses_en"); const bodyYoText = getLyricsText("verses_yoruba");
   const chorusEnHtml = getEditorHtml("chorus_en"); const chorusYoHtml = getEditorHtml("chorus_yoruba");
   const chorusEn = plainTextFromHtml(chorusEnHtml); const chorusYo = plainTextFromHtml(chorusYoHtml);
   const numberValue = Number(field("hymn-number"));
@@ -1027,8 +1032,8 @@ function currentFormData(status) {
   return {
     hymn_number: normalizedNumber, source_hymnal: language === "yoruba" ? "Uploaded Yorùbá Hymn Collection" : "Uploaded Hymn Collection", title_en: field("title-en"), title_yoruba: field("title-yoruba"),
     first_line_en: field("first-line-en"), first_line_yoruba: field("first-line-yoruba"),
-    verses_en: getEditorLines("verses_en"), verses_yoruba: getEditorLines("verses_yoruba"), chorus_en: chorusEn, chorus_yoruba: chorusYo,
-    body_html_en: bodyEnHtml, body_html_yoruba: bodyYoHtml, chorus_html_en: chorusEnHtml, chorus_html_yoruba: chorusYoHtml,
+    verses_en: bodyEnText.split(/\n[ \t]*\n+/).filter(function (verse) { return verse !== ""; }), verses_yoruba: bodyYoText.split(/\n[ \t]*\n+/).filter(function (verse) { return verse !== ""; }), chorus_en: chorusEn, chorus_yoruba: chorusYo,
+    body_html_en: "", body_html_yoruba: "", chorus_html_en: chorusEnHtml, chorus_html_yoruba: chorusYoHtml,
     status: status || "draft"
   };
 }
@@ -1069,13 +1074,13 @@ async function renderHymnForm() {
   const existing = state.editingHymnId ? await getHymn(state.editingHymnId) : null;
   if (state.editingHymnId && !existing) { state.hymnMode = "list"; showToast("That hymn is no longer available."); return renderHymnList(); }
   const hymn = existing || { hymn_number: "", title_en: "", title_yoruba: "", first_line_en: "", first_line_yoruba: "", category: "", verses_en: [], verses_yoruba: [], chorus_en: "", chorus_yoruba: "", body_html_en: "", body_html_yoruba: "", chorus_html_en: "", chorus_html_yoruba: "", status: "draft" };
-  const englishBody = hymn.body_html_en || escapeLines(hymn.verses_en);
-  const yorubaBody = hymn.body_html_yoruba || escapeLines(hymn.verses_yoruba);
+  const englishBody = (hymn.verses_en || []).join("\n\n");
+  const yorubaBody = (hymn.verses_yoruba || []).join("\n\n");
   const englishChorus = hymn.chorus_html_en || (hymn.chorus_en ? "<p>" + escapeHtml(hymn.chorus_en) + "</p>" : "");
   const yorubaChorus = hymn.chorus_html_yoruba || (hymn.chorus_yoruba ? "<p>" + escapeHtml(hymn.chorus_yoruba) + "</p>" : "");
   content.innerHTML = '<div class="page-heading"><div><h1>' + (existing ? "Edit Hymn" : "Add New Hymn") + '</h1><p>' + (existing ? "Edit the hymn in the shared admin database." : "Create a hymn record. New hymns start as drafts unless you mark them published.") + '</p></div><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button></div>';
   const panel = make("section", "panel form-panel"); panel.setAttribute("aria-label", existing ? "Edit hymn form" : "Add hymn form");
-  panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn details are optional. Published hymns appear in the public catalog, so confirm their source and publishing permission first.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number</label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use one paragraph for each verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use one paragraph for each verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
+  panel.innerHTML = '<form id="hymn-form" novalidate><h2 class="form-section-title">Hymn details</h2><p class="form-section-help">Hymn details are optional. Published hymns appear in the public catalog, so confirm their source and publishing permission first.</p><div class="hymn-fields-grid"><div class="admin-field"><label for="hymn-number">Hymn number</label><input class="form-input" id="hymn-number" name="hymn_number" type="number" min="1" step="1" inputmode="numeric" value="' + escapeHtml(hymn.hymn_number) + '" required></div><div class="admin-field"><label for="title-en">English hymn title <span aria-hidden="true">*</span></label><input class="form-input" id="title-en" name="title_en" maxlength="160" value="' + escapeHtml(hymn.title_en) + '" required></div><div class="admin-field"><label for="title-yoruba">Yoruba hymn title</label><input class="form-input" id="title-yoruba" name="title_yoruba" maxlength="160" value="' + escapeHtml(hymn.title_yoruba) + '"></div><div class="admin-field"><label for="first-line-en">English first line</label><input class="form-input" id="first-line-en" name="first_line_en" maxlength="240" value="' + escapeHtml(hymn.first_line_en) + '"></div><div class="admin-field"><label for="first-line-yoruba">Yoruba first line</label><input class="form-input" id="first-line-yoruba" name="first_line_yoruba" maxlength="240" value="' + escapeHtml(hymn.first_line_yoruba) + '"></div></div><div id="hymn-errors" class="form-errors" role="alert" aria-live="polite" hidden></div><section class="hymn-editor-section"><h2>English content</h2><p>Keep the chorus in its own editor; it is not merged into the verse body.</p><div class="rich-editor-grid">' + editorMarkup("English hymn body", "verses_en", englishBody, "Use a blank line between verses; press Enter once for the next line in the same verse.") + editorMarkup("English chorus", "chorus_en", englishChorus, "This remains separate from the verses.") + '</div></section><section class="hymn-editor-section"><h2>Yoruba content</h2><p>Optional translation fields. Body and chorus remain separate.</p><div class="rich-editor-grid">' + editorMarkup("Yoruba hymn body", "verses_yoruba", yorubaBody, "Use a blank line between verses; press Enter once for the next line in the same verse.") + editorMarkup("Yoruba chorus", "chorus_yoruba", yorubaChorus, "This remains separate from the verses.") + '</div><div class="form-actions"><div class="form-actions-left">' + (existing ? '<button class="button button-danger" type="button" data-action="delete-current">Delete Hymn</button>' : '') + '</div><div class="form-actions-right"><button class="button button-secondary" type="button" data-action="cancel-hymn">Cancel</button><button class="button button-secondary" type="submit" data-save-status="draft">Save as Draft</button><button class="button button-primary" type="submit" data-save-status="published">' + (existing && existing.status === "published" ? "Save Changes" : "Mark Published") + '</button></div></div></form>';
   const englishTitle = panel.querySelector("#title-en");
   const numberInput = panel.querySelector("#hymn-number");
   const englishTitleLabel = panel.querySelector('label[for="title-en"]');
@@ -1091,7 +1096,7 @@ async function renderHymnForm() {
   languageSelect.addEventListener("change", function () {
     const yoruba = languageSelect.value === "yoruba";
     const title = panel.querySelector("#title-en"); const titleYo = panel.querySelector("#title-yoruba");
-    const bodyEn = panel.querySelector('[data-rich-editor="verses_en"]'); const bodyYo = panel.querySelector('[data-rich-editor="verses_yoruba"]');
+    const bodyEn = panel.querySelector('[data-lyrics-input="verses_en"]'); const bodyYo = panel.querySelector('[data-lyrics-input="verses_yoruba"]');
     const chorusEn = panel.querySelector('[data-rich-editor="chorus_en"]'); const chorusYo = panel.querySelector('[data-rich-editor="chorus_yoruba"]');
     [[bodyEn, !yoruba], [bodyYo, yoruba], [chorusEn, !yoruba], [chorusYo, yoruba]].forEach(([node, show]) => { const section = node && node.closest(".hymn-editor-section"); if (section) section.hidden = !show; });
     if (title) title.closest(".admin-field").hidden = yoruba;
