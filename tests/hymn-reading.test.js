@@ -33,6 +33,34 @@ test("labels imported Yoruba verses Orin N and shows a one-verse chorus only onc
   ]);
 });
 
+test("keeps separately stored imported verses as individual labeled verses", () => {
+  assert.deepEqual(getReadingParts(["Blessed assurance, Jesus is mine!", "Perfect submission, perfect delight,", "Perfect submission, all is at rest,"], "refrain", { imported: true, language: "english" }), [
+    { type: "lyrics", text: "Blessed assurance, Jesus is mine!", number: 1, label: "Verse 1" },
+    { type: "chorus", text: "refrain" },
+    { type: "lyrics", text: "Perfect submission, perfect delight,", number: 2, label: "Verse 2" },
+    { type: "lyrics", text: "Perfect submission, all is at rest,", number: 3, label: "Verse 3" },
+    { type: "chorus", text: "refrain" }
+  ]);
+});
+
+test("does not label or rearrange admin-added lyrics even with blank lines", () => {
+  const lyrics = "pasted line one\ncontinued line\n\npasted next paragraph";
+  assert.deepEqual(getReadingParts([lyrics], "refrain", { imported: false, language: "english" }), [
+    { type: "lyrics", text: lyrics },
+    { type: "chorus", text: "refrain" }
+  ]);
+});
+
+test("uses Yoruba Orin labels and puts chorus after verse one and at the end", () => {
+  assert.deepEqual(getReadingParts(["one", "two", "three", "four", "five"], "egbe", { imported: true, language: "yoruba" }).map(function (part) { return part.type === "lyrics" ? part.label : part.type; }), ["Orin 1", "chorus", "Orin 2", "Orin 3", "Orin 4", "Orin 5", "chorus"]);
+});
+
+test("shows a one-verse imported chorus only once", () => {
+  assert.deepEqual(getReadingParts(["one"], "refrain", { imported: true, language: "english" }), [
+    { type: "lyrics", text: "one", number: 1, label: "Verse 1" },
+    { type: "chorus", text: "refrain" }
+  ]);
+});
 test("joins stored paragraphs with one blank line and preserves their text", () => {
   assert.deepEqual(getReadingParts(["first\ncontinued", "second verse"], ""), [
     { type: "lyrics", text: "first\ncontinued\n\nsecond verse" }
