@@ -1,5 +1,35 @@
 const audioPlayerControllers = new WeakMap();
 
+function updateMediaSession(audio, controller) {
+  if (typeof navigator === "undefined" || !navigator.mediaSession) return;
+  const session = navigator.mediaSession;
+  const title = audio.dataset.mediaTitle || audio.getAttribute("aria-label") || "Consolation Hymnal audio";
+  const artist = audio.dataset.mediaArtist || "Consolation Evangelical and Revival Church";
+  const isLive = audio.dataset.audioPlayer === "live";
+  if (typeof MediaMetadata === "function") {
+    try { session.metadata = new MediaMetadata({ title, artist, album: "Church audio", artwork: [{ src: new URL("../assets/consolation-launcher-192.png", import.meta.url).href, sizes: "192x192", type: "image/png" }] }); }
+    catch { try { session.metadata = new MediaMetadata({ title, artist }); } catch {} }
+  }
+  const actions = ["play", "pause", "stop", "seekbackward", "seekforward", "seekto"];
+  for (const action of actions) {
+    const handler = action === "play" ? () => { if (isLive && controller.livePlayback) controller.archiveAutoplay = true; audio.play().catch(() => {}); }
+      : action === "pause" ? () => { if (isLive && controller.livePlayback) controller.archiveAutoplay = false; audio.pause(); }
+      : action === "stop" ? () => { audio.pause(); try { audio.currentTime = 0; } catch {} }
+      : action === "seekbackward" ? event => seekMediaSessionAudio(audio, controller, -Math.max(1, Number(event.seekOffset) || 10))
+      : action === "seekforward" ? event => seekMediaSessionAudio(audio, controller, Math.max(1, Number(event.seekOffset) || 10))
+      : event => { if (Number.isFinite(event.seekTime)) seekMediaSessionAudio(audio, controller, event.seekTime - Number(audio.currentTime || 0)); };
+    try { session.setActionHandler(action, handler); } catch {}
+  }
+  try { session.playbackState = audio.paused ? "paused" : "playing"; } catch {}
+}
+function seekMediaSessionAudio(audio, controller, delta) {
+  if (audio.dataset.audioPlayer === "live" && controller.livePlayback) {
+    seekAudioPlayer(audio, Math.max(0, Math.min(getAudioPlayerDuration(audio), Number(audio.currentTime || 0) + delta)));
+  } else {
+    const duration = getAudioPlayerDuration(audio);
+    if (Number.isFinite(duration) && duration > 0) audio.currentTime = Math.max(0, Math.min(duration, Number(audio.currentTime || 0) + delta));
+  }
+}
 export function formatAudioTime(value) {
   const seconds = Number(value);
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -377,6 +407,9 @@ function attachAudioEvents(audio, controller) {
   ["loadedmetadata", "durationchange", "timeupdate", "seeking", "seeked", "volumechange"].forEach(eventName => {
     audio.addEventListener(eventName, () => updatePlayerControls(audio, controller));
   });
+  ["play", "pause", "ended", "loadedmetadata", "durationchange"].forEach(eventName => {
+    audio.addEventListener(eventName, () => updateMediaSession(audio, controller));
+  });
   audio.addEventListener("ended", () => {
     updatePlayerControls(audio, controller);
     advanceLiveAudioSegment(audio, controller);
@@ -464,6 +497,7 @@ export function mountAudioPlayer(audio, root) {
   controller.root = root;
   updateLiveAudioSegments(audio, controller);
   attachAudioEvents(audio, controller);
+  updateMediaSession(audio, controller);
   attachLiveTimelineSeek(audio, controller);
   attachWaveformSeek(audio, controller);
   updatePlayerControls(audio, controller);

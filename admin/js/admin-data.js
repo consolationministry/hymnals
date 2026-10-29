@@ -9,7 +9,7 @@ const GLOBAL_ROW_ID = "global";
 const DAILY_QUOTE_BOOKS = ["Psalms", "Proverbs"];
 const HYMNS_PAGE_SIZE = 100;
 const HYMN_DB_CATEGORY = "Praise"; // NOT NULL + FK column in Supabase; never shown in the UI
-const ADMIN_HYMN_LIST_COLUMNS = "id,hymn_number,title_en,title_yoruba,first_line_en,first_line_yoruba,verses_en,keywords,source_hymnal,source_hymn_number,source_first_line_en,category,status,updated_at";
+const ADMIN_HYMN_LIST_COLUMNS = "id,hymn_number,title_en,title_yoruba,first_line_en,first_line_yoruba,verses_en,verses_yoruba,chorus_en,chorus_yoruba,source_hymnal,source_hymn_number,source_first_line_en,category,status,updated_at";
 const HYMN_CATALOG_SYNC_VERSION = "uploaded-and-yoruba-hymn-collections-v8";
 const HYMN_CATALOG_SYNC_KEY = "consolation-admin-hymn-catalog-sync";
 
@@ -207,6 +207,8 @@ export async function initializeAdminData() {
       verses_yoruba: versesYoruba,
       chorus_en: hymn.chorus_en || "",
       chorus_yoruba: hymn.chorus_yoruba || "",
+      source_hymnal: hymn.source_hymnal || "Uploaded Hymn Collection",
+      source_hymn_number: hymn.source_hymn_number || null,
       hymnal_note: hymn.hymnal_note || "",
       keywords: asArray(hymn.keywords),
       author_en: hymn.author_en || "",
