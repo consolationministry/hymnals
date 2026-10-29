@@ -1,9 +1,33 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { parseHymnText, splitHymnText } from "../admin/js/hymn-upload-parser.js";
 
 const app = readFileSync(new URL("../admin/js/admin-app.js", import.meta.url), "utf8");
 const data = readFileSync(new URL("../admin/js/admin-data.js", import.meta.url), "utf8");
+
+test("upload parser keeps single enters in the same verse and blank paragraphs separate verses", () => {
+  const text = "12. Hymn title\n  first line  \nsecond line\n\n  next verse  \nlast line  ";
+  assert.deepEqual(splitHymnText("  first line  \nsecond line\n\n  next verse  \nlast line  "), ["  first line  \nsecond line", "  next verse  \nlast line  "]);
+  assert.deepEqual(parseHymnText(text), [{
+    hymn_number: 12,
+    title: "Hymn title",
+    verses: ["  first line  \nsecond line", "  next verse  \nlast line  "],
+    chorus: "",
+    chorusLabel: "",
+    number: 12
+  }]);
+});
+
+test("upload parser does not rearrange spaces inside verse lines", () => {
+  assert.deepEqual(splitHymnText(" a  \nb   \n\n  c "), [" a  \nb   ", "  c "]);
+});
+
+test("admin editor and upload review use blank paragraphs, not single enters, as verse boundaries", () => {
+  assert.match(app, /return text\.split\(\/\\n\[ \\t\]\*\\n\+\/\)\.filter\(function \(verse\) \{ return verse !== ""; \}\)/);
+  assert.match(app, /input\.value\.split\(\/\\n\[ \\t\]\*\\n\+\/\)\.filter\(verse => verse !== ""\)/);
+  assert.match(app, /splitHymnText\(String\(row\.verses \|\| ""\)\)/);
+});
 
 const dataModuleImport = app.match(/import\s*\{([^}]*)\}\s*from\s*["\']\.\/admin-data\.js\?v=\d+["\']/s);
 

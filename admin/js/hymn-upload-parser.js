@@ -1,7 +1,5 @@
 export function splitHymnText(text) {
-  return String(text || "").replace(/\r\n?/g, "\n").split(/\n[ \t]*\n+/).map(block =>
-    block.split("\n").map(line => line.trim()).filter(Boolean).join("\n").trim()
-  ).filter(Boolean);
+  return String(text || "").replace(/\r\n?/g, "\n").split(/\n[ \t]*\n+/).filter(block => block !== "");
 }
 
 export function parseHymnText(text) {
@@ -23,7 +21,7 @@ export function parseHymnText(text) {
     if (match) {
       finish();
       current = { hymn_number: Number(match[1]), title: match[2].trim(), verses: [], chorus: "", chorusLabel: "" };
-      if (lines.length > 1) current.verses.push(lines.slice(1).join("\n").trim());
+      if (lines.length > 1) current.verses.push(lines.slice(1).join("\n"));
       continue;
     }
     if (!current) {
@@ -32,15 +30,15 @@ export function parseHymnText(text) {
       if (title) current.title = title[1].trim();
       const rest = title ? lines.slice(1) : lines;
       if (rest.length) {
-        const textPart = rest.join("\n").trim();
+        const textPart = rest.join("\n");
         const chorus = textPart.match(/^(?:egbe|chorus|refrain)\s*:?\s*([\s\S]*)$/i);
-        if (chorus) { current.chorus = chorus[1].trim(); current.chorusLabel = /^egbe/i.test(textPart) ? "yoruba" : "english"; }
+        if (chorus) { current.chorus = chorus[1]; current.chorusLabel = /^egbe/i.test(textPart) ? "yoruba" : "english"; }
         else current.verses.push(textPart);
       }
       continue;
     }
     const chorus = block.match(/^(?:egbe|chorus|refrain)\s*:?\s*([\s\S]*)$/i);
-    if (chorus) { current.chorus = chorus[1].trim(); current.chorusLabel = /^egbe/i.test(block) ? "yoruba" : "english"; }
+    if (chorus) { current.chorus = chorus[1]; current.chorusLabel = /^egbe/i.test(block) ? "yoruba" : "english"; }
     else current.verses.push(block);
   }
   finish();

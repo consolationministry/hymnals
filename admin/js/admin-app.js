@@ -1,4 +1,4 @@
-import { parseHymnText } from "./hymn-upload-parser.js?v=2";
+import { parseHymnText, splitHymnText } from "./hymn-upload-parser.js?v=3";
 import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js?v=31";
 import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteHymns, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, setHymnsStatus, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=44";
 
@@ -108,7 +108,7 @@ function getEditorLines(key) {
   const editor = root.querySelector('[data-rich-editor="' + key + '"]');
   if (!editor) return [];
   const text = (editor.innerText || editor.textContent || "").replace(/\u00a0/g, " ").replace(/\r\n?/g, "\n");
-  return text.split(/\n[ \t]*\n+/).map(function (verse) { return verse.split("\n").map(function (line) { return line.trim(); }).filter(Boolean).join("\n").trim(); }).filter(Boolean);
+  return text.split(/\n[ \t]*\n+/).filter(function (verse) { return verse !== ""; });
 }
 function safeEditorContent(value) { return sanitizeRichHtml(value || ""); }
 
@@ -841,10 +841,13 @@ function renderUploadReview() {
   state.hymnUploadRows.forEach((row, index) => {
     const item = make("fieldset", "panel");
     const number = row.number ?? row.hymn_number ?? "";
-    item.innerHTML = '<legend>Hymn ' + (index + 1) + '</legend><label>Number <input type="number" min="1" data-upload-field="number" value="' + escapeHtml(number) + '"></label><label>Title <input type="text" data-upload-field="title" value="' + escapeHtml(row.title || "") + '"></label><label>Verses, separate verses with a blank line <textarea data-upload-field="verses">' + escapeHtml((row.verses || []).join("\n\n")) + '</textarea></label><label>Chorus / Egbe <textarea data-upload-field="chorus">' + escapeHtml(row.chorus || "") + '</textarea></label>';
+      item.innerHTML = '<legend>Hymn ' + (index + 1) + '</legend><label>Number <input type="number" min="1" data-upload-field="number" value="' + escapeHtml(number) + '"></label><label>Title <input type="text" data-upload-field="title" value="' + escapeHtml(row.title || "") + '"></label><label>Verses, blank line starts a new verse <textarea data-upload-field="verses">' + escapeHtml((row.verses || []).join("\n\n")) + '</textarea></label><label>Chorus / Egbe <textarea data-upload-field="chorus">' + escapeHtml(row.chorus || "") + '</textarea></label>';
     row.number = number;
     item.querySelectorAll("[data-upload-field]").forEach(input => input.addEventListener("input", () => {
-      const key = input.dataset.uploadField; row[key] = key === "verses" ? input.value.split(/\n[ \t]*\n+/).map(v => v.trim()).filter(Boolean) : input.value;
+      const key = input.dataset.uploadField;
+      if (key === "verses") {
+        row[key] = input.value.split(/\n[ \t]*\n+/).filter(verse => verse !== "");
+      } else row[key] = input.value;
     }));
     panel.append(item);
   });
@@ -864,7 +867,7 @@ async function publishUploadedHymns() {
     for (const row of rows) {
       const sourceNumber = Number(row.number); const number = language === "yoruba" ? sourceNumber + 30000 : sourceNumber;
       if (!Number.isInteger(sourceNumber) || sourceNumber < 1) throw new Error("Enter a valid hymn number in every review row.");
-      const verses = Array.isArray(row.verses) ? row.verses : String(row.verses || "").split(/\n[ \t]*\n+/).filter(Boolean);
+      const verses = Array.isArray(row.verses) ? row.verses : splitHymnText(String(row.verses || ""));
       await createHymn({ hymn_number: number, source_hymn_number: sourceNumber, source_hymnal: language === "yoruba" ? "Uploaded Yorùbá Hymn Collection" : "Uploaded Hymn Collection", title_en: language === "english" ? row.title : "", title_yoruba: language === "yoruba" ? row.title : "", first_line_en: language === "english" ? (verses[0] || "").split("\n")[0] : "", first_line_yoruba: language === "yoruba" ? (verses[0] || "").split("\n")[0] : "", verses_en: language === "english" ? verses : [], verses_yoruba: language === "yoruba" ? verses : [], chorus_en: language === "english" ? row.chorus : "", chorus_yoruba: language === "yoruba" ? row.chorus : "", status: "published" });
     }
     state.hymnUploadRows = []; invalidateHymnRows(); await renderHymnList(); showToast("Imported hymns published.");
