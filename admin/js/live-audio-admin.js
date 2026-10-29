@@ -484,36 +484,32 @@ function updateBroadcastPreview(form) {
 }
 
 const AUDIO_GROUP_TITLES = Object.freeze({
-  eq: "Equalizer · 16 bands",
-  tone: "Tone & filters",
-  output: "Output & balance",
-  dynamics: "Compressor & dynamics"
+  eq: "Equalizer",
+  tone: "Tone & Filter",
+  output: "Output & Balance",
+  dynamics: "Compressor & Dynamics"
 });
 
 function renderAudioPresetButtons() {
-  return '<div class="audio-preset-row" role="group" aria-label="EQ presets">' +
+  return '<div class="audio-preset-strip" role="group" aria-label="Voice presets"><span class="audio-preset-strip-label">VOICE PRESETS</span><div class="audio-preset-row">' +
     Object.keys(AUDIO_PRESETS).map(function (key) {
       return '<button class="audio-preset-button" type="button" data-action="audio-preset" data-preset="' + key + '">' +
         escapeHtml(AUDIO_PRESETS[key].label) + "</button>";
-    }).join("") + '<button class="audio-preset-button" type="button" data-action="audio-reset-settings">Reset all</button></div>';
+    }).join("") + '<button class="audio-preset-button" type="button" data-action="audio-reset-settings">Reset all</button></div></div>';
 }
 
 function renderAudioMixerControls() {
   const groups = ["eq", "tone", "output", "dynamics"];
-  const tabs = '<div class="audio-mixer-tabs" role="tablist" aria-label="Mixer sections">' + groups.map(function (group) {
-    const active = group === activeMixerTab;
-    return '<button type="button" class="audio-mixer-tab' + (active ? " is-active" : "") + '" role="tab" aria-selected="' + String(active) + '" data-action="audio-mixer-tab" data-mixer-tab="' + group + '">' + escapeHtml(AUDIO_GROUP_TITLES[group]) + '</button>';
-  }).join("") + '</div>';
   const sections = groups.map(function (group) {
     const controls = AUDIO_CONTROL_SPECS.filter(function (spec) { return spec.group === group; })
       .map(function (spec) {
         const value = Number.isFinite(Number(audioSettings[spec.key])) ? audioSettings[spec.key] : spec.default;
         return rangeControl(spec.key, spec.label, spec.min, spec.max, spec.step, value, spec.unit);
       }).join("");
-    return '<section class="audio-mixer-section' + (group === activeMixerTab ? "" : " is-hidden") + '" data-mixer-section="' + group + '"' + (group === activeMixerTab ? "" : " hidden") + '><h3 class="audio-mixer-heading">' +
+    return '<section class="audio-mixer-section" data-mixer-section="' + group + '"><h3 class="audio-mixer-heading">' +
       escapeHtml(AUDIO_GROUP_TITLES[group]) + '</h3><div class="audio-mixer-grid">' + controls + "</div></section>";
   }).join("");
-  return renderAudioPresetButtons() + tabs + sections;
+  return renderAudioPresetButtons() + '<div class="audio-mixer-sections">' + sections + '</div>';
 }
 
 function audioControlUnit(key) {
@@ -713,10 +709,10 @@ export function renderLiveAudioStudio(program) {
     '<section class="audio-studio-panel audio-studio-mixer"><header><div><p class="audio-studio-kicker">SOUND MIXER</p><h2>Microphone controls</h2></div><span class="audio-studio-mic-live"><i></i>MIC LIVE</span></header>' +
     renderAudioMixerControls() +
     '<p class="audio-studio-panel-note">Changes apply to the live microphone immediately.</p></section>' +
-    '<section class="audio-studio-panel audio-studio-mic-panel"><header><div><p class="audio-studio-kicker">INPUT MONITOR</p><h2>Microphone level</h2></div></header>' +
+    '<div class="audio-studio-monitor-row"><section class="audio-studio-panel audio-studio-mic-panel"><header><div><p class="audio-studio-kicker">INPUT MONITOR</p><h2>Microphone level</h2></div></header>' +
     '<p class="audio-mic-status" data-audio-mic-status role="status" aria-live="polite">' + keepOpenMessage + '</p>' +
     '<button class="button audio-studio-mute" type="button" data-action="audio-admin-toggle-mic" data-mic-mute-button aria-pressed="' + String(activeMicMuted) + '">' +
-    (activeMicMuted ? "Unmute microphone" : "Mute microphone") + '</button></section></div>' +
+    (activeMicMuted ? "Unmute microphone" : "Mute microphone") + '</button></section>' +
     '<section class="audio-studio-reactions" aria-label="Listener reactions"><div class="audio-studio-reaction-heading"><div><p class="audio-studio-kicker">LIVE ENGAGEMENT</p><h2>Listener reactions</h2></div><span>All-time counts</span></div>' +
     '<div class="audio-studio-reaction-feed" data-studio-burst-feed aria-live="polite" aria-label="Live reactions feed"></div>' +
     '<div class="audio-studio-reaction-list">' +

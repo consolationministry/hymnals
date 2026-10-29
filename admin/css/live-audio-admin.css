@@ -676,10 +676,20 @@
 @keyframes audio-studio-burst-rise { 0% { opacity: 0; transform: translateY(14px) scale(.7); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-40px) scale(1.15); } }
 
 .audio-studio-workspace { grid-template-columns: minmax(0, 1fr) !important; }
-.audio-studio-mixer-col { display: grid; gap: 12px; min-width: 0; }
-.audio-studio-mixer .audio-mixer-section { display: grid; gap: 8px; padding: 10px 0 12px; border-top: 1px solid #1b3554; }
+.audio-studio-mixer-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+.audio-studio-mixer { width: 100%; min-width: 0; grid-column: 1 / -1; }
+.audio-studio-mixer .audio-preset-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; padding: 10px; border: 1px solid #1b3554; border-radius: 9px; background: #08182c; }
+.audio-studio-mixer .audio-preset-strip-label { color: #8ea7c4; font-size: .59rem; font-weight: 850; letter-spacing: .09em; }
+.audio-studio-mixer .audio-preset-row { display: flex; flex: 1; flex-wrap: wrap; gap: 7px; }
+.audio-studio-mixer .audio-mixer-sections { display: grid; grid-template-columns: minmax(0, 1fr); }
+.audio-studio-mixer .audio-mixer-section { display: grid; gap: 8px; padding: 14px 0 15px; border-top: 1px solid #1b3554; }
 .audio-studio-mixer .audio-mixer-heading { margin: 0; color: #dbe8fa; font-size: .8rem; text-transform: uppercase; }
 .audio-studio-mixer .audio-mixer-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.audio-studio-monitor-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; min-width: 0; }
+@media (max-width: 620px) {
+  .audio-studio-monitor-row { grid-template-columns: minmax(0, 1fr); }
+  .audio-studio-mixer .audio-preset-strip { align-items: flex-start; flex-direction: column; }
+}
 .audio-studio-mic-meter-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .audio-studio-mic-meter-label { color: #8da2bc; font-size: .6rem; white-space: nowrap; }
 .audio-studio-mic-meter-row .audio-studio-meter { flex: 1; height: 8px; }
