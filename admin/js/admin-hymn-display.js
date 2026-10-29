@@ -1,4 +1,11 @@
-import { UPLOADED_YORUBA_HYMN_SOURCE } from "../../js/hymnal-selection.js";
+import { UPLOADED_HYMN_SOURCE, UPLOADED_YORUBA_HYMN_SOURCE } from "../../js/hymnal-selection.js";
+
+export function filterAdminHymnsByLanguage(hymns, language) {
+  const rows = Array.isArray(hymns) ? hymns : [];
+  if (language !== "english" && language !== "yoruba") return rows;
+  const source = language === "yoruba" ? UPLOADED_YORUBA_HYMN_SOURCE : UPLOADED_HYMN_SOURCE;
+  return rows.filter(function (hymn) { return hymn && hymn.source_hymnal === source; });
+}
 
 export function adminHymnNumberLabel(hymn) {
   const record = hymn || {};

@@ -2,7 +2,7 @@ import { parseHymnText, splitHymnText } from "./hymn-upload-parser.js?v=3";
 import { ADMIN_AUTH_CONFIGURED, initializeAdminAuth, loginAdmin, logoutAdmin } from "./admin-auth.js?v=31";
 import { createCategory, createHymn, createProgram, createService, deleteCategory, deleteHymn, deleteHymns, deleteProgram, deleteService, getAdminSettings, getCategories, getDailyQuoteSettings, getDashboardStats, getHymn, getHymns, getHymnListRows, getDraftHymns, getProgram, getPrograms, getRecentlyUpdatedHymns, getServicePlan, getServicePlans, getStorageMode, initializeAdminData, moveAllPublishedHymnsToDrafts, publishHymn, saveHymnAsDraft, setHymnsStatus, updateAdminSettings, updateCategory, updateDailyQuoteSettings, updateHymn, updateProgram, updateService } from "./admin-data.js?v=44";
 
-import { adminHymnNumberLabel, adminHymnTitle, hasAdminHymnTitle } from "./admin-hymn-display.js?v=1";
+import { adminHymnNumberLabel, adminHymnTitle, filterAdminHymnsByLanguage, hasAdminHymnTitle } from "./admin-hymn-display.js?v=2";
 import { handleLiveAudioAdminAction, handleLiveAudioAdminSubmit, renderLiveAudioAdmin, stopAdminAudioMicTest } from "./live-audio-admin.js?v=11";
 import { getCloudinarySettings, renderCloudinarySettingsPanel, removeCloudinarySettings, saveCloudinarySettings } from "./cloudinary-settings.js?v=2";
 import { getProgrammeInteractions } from "../../js/programme-interactions.js";
@@ -913,11 +913,15 @@ async function renderHymnList() {
   const searchButton = make("button", "button button-secondary", "Search"); searchButton.type = "button"; searchButton.dataset.action = "search-hymns";
   left.append(search, searchButton);
   const filters = make("div", "hymn-filters");
+  const language = make("select", "filter-select"); language.setAttribute("aria-label", "Filter by hymn language"); language.dataset.filter = "language";
+  language.innerHTML = '<option value="english">English</option><option value="yoruba">Yorùbá</option>';
+  language.value = state.hymnLanguage;
   const status = make("select", "filter-select"); status.setAttribute("aria-label", "Filter by publication status"); status.dataset.filter = "status";
   status.innerHTML = draftsOnly ? '<option value="draft">Drafts only</option>' : '<option value="">All statuses</option><option value="draft">Drafts</option><option value="published">Published</option>';
   status.value = draftsOnly ? "draft" : state.statusFilter;
   status.disabled = draftsOnly;
   controls.append(left, filters);
+  filters.append(language, status);
   content.append(controls, uploadReview);
   const resultsLabel = make("p", "hymn-results-label", draftsOnly ? "Loading draft hymns…" : "Loading hymns…");
   content.append(resultsLabel);
@@ -969,7 +973,7 @@ async function refreshHymnRows() {
   }
   if (state.activeView !== view || state.hymnMode !== "list") return;
   const query = state.search.trim().toLowerCase();
-  const matching = hymns.filter(function (hymn) {
+  const matching = filterAdminHymnsByLanguage(hymns, state.hymnLanguage).filter(function (hymn) {
     const requiredStatus = draftsOnly ? "draft" : state.statusFilter;
     if (requiredStatus && hymn.status !== requiredStatus) return false;
     if (!query) return true;
@@ -1398,6 +1402,7 @@ root.addEventListener("input", function (event) {
   if (event.target.matches("[data-rich-editor]")) rememberEditorSelection(event.target.dataset.richEditor);
 });
 root.addEventListener("change", function (event) {
+  if (event.target.matches('[data-filter="language"]')) { state.hymnLanguage = event.target.value; state.selectedHymnIds.clear(); refreshHymnRows(); }
   if (event.target.matches('[data-filter="status"]')) { state.statusFilter = event.target.value; state.selectedHymnIds.clear(); refreshHymnRows(); }
   if (event.target.id === "hymn-upload-file") { handleHymnUpload(event.target.files && event.target.files[0]); event.target.value = ""; }
   if (event.target.matches("[data-select-all-hymns]")) {
