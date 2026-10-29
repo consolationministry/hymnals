@@ -1,50 +1,46 @@
-import assert from "node:assert/strict";
 import test from "node:test";
+import assert from "node:assert/strict";
 import { getReadingParts } from "../js/hymn-reading.js";
 
-test("places the chorus after the first verse", () => {
-  assert.deepEqual(getReadingParts(["first verse", "second verse", "third verse"], "the chorus"), [
-    { type: "verse", number: 1, text: "first verse" },
-    { type: "chorus", text: "the chorus" },
-    { type: "verse", number: 2, text: "second verse" },
-    { type: "verse", number: 3, text: "third verse" },
-    { type: "chorus", text: "the chorus" }
+test("keeps single Enter inside the same stored lyrics block", () => {
+  const lyrics = "line one\nline two";
+  assert.deepEqual(getReadingParts([lyrics], ""), [
+    { type: "lyrics", text: lyrics }
   ]);
 });
 
-test("repeats the chorus after verse 5 and at the end for hymns longer than 5 verses", () => {
-  const verses = ["v1", "v2", "v3", "v4", "v5", "v6"];
-  assert.deepEqual(getReadingParts(verses, "the chorus").map((p) => p.type === "chorus" ? "C" : p.number), [1, "C", 2, 3, 4, 5, "C", 6, "C"]);
-});
-
-test("does not repeat the chorus after verse 5 for a five-verse hymn", () => {
-  const verses = ["v1", "v2", "v3", "v4", "v5"];
-  assert.deepEqual(getReadingParts(verses, "the chorus").map((p) => p.type === "chorus" ? "C" : p.number), [1, "C", 2, 3, 4, 5, "C"]);
-});
-
-test("keeps the meter and scripture preface separate from numbered lyric verses", () => {
-  const heading = "6.6.6.\nHear my cry o God, attend unto my prayer. Ps 61:";
-  assert.deepEqual(getReadingParts([heading, "Holy Father, hear me", "Jesus, blessed Master"], "the chorus", { hasMeterPreface: true }), [
-    { type: "heading", text: heading },
-    { type: "verse", number: 1, text: "Holy Father, hear me" },
-    { type: "chorus", text: "the chorus" },
-    { type: "verse", number: 2, text: "Jesus, blessed Master" },
-    { type: "chorus", text: "the chorus" }
+test("preserves blank-line verse boundaries exactly without adding labels", () => {
+  const lyrics = "first verse\nline two\n\nsecond verse\nline two";
+  assert.deepEqual(getReadingParts([lyrics], ""), [
+    { type: "lyrics", text: lyrics }
   ]);
 });
 
-test("recognizes a meter heading with repeated periods", () => {
-  assert.deepEqual(getReadingParts(["7..7.7\nScripture reference", "First lyric stanza"], "", { hasMeterPreface: true }), [
-    { type: "heading", text: "7..7.7\nScripture reference" },
-    { type: "verse", number: 1, text: "First lyric stanza" }
+test("joins stored paragraphs with one blank line and preserves their text", () => {
+  assert.deepEqual(getReadingParts(["first\ncontinued", "second verse"], ""), [
+    { type: "lyrics", text: "first\ncontinued\n\nsecond verse" }
   ]);
 });
 
-test("does not reinterpret a meter-like block without the CAC heading option", () => {
-  const heading = "6.6.6.\nSong text";
-  assert.deepEqual(getReadingParts([heading], ""), [{ type: "verse", number: 1, text: heading }]);
+test("keeps meter-like text and digits as lyric text without detection", () => {
+  const lyrics = "6.6.6.\n1. lyric line\n\n2. another verse";
+  assert.deepEqual(getReadingParts([lyrics], ""), [
+    { type: "lyrics", text: lyrics }
+  ]);
 });
 
-test("keeps a chorus visible when a hymn has no verse entries", () => {
-  assert.deepEqual(getReadingParts([], "the chorus"), [{ type: "chorus", text: "the chorus" }]);
+test("keeps the separately stored chorus once and only when present", () => {
+  assert.deepEqual(getReadingParts(["verse text"], "chorus text"), [
+    { type: "lyrics", text: "verse text" },
+    { type: "chorus", text: "chorus text" }
+  ]);
+  assert.deepEqual(getReadingParts(["verse text"], ""), [
+    { type: "lyrics", text: "verse text" }
+  ]);
+});
+
+test("keeps a separately stored chorus visible when the lyric field is empty", () => {
+  assert.deepEqual(getReadingParts([], "chorus text"), [
+    { type: "chorus", text: "chorus text" }
+  ]);
 });

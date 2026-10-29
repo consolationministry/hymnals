@@ -234,18 +234,14 @@ function renderFavorites() {
   return '<section class="page">' + pageHeading("Favorites", "Your saved hymns stay on this device.") + hymnList(saved, emptyTitle, emptyMessage) + '</section>';
 }
 
-function poemSection(label, verses, chorus, languageCode, hasMeterPreface, hymnalNote) {
-  const readingParts = getReadingParts(verses, chorus, { hasMeterPreface: hasMeterPreface === true });
-  if (hymnalNote) readingParts.unshift({ type: "note", text: hymnalNote });
+function poemSection(label, lyrics, chorus, languageCode, hasMeterPreface, hymnalNote) {
+  const readingParts = getReadingParts(lyrics, chorus);
   const partsMarkup = readingParts.map(function (part) {
-    if (part.type === "heading" || part.type === "note") {
-      return '<div class="verse-block hymnal-note" role="note"><span class="verse-label">Hymnal note</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
-    }
     if (part.type === "chorus") {
       const chorusLabel = languageCode === "yo" ? "Egbe" : "Chorus";
-      return '<div class="chorus-block"><span class="verse-label">' + chorusLabel + '</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
+      return '<div class="chorus-block"><span class="verse-label">' + chorusLabel + '</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text).replace(/\r?\n/g, "<br>") + '</p></div>';
     }
-    return '<div class="verse-block"><span class="verse-label">Verse ' + part.number + '</span><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text) + '</p></div>';
+    return '<div class="verse-block"><p class="verse-text" lang="' + languageCode + '">' + escapeHtml(part.text).replace(/\r?\n/g, "<br>") + '</p></div>';
   }).join("");
   return '<section class="language-reading" lang="' + languageCode + '"><h2>' + label + '</h2>' + partsMarkup + '</section>';
 }

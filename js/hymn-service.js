@@ -1,6 +1,5 @@
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../admin/config.js";
 import { readLocal, writeLocal } from "./local-store.js";
-import { normalizeHymnVerses } from "./hymn-stanzas.js";
 import { isManagedHymnSource, UPLOADED_HYMN_SOURCE, UPLOADED_YORUBA_HYMN_SOURCE } from "./hymnal-selection.js";
 
 const PUBLISHED_HYMNS_CACHE_KEY = "cerc-published-hymns-unified-v11";
@@ -43,13 +42,9 @@ function asStringArray(value) {
   }) : [];
 }
 
-function isMeterTitle(title) {
-  return /^(?:\d+\.)+\d*(?:\s*[d&.]+\s*(?:ref\.?|chorus)?)?$/i.test(title);
-}
-
 function firstLine(verses) {
-  const first = Array.isArray(verses) ? verses.find(function (line) { return typeof line === "string" && line.trim(); }) : "";
-  return String(first || "").split(/\r?\n/)[0].trim();
+  const first = Array.isArray(verses) ? verses.find(function (line) { return typeof line === "string"; }) : "";
+  return String(first || "").split(/\r?\n/)[0];
 }
 
 function normalizePublishedRows(rows) {
@@ -61,24 +56,25 @@ function normalizePublishedRows(rows) {
     })
     .map(function (row) {
       const versesEn = asStringArray(row.verses_en);
+      const versesYoruba = asStringArray(row.verses_yoruba);
+      const chorusEn = asString(row.chorus_en);
+      const chorusYoruba = asString(row.chorus_yoruba);
       const titleEn = asString(row.title_en);
       const sourceHymnal = asString(row.source_hymnal).trim();
       const isUploadedCollection = sourceHymnal === UPLOADED_HYMN_SOURCE;
       const isYorubaCollection = sourceHymnal === UPLOADED_YORUBA_HYMN_SOURCE;
-      const hasMeterTitle = isMeterTitle(titleEn);
-      const firstVerseLine = firstLine(versesEn);
-      const lyricLine = firstLine(hasMeterTitle && isMeterTitle(firstVerseLine) ? versesEn.slice(1) : versesEn);
+      const lyricLine = firstLine(versesEn);
       return {
         id: asString(row.id),
         hymn_number: Number(row.hymn_number),
-        title_en: hasMeterTitle ? lyricLine : titleEn,
+        title_en: titleEn,
         title_yoruba: asString(row.title_yoruba),
-        first_line_en: hasMeterTitle ? lyricLine : asString(row.first_line_en),
+        first_line_en: asString(row.first_line_en) || lyricLine,
         first_line_yoruba: asString(row.first_line_yoruba),
-        verses_en: normalizeHymnVerses(versesEn, asString(row.chorus_en)).verses,
-        verses_yoruba: normalizeHymnVerses(asStringArray(row.verses_yoruba), asString(row.chorus_yoruba)).verses,
-        chorus_en: normalizeHymnVerses(versesEn, asString(row.chorus_en)).chorus,
-        chorus_yoruba: normalizeHymnVerses(asStringArray(row.verses_yoruba), asString(row.chorus_yoruba)).chorus,
+        verses_en: versesEn,
+        verses_yoruba: versesYoruba,
+        chorus_en: chorusEn,
+        chorus_yoruba: chorusYoruba,
         description_en: asString(row.description_en),
         description_yoruba: asString(row.description_yoruba),
         hymnal_note: asString(row.hymnal_note),
@@ -90,7 +86,7 @@ function normalizePublishedRows(rows) {
           : String(row.source_hymn_number || row.hymn_number) + (isUploadedCollection && VARIOUS_SOURCE_LABEL_HYMN_NUMBERS.has(Number(row.hymn_number)) ? "V" : "")),
         source_publication_year: row.source_publication_year || null,
         source_hymn_number: row.source_hymn_number ? Number(row.source_hymn_number) : null,
-        source_first_line_en: hasMeterTitle ? lyricLine : asString(row.source_first_line_en),
+        source_first_line_en: asString(row.source_first_line_en) || lyricLine,
         source_hymnary_url: asString(row.source_hymnary_url),
         lyrics_source_url: asString(row.lyrics_source_url),
         language: asString(row.language) === "yoruba" || (!asString(row.language) && isYorubaCollection) ? "yoruba" : "english",

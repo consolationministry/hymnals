@@ -94,7 +94,7 @@ test("published results include both uploaded collections and keep drafts hidden
   assert.equal(hymnRequest.options.headers.authorization, "Bearer " + hymnRequest.options.headers.apikey);
 });
 
-test("uploaded meter-only titles are normalized to the first lyric line", async () => {
+test("meter-like titles and text remain exactly as stored", async () => {
   installStorage();
   globalThis.fetch = async function () {
     return response([{
@@ -110,9 +110,10 @@ test("uploaded meter-only titles are normalized to the first lyric line", async 
   };
   const hymns = await getAllHymns();
   assert.equal(hymns.length, 1);
-  assert.equal(hymns[0].title_en, "An uploaded hymn begins here");
-  assert.equal(hymns[0].first_line_en, hymns[0].title_en);
-  assert.equal(hymns[0].source_first_line_en, hymns[0].title_en);
+  assert.equal(hymns[0].title_en, "6.6.6.");
+  assert.equal(hymns[0].first_line_en, "6.6.6.");
+  assert.equal(hymns[0].source_first_line_en, "6.6.6.");
+  assert.deepEqual(hymns[0].verses_en, ["6.6.6.\nScripture reference", "An uploaded hymn begins here"]);
 });
 
 test("cached data keeps both uploaded collections and filters legacy CAC rows", async () => {
