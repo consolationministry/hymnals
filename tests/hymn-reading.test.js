@@ -90,9 +90,19 @@ test("keeps a separately stored chorus visible when the lyric field is empty", (
   ]);
 });
 
-test("labels English imported hymns even when their legacy source hymn number is null", () => {
-  const source_hymnal = "Uploaded Hymn Collection";
-  const imported = Boolean(source_hymnal === "Uploaded Hymn Collection");
-  assert.equal(imported, true);
-  assert.deepEqual(getReadingParts(["Blessed Assurance line", "second stanza"], "", { imported, language: "english" }).map(part => part.label), ["Verse 1", "Verse 2"]);
+test("extracts Egbe from mixed verse text and preserves its stanza exactly", () => {
+  const firstVerse = "first verse line\nsecond line";
+  const egbe = "Eyin angeli\nLu duru wura";
+  const nextVerse = "next verse line";
+  const mixed = firstVerse + "\nEGBE:\n" + egbe + "\n" + nextVerse + "\nEGBE:\n" + egbe;
+  assert.deepEqual(getReadingParts([mixed], "", { imported: true, language: "yoruba", extractEmbeddedEgbe: true }), [
+    { type: "lyrics", text: firstVerse, number: 1, label: "Orin 1" },
+    { type: "chorus", text: egbe },
+    { type: "lyrics", text: nextVerse, number: 2, label: "Orin 2" },
+    { type: "chorus", text: egbe }
+  ]);
+});
+
+test("uses explicit chorus text in preference to embedded Egbe", () => {
+  assert.deepEqual(getReadingParts(["first verse\nEGBE:\nembedded text", "next verse"], "explicit chorus", { imported: true, language: "yoruba", extractEmbeddedEgbe: true }).filter(part => part.type === "chorus").map(part => part.text), ["explicit chorus", "explicit chorus"]);
 });

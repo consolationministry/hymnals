@@ -240,7 +240,12 @@ function poemSection(label, lyrics, chorus, languageCode, hasMeterPreface, hymna
   const imported = Boolean(hymn &&
     ((languageCode === "yo" && source === "Uploaded Yorùbá Hymn Collection") ||
       (languageCode === "en" && source === "Uploaded Hymn Collection")));
-  const readingParts = getReadingParts(lyrics, chorus, { imported: imported, language: languageCode === "yo" ? "yoruba" : "english" });
+  const isYoruba = languageCode === "yo";
+  const readingParts = getReadingParts(lyrics, chorus, {
+    imported: imported,
+    language: isYoruba ? "yoruba" : "english",
+    extractEmbeddedEgbe: isYoruba
+  });
   if (hymnalNote) readingParts.unshift({ type: "note", text: hymnalNote });
   const partsMarkup = readingParts.map(function (part) {
     if (part.type === "heading" || part.type === "note") {
