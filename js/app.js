@@ -235,9 +235,11 @@ function renderFavorites() {
 }
 
 function poemSection(label, lyrics, chorus, languageCode, hasMeterPreface, hymnalNote, hymn) {
+  // Uploaded collections are imported even when their legacy source number is NULL.
   const source = String(hymn && hymn.source_hymnal || "").trim();
   const imported = Boolean(hymn &&
-    ((languageCode === "yo" && source === "Uploaded Yorùbá Hymn Collection") || (languageCode === "en" && source === "Uploaded Hymn Collection")));
+    ((languageCode === "yo" && source === "Uploaded Yorùbá Hymn Collection") ||
+      (languageCode === "en" && source === "Uploaded Hymn Collection")));
   const readingParts = getReadingParts(lyrics, chorus, { imported: imported, language: languageCode === "yo" ? "yoruba" : "english" });
   if (hymnalNote) readingParts.unshift({ type: "note", text: hymnalNote });
   const partsMarkup = readingParts.map(function (part) {

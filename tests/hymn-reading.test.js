@@ -89,3 +89,10 @@ test("keeps a separately stored chorus visible when the lyric field is empty", (
     { type: "chorus", text: "chorus text" }
   ]);
 });
+
+test("labels English imported hymns even when their legacy source hymn number is null", () => {
+  const source_hymnal = "Uploaded Hymn Collection";
+  const imported = Boolean(source_hymnal === "Uploaded Hymn Collection");
+  assert.equal(imported, true);
+  assert.deepEqual(getReadingParts(["Blessed Assurance line", "second stanza"], "", { imported, language: "english" }).map(part => part.label), ["Verse 1", "Verse 2"]);
+});
