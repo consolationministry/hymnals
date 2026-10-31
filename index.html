@@ -25,7 +25,22 @@
     @media(max-width:680px){.site-shell{width:min(100% - 24px,560px)}.site-header{padding:11px 0;gap:12px}.brand{gap:9px}.brand img{width:38px;height:38px}.brand strong{font-size:.94rem}.brand small{font-size:.64rem}.nav-cta{min-height:37px;padding:8px 11px;font-size:.73rem}.main-nav{gap:18px}.main-nav a{font-size:.74rem}.hero{grid-template-columns:1fr;min-height:0;margin-top:13px;padding:33px 23px 25px;border-radius:25px}.hero h1{font-size:clamp(2.75rem,12vw,4.25rem)}.hero-intro{margin:17px 0 22px;font-size:.91rem}.hero-scripture{width:min(100%,390px);margin:18px 0 0;padding:23px 21px}.hero-scripture blockquote{font-size:1.34rem}.scripture-note{margin-top:12px}.hero-meta{font-size:.7rem}.section{padding:64px 0}.section-heading{margin-bottom:26px}.section-heading h2,.about-copy h2,.service-copy h2,.contact-copy h2{font-size:2.25rem}.about-grid,.app-panel,.contact-panel{grid-template-columns:1fr}.about-grid{gap:13px}.about-copy,.scripture-card{padding:25px}.scripture-card{min-height:250px}.app-section{padding-top:5px}.app-panel{gap:23px;padding:19px;border-radius:23px}.app-preview{min-height:295px}.app-copy{padding:2px 4px 5px}.feature-grid{grid-template-columns:1fr}.install-section{padding-top:8px}.install-grid{grid-template-columns:1fr;gap:10px}.install-step{padding:19px}.step-no{margin-bottom:11px}.service-banner{grid-template-columns:1fr;gap:20px;padding:26px 23px;border-radius:23px}.service-cta .button{min-width:0}.contact-panel{gap:22px;padding:24px}.contact-section{padding-bottom:54px}footer{grid-template-columns:1fr;gap:9px}.footer-links{justify-content:flex-start}.footer-credit{grid-column:auto;padding-top:4px}}
     @media(max-width:380px){.site-shell{width:calc(100% - 18px)}.hero{padding:28px 18px 22px}.actions{align-items:stretch}.actions .button{width:100%}.nav-cta{font-size:0}.nav-cta:after{content:"Join";font-size:.73rem}.hero-meta{gap:7px 11px}}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
-  </style>
+  
+    .main-nav{gap:clamp(8px,1.1vw,15px)}.main-nav a{font-size:.72rem}
+    .hero-showcase{position:relative;isolation:isolate;display:flex;align-items:flex-end;min-width:0;min-height:390px;padding:14px;overflow:hidden;border:1px solid rgba(255,255,255,.24);border-radius:25px;box-shadow:0 20px 50px rgba(24,8,32,.25)}
+    .hero-image-stack{position:absolute;z-index:0;inset:0;overflow:hidden}
+    .hero-image-stack img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;animation:ministryArtFade 21s ease-in-out infinite}
+    .hero-image-stack img:nth-child(2){animation-delay:7s}.hero-image-stack img:nth-child(3){animation-delay:14s}
+    @keyframes ministryArtFade{0%,27%{opacity:1;transform:scale(1)}34%,100%{opacity:0;transform:scale(1.045)}}
+    .hero-showcase:after{position:absolute;z-index:1;inset:0;background:linear-gradient(180deg,rgba(24,12,30,.04) 30%,rgba(24,12,30,.72) 100%);content:"";pointer-events:none}
+    .hero-showcase .hero-scripture{z-index:2;width:100%;max-width:none;margin:0;padding:20px 20px 18px;border-color:rgba(255,255,255,.25);border-radius:17px;background:rgba(37,18,44,.68);box-shadow:none}
+    .hero-showcase .hero-scripture:before{display:none}.hero-showcase .hero-scripture blockquote{font-size:clamp(1.08rem,2vw,1.42rem)}.hero-showcase .hero-scripture cite{margin-top:10px}.hero-showcase .scripture-note{margin-top:9px}
+    .feature-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}.feature-card{display:flex;min-height:205px;flex-direction:column;align-items:flex-start}.feature-card .feature-icon{flex:0 0 auto}.feature-action{display:inline-flex;align-items:center;gap:7px;margin-top:auto;padding-top:13px;color:var(--wine);font-size:.74rem;font-weight:850;text-decoration:none}.feature-action svg{width:15px;height:15px;transition:transform .18s ease}.feature-action:hover svg{transform:translateX(3px)}.feature-action:focus-visible{outline:3px solid #c7a66a;outline-offset:3px;border-radius:4px}
+    @media(max-width:900px){.hero-showcase{min-height:340px}.feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:680px){.hero-showcase{min-height:320px}.feature-grid{grid-template-columns:1fr}.feature-card{min-height:170px}}
+    @media(max-width:380px){.nav-cta:after{content:"Open app"}}
+    @media(prefers-reduced-motion:reduce){.hero-image-stack img{animation:none;opacity:0}.hero-image-stack img:first-child{opacity:1}.feature-action svg{transition:none}}
+</style>
 </head>
 <body>
   <div class="site-shell">
@@ -34,14 +49,16 @@
         <img src="./assets/consolation-launcher-192.png" width="42" height="42" alt="">
         <span><strong>Consolation Ministry</strong><small>Church of the Lord</small></span>
       </a>
-      <nav class="main-nav" aria-label="Main navigation">
-        <a href="#about">About us</a>
-        <a href="#app-features">The hymnal app</a>
-        <a href="#install-guide">Installation</a>
-        <a href="#sunday-service">Sunday Service</a>
-        <a href="#contact">Contact</a>
+      <nav class="main-nav" aria-label="Explore app features">
+        <a href="#hymns">Hymns</a>
+        <a href="#live-audio">Live audio</a>
+        <a href="#programs">Programs</a>
+        <a href="#services">Services</a>
+        <a href="#favorites">Favorites</a>
+        <a href="#recent">Recent</a>
+        <a href="#settings">Settings</a>
       </nav>
-      <a class="nav-cta" href="#sunday-service">Join us now</a>
+      <a class="nav-cta" href="./hymnal.html">Open the app</a>
     </header>
 
     <main>
@@ -72,11 +89,19 @@
           <p id="ios-note" class="download-note" hidden>On iPhone or iPad? Visit the web hymnal in your browser.</p>
           <div class="hero-meta" aria-label="Hymnal app highlights"><span>English &amp; Yorùbá</span><span>Offline reading</span><span>Free to use</span></div>
         </div>
-        <aside id="hero-scripture" class="hero-scripture" aria-label="Bible verse">
+        <aside class="hero-showcase" aria-label="Changing previews of hymns, live audio, and church programs">
+          <div class="hero-image-stack" aria-hidden="true">
+            <img class="hero-image-slide" src="./assets/home-hero-hymns.svg" alt="">
+            <img class="hero-image-slide" src="./assets/home-hero-live.svg" alt="">
+            <img class="hero-image-slide" src="./assets/home-hero-programs.svg" alt="">
+          </div>
+          <div id="hero-scripture" class="hero-scripture" aria-label="Bible verse">
           <span class="quote-mark" aria-hidden="true">“</span>
           <blockquote><span id="hero-verse-visible" aria-hidden="true">For where two or three are gathered together in my name, there am I in the midst of them.</span><span id="hero-verse-accessible" class="sr-only">For where two or three are gathered together in my name, there am I in the midst of them.</span></blockquote>
           <cite id="hero-verse-reference">Matthew 18:20 · KJV</cite>
           <p id="hero-scripture-note" class="scripture-note">Come as you are. There is room for you here.</p>
+        
+          </div>
         </aside>
       </section>
 
@@ -115,11 +140,15 @@
           <div class="app-copy">
             <p class="section-kicker">A hymn for every moment</p>
             <h2 id="app-title">Take the hymnal with you.</h2>
-            <p>Find a hymn for worship, keep favourites close, and read English and Yorùbá collections—even when you are offline.</p>
+            <p>Explore English and Yorùbá hymns, join live audio, follow programs and service plans, and return to favorites and recent hymns from one app.</p>
             <div class="feature-grid">
-              <article class="feature-card"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v18m6-15H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><strong>Two collections</strong><p>Browse English and Yorùbá hymns.</p></article>
-              <article class="feature-card"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong>Read offline</strong><p>Return to hymns on your device.</p></article>
-              <article class="feature-card"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 20-1.4-1.3C5.6 14.1 2.5 11.3 2.5 7.8A4.8 4.8 0 0 1 7.3 3c1.8 0 3.5.8 4.7 2.1A6.4 6.4 0 0 1 16.7 3a4.8 4.8 0 0 1 4.8 4.8c0 3.5-3.1 6.3-8.1 10.9L12 20Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><strong>Save favourites</strong><p>Keep the hymns you love nearby.</p></article>
+              <article class="feature-card" id="hymns"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 4h16v16H4zM8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong>Hymns</strong><p>Search the English and Yorùbá collections by number, title, keyword, or first line.</p><a class="feature-action" href="./hymnal.html" aria-label="Open app to browse hymns">Open the app <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></article>
+              <article class="feature-card" id="live-audio"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 10v4h4l5 4V6l-5 4H4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M17 9a5 5 0 0 1 0 6m2-9a9 9 0 0 1 0 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><strong>Live audio</strong><p>Join a live church broadcast from your phone or browser.</p><a class="feature-action" href="./hymnal.html" aria-label="Open app for live audio">Open the app <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></article>
+              <article class="feature-card" id="programs"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M16 3v4M8 3v4M3 10h18M8 14h3m-3 3h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong>Programs</strong><p>See upcoming church programs and announcements.</p><a class="feature-action" href="./hymnal.html" aria-label="Open app for programs">Open the app <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></article>
+              <article class="feature-card" id="services"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M16 3v4M8 3v4M3 10h18M8 14h3m-3 3h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong>Services</strong><p>Check service dates and stay current with church plans.</p><a class="feature-action" href="./hymnal.html" aria-label="Open app for services">Open the app <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></article>
+              <article class="feature-card" id="favorites"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 20-1.4-1.3C5.6 14.1 2.5 11.3 2.5 7.8A4.8 4.8 0 0 1 7.3 3c1.8 0 3.5.8 4.7 2.1A6.4 6.4 0 0 1 16.7 3a4.8 4.8 0 0 1 4.8 4.8c0 3.5-3.1 6.3-8.1 10.9L12 20Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><strong>Favorites</strong><p>Save favorite hymns and return to them whenever you like.</p><a class="feature-action" href="./hymnal.html" aria-label="Open app for favorites">Open the app <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></article>
+              <article class="feature-card" id="recent"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong>Recent hymns</strong><p>Pick up where you left off with your recently opened hymns.</p><a class="feature-action" href="./hymnal.html" aria-label="Open app for recent hymns">Open the app <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></article>
+              <article class="feature-card" id="settings"><span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M19 13.5a7.2 7.2 0 0 0 0-3l2-1.2-2-3.4-2.2.8a7 7 0 0 0-2.6-1.5L14 3h-4l-.3 2.2a7 7 0 0 0-2.6 1.5l-2.2-.8-2 3.4 2 1.2a7.2 7.2 0 0 0 0 3l-2 1.2 2 3.4 2.2-.8a7 7 0 0 0 2.6 1.5L10 21h4l.3-2.2a7 7 0 0 0 2.6-1.5l2.2.8 2-3.4-2.1-1.2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></span><strong>Settings</strong><p>Adjust your language, reading size, and app appearance.</p><a class="feature-action" href="./hymnal.html" aria-label="Open app settings">Open the app <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></article>
             </div>
           </div>
         </div>

@@ -22,6 +22,18 @@ test("public homepage welcomes visitors and explains the Android hymnal app", as
   assert.ok(home.includes("choose Open with"));
   assert.ok(home.includes('href="./hymnal.html"'));
   assert.ok(home.includes('id="app-features"'));
+  assert.ok(home.includes('aria-label="Explore app features"'));
+  for (const feature of ["hymns", "live-audio", "programs", "services", "favorites", "recent", "settings"]) {
+    assert.ok(home.includes('href="#' + feature + '"'));
+    assert.ok(home.includes('id="' + feature + '"'));
+  }
+  assert.ok(home.includes('class="hero-image-stack"'));
+  assert.ok(home.includes("ministryArtFade"));
+  assert.ok(home.includes("prefers-reduced-motion:reduce"));
+  assert.ok(home.includes("home-hero-hymns.svg"));
+  assert.ok(home.includes("home-hero-live.svg"));
+  assert.ok(home.includes("home-hero-programs.svg"));
+  assert.ok(home.includes('aria-label="Open app for live audio"'));
   assert.ok(home.includes('id="install-guide"'));
   assert.ok(home.includes("English and Yorùbá"));
   assert.ok(home.includes("Sunday Service"));
