@@ -78,6 +78,8 @@
     .install-grid,.install-note{max-width:1160px;margin-left:auto;margin-right:auto}.install-step{border-color:#e8e3f5;border-radius:18px;background:#fff}.step-no{border-color:#dfd3ff;color:#7f3aee;background:#f6f2ff}.install-note{border-color:#ded2ff;color:#4e3c6e;background:#f6f3ff}.install-note svg{color:#7f3aee}.contact-link{border-color:#e8e3f5}.contact-icon{color:#7f3aee;background:#f1ecff}footer{margin:0;padding:24px max(24px,calc((100vw - 1160px)/2));border-top:1px solid #e8e3f5;background:#f6f5ff}footer a{color:#7f3aee}
     @media(max-width:900px){.site-header{padding:12px 24px}.hero{min-height:0;grid-template-columns:1fr .8fr;padding:38px 24px}.hero-showcase{min-height:245px}.feature-split{gap:32px;min-height:280px}.feature-art{min-height:245px}}
     @media(max-width:680px){.site-header{padding:10px 12px}.hero{grid-template-columns:1fr;gap:10px;padding:31px 20px 26px}.hero h1{font-size:clamp(2.4rem,11vw,3.7rem)}.hero-showcase{width:min(100%,390px);min-height:185px;margin:4px 0 0}.hero-showcase .hero-scripture{padding:15px 17px}.hero-showcase .hero-scripture blockquote{font-size:1.02rem}.hero-carousel-controls{margin-top:11px}.section{padding:56px 16px}.section-heading{margin-bottom:24px}.feature-band{padding:48px 18px}.feature-split{grid-template-columns:1fr;gap:25px;min-height:0}.feature-reverse .feature-copy,.feature-reverse .feature-art{order:initial}.feature-copy h2{font-size:2.15rem}.feature-art{min-height:230px}.app-panel{padding:20px}.install-section{padding-top:35px}.contact-section{padding-bottom:45px}footer{padding:20px 18px}}
+    .social-section{padding:70px 24px;background:#f6f5ff}.social-inner{width:min(100%,1160px);margin:0 auto}.social-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.social-card{display:flex;min-height:310px;flex-direction:column;align-items:flex-start;padding:30px;border:1px solid #e8e3f5;border-radius:22px;background:#fff;box-shadow:0 14px 36px rgba(19,9,47,.06)}.social-icon{display:grid;width:48px;height:48px;place-items:center;margin-bottom:17px;border-radius:15px;background:#f6f2ff}.social-icon svg{width:29px;height:29px}.social-icon-youtube{color:#e62117}.social-icon-facebook{color:#1877f2}.social-card h3{margin:0 0 15px;color:#13092f;font-family:var(--reading);font-size:1.35rem;font-weight:600}.social-verses{display:grid;gap:12px;margin-bottom:23px}.social-verses p{margin:0;color:#665d78;font-size:.88rem;line-height:1.55}.social-verses cite{display:block;margin-top:3px;color:#7f3aee;font-size:.73rem;font-style:normal;font-weight:750}.social-card .button{margin-top:auto;min-height:45px;padding:9px 16px;border-radius:13px;font-size:.83rem}.social-section .section-heading{margin-bottom:32px}.social-section .section-heading h2{color:#13092f}
+    @media(max-width:680px){.social-section{padding:52px 18px}.social-grid{grid-template-columns:1fr;gap:14px}.social-card{min-height:0;padding:24px}.social-section .section-heading{margin-bottom:23px}}
 
 </style>
 </head>
@@ -226,6 +228,35 @@
         </div>
       </section>
 
+      <section class="social-section" id="social" aria-labelledby="social-title">
+        <div class="social-inner">
+          <div class="section-heading">
+            <p class="section-kicker">Stay connected</p>
+            <h2 id="social-title">View our social</h2>
+            <p>Follow along and share in the fellowship of our church family.</p>
+          </div>
+          <div class="social-grid">
+            <article class="social-card" aria-labelledby="youtube-title">
+              <span class="social-icon social-icon-youtube" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z"/></svg></span>
+              <h3 id="youtube-title">YouTube</h3>
+              <div class="social-verses">
+                <p>“Not forsaking the assembling of ourselves together...”<cite>Hebrews 10:25 · KJV</cite></p>
+                <p>“For where two or three are gathered together in my name, there am I in the midst of them.”<cite>Matthew 18:20 · KJV</cite></p>
+              </div>
+              <a class="button button-primary" href="https://www.youtube.com/@consolationmandate2005" target="_blank" rel="noopener noreferrer">Visit our YouTube</a>
+            </article>
+            <article class="social-card" aria-labelledby="facebook-title">
+              <span class="social-icon social-icon-facebook" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12a12 12 0 1 0-13.875 11.85v-8.38H7.078V12h3.047V9.356c0-3.007 1.791-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953h-1.513c-1.49 0-1.956.925-1.956 1.875V12h3.328l-.532 3.47h-2.796v8.38A12.001 12.001 0 0 0 24 12Z"/></svg></span>
+              <h3 id="facebook-title">Facebook</h3>
+              <div class="social-verses">
+                <p>“Behold, how good and how pleasant it is for brethren to dwell together in unity!”<cite>Psalm 133:1 · KJV</cite></p>
+              </div>
+              <a class="button button-primary" href="https://www.facebook.com/share/19uL5pnf1Y/" target="_blank" rel="noopener noreferrer">Visit our Facebook</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section class="section contact-section" id="contact" aria-labelledby="contact-title">
         <div class="contact-panel">
           <div class="contact-copy"><p class="section-kicker">We’re here to help</p><h2 id="contact-title">Contact us.</h2><p>Have a question about the church, the hymnal, or a Sunday Service? Send us a message and we’ll be glad to hear from you.</p></div>
@@ -239,7 +270,7 @@
 
     <footer>
       <p>Consolation Evangelical and Revival Church</p>
-      <div class="footer-links"><a href="./hymnal.html">Open the hymnal</a><a href="https://github.com/consolationministry/hymnals/releases" target="_blank" rel="noopener noreferrer">Release history</a></div>
+      <div class="footer-links"><a href="./hymnal.html">Open the hymnal</a><a href="https://www.youtube.com/@consolationmandate2005" target="_blank" rel="noopener noreferrer">YouTube</a><a href="https://www.facebook.com/share/19uL5pnf1Y/" target="_blank" rel="noopener noreferrer">Facebook</a><a href="https://github.com/consolationministry/hymnals/releases" target="_blank" rel="noopener noreferrer">Release history</a></div>
       <p class="footer-credit">© <span id="current-year">2026</span> · Designed &amp; developed by <strong>Daraoet Technology</strong> · <a href="mailto:dev@darapet.name.ng">Contact the developer</a></p>
     </footer>
   </div>
