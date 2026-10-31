@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650" role="img" aria-labelledby="title desc">
+  <title id="title">English and Yorùbá hymn collections</title>
+  <desc id="desc">An illustrated open hymn book against a warm plum background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#351b3a"/>
+      <stop offset="1" stop-color="#8d315c"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#fffdf4"/>
+      <stop offset="1" stop-color="#eadfe9"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="20" stdDeviation="17" flood-color="#1c0d24" flood-opacity=".34"/>
+    </filter>
+  </defs>
+  <rect width="900" height="650" rx="30" fill="url(#bg)"/>
+  <circle cx="740" cy="100" r="174" fill="#f6c8d7" opacity=".12"/>
+  <circle cx="122" cy="535" r="196" fill="#d7a8da" opacity=".10"/>
+  <path d="M80 115c110-50 220-48 322 8v380c-102-56-212-58-322-8z" fill="#fff" opacity=".045"/>
+  <g filter="url(#shadow)" transform="translate(144 154)">
+    <path d="M38 78c105-41 209-32 311 21v293c-102-53-206-62-311-21z" fill="url(#page)"/>
+    <path d="M349 99c103-53 207-62 312-21v293c-105-41-209-32-312 21z" fill="#f8f0f3"/>
+    <path d="M349 99v293" stroke="#d5c6d6" stroke-width="7"/>
+    <path d="M78 132c74-24 147-20 220 9M78 171c74-24 147-20 220 9M78 210c74-24 147-20 220 9M78 249c74-24 147-20 220 9M78 288c74-24 147-20 220 9M78 327c74-24 147-20 220 9" fill="none" stroke="#b79fb7" stroke-linecap="round" stroke-width="8"/>
+    <path d="M400 132c74-24 147-20 220 9M400 171c74-24 147-20 220 9M400 210c74-24 147-20 220 9M400 249c74-24 147-20 220 9M400 288c74-24 147-20 220 9M400 327c74-24 147-20 220 9" fill="none" stroke="#b79fb7" stroke-linecap="round" stroke-width="8"/>
+    <path d="M299 391c-88-38-172-42-261-20M400 391c88-38 172-42 261-20" fill="none" stroke="#c6b5c9" stroke-width="8"/>
+  </g>
+  <g transform="translate(84 66)">
+    <rect width="178" height="40" rx="20" fill="#fff" opacity=".13"/>
+    <circle cx="22" cy="20" r="5" fill="#f5d56e"/>
+    <text x="39" y="26" fill="#fff" font-family="Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2">READ &amp; SING</text>
+  </g>
+  <text x="82" y="589" fill="#fff" font-family="Georgia, serif" font-size="29">English &amp; Yorùbá hymns</text>
+</svg>
