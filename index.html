@@ -40,6 +40,33 @@
     @media(max-width:680px){.hero-showcase{min-height:320px}.feature-grid{grid-template-columns:1fr}.feature-card{min-height:170px}}
     @media(max-width:380px){.nav-cta:after{content:"Open app"}}
     @media(prefers-reduced-motion:reduce){.hero-image-stack img{animation:none;opacity:0}.hero-image-stack img:first-child{opacity:1}.feature-action svg{transition:none}}
+
+    /* Homepage refresh: warm wine, cream and gold with a full-bleed, real-photo hero carousel. */
+    :root{--ink:#38242b;--muted:#76666b;--wine:#852b4d;--wine-dark:#552036;--plum:#612941;--gold:#c7a66a;--cream:#f7f1eb;--paper:#fffdfa;--line:#e8ddd5;--soft:#f1e4e3}
+    .site-header{margin:0 calc((100vw - min(100vw - 40px,1120px))/ -2);padding:13px max(20px,calc((100vw - 1120px)/2));background:rgba(247,241,235,.88);box-shadow:0 8px 28px rgba(66,31,43,.05)}
+    .hero{grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);background:#57233b;box-shadow:0 28px 80px rgba(74,28,57,.22)}
+    .hero:before,.hero:after{z-index:1}
+    .hero-copy,.hero-showcase{z-index:2}
+    .hero-image-stack{position:absolute;z-index:0;inset:0;overflow:hidden}
+    .hero-image-stack:after{position:absolute;z-index:1;inset:0;background:linear-gradient(90deg,rgba(49,18,34,.88) 0%,rgba(64,25,40,.76) 48%,rgba(64,25,40,.39) 100%),linear-gradient(0deg,rgba(44,19,31,.38),transparent 60%);content:"";pointer-events:none}
+    .hero-image-stack img{animation:ministryArtFade 35s ease-in-out infinite}
+    .hero-image-stack img:nth-child(2){animation-delay:7s}.hero-image-stack img:nth-child(3){animation-delay:14s}.hero-image-stack img:nth-child(4){animation-delay:21s}.hero-image-stack img:nth-child(5){animation-delay:28s}
+    @keyframes ministryArtFade{0%,16%{opacity:1;transform:scale(1)}20%,96%{opacity:0;transform:scale(1.045)}100%{opacity:1;transform:scale(1)}}
+    .hero-showcase{min-height:340px;padding:0;overflow:visible;border:0;box-shadow:none;background:transparent}
+    .hero-showcase:after{display:none}
+    .hero-showcase .hero-scripture{border:1px solid rgba(255,255,255,.28);background:rgba(59,25,42,.65);box-shadow:0 18px 40px rgba(30,10,21,.15);backdrop-filter:blur(9px)}
+    .hero-showcase .hero-scripture:before{display:none}
+    .eyebrow-dot,.hero-carousel-dot[aria-pressed="true"]{background:#e8c990}.hero h1 em{color:#f1dcaf}
+    .button-primary{background:#d6b66f;color:#35232b}.button-primary:hover{filter:brightness(1.05)}
+    .button-secondary{border-color:rgba(255,255,255,.34);background:rgba(255,255,255,.1)}
+    .scripture-card{background:linear-gradient(145deg,#852b4d,#57233b)}
+    .app-panel{background:#f0e3df}.app-preview{background:radial-gradient(circle at 50% 26%,rgba(255,255,255,.9),rgba(255,255,255,.1) 48%),linear-gradient(150deg,#a34a5b,#612941)}
+    .service-banner{background:linear-gradient(115deg,#852b4d,#57233b)}
+    .feature-card{border-color:#e8dcd5;background:#fffdfa}
+    .feature-card:hover{border-color:rgba(133,43,77,.35);box-shadow:0 16px 36px rgba(74,28,57,.09)}
+    .about-copy,.contact-panel{box-shadow:0 16px 42px rgba(59,28,55,.055)}
+    @media(max-width:900px){.site-header{margin:0 calc((100vw - min(100vw - 40px,1120px))/ -2);padding:13px max(20px,calc((100vw - 1120px)/2))}}
+    @media(max-width:680px){.site-header{margin:0 calc((100vw - min(100vw - 24px,560px))/ -2);padding:11px max(12px,calc((100vw - 560px)/2))}.hero{gap:15px}.hero-showcase{min-height:270px}.hero-image-stack:after{background:linear-gradient(90deg,rgba(49,18,34,.83),rgba(64,25,40,.53)),linear-gradient(0deg,rgba(44,19,31,.48),transparent 68%)}}
 </style>
 </head>
 <body>
@@ -63,6 +90,14 @@
 
     <main>
       <section class="hero" id="welcome" aria-labelledby="hero-title" aria-roledescription="carousel">
+        <div class="hero-image-stack" aria-hidden="true">
+          <img class="hero-image-slide" src="https://images.unsplash.com/photo-1740761026663-f4cd4b6fc162?auto=format&amp;fit=crop&amp;w=2000&amp;q=85" alt="" fetchpriority="high">
+          <img class="hero-image-slide" src="https://images.unsplash.com/photo-1769755410096-6c7a85d13f86?auto=format&amp;fit=crop&amp;w=2000&amp;q=85" alt="" loading="lazy">
+          <img class="hero-image-slide" src="https://images.unsplash.com/photo-1760367120345-2b96c53de838?auto=format&amp;fit=crop&amp;w=2000&amp;q=85" alt="" loading="lazy">
+          <img class="hero-image-slide" src="https://images.unsplash.com/photo-1695658478512-b765a5be324f?auto=format&amp;fit=crop&amp;w=2000&amp;q=85" alt="" loading="lazy">
+          <img class="hero-image-slide" src="https://images.unsplash.com/photo-1510384742052-1abcb6282645?auto=format&amp;fit=crop&amp;w=2000&amp;q=85" alt="" loading="lazy">
+          <img class="hero-image-slide" src="https://images.unsplash.com/photo-1725245997924-632b5673e18a?auto=format&amp;fit=crop&amp;w=2000&amp;q=85" alt="" loading="lazy">
+        </div>
         <div class="hero-copy">
           <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span><span>Welcome to Consolation Ministry</span></p>
           <h1 id="hero-title"><span id="hero-title-line-one" aria-hidden="true">Worship, give thanks,</span><br><em id="hero-title-line-two" aria-hidden="true">and pray together.</em><span id="hero-title-accessible" class="sr-only">Worship, give thanks, and pray together.</span></h1>
@@ -89,12 +124,7 @@
           <p id="ios-note" class="download-note" hidden>On iPhone or iPad? Visit the web hymnal in your browser.</p>
           <div class="hero-meta" aria-label="Hymnal app highlights"><span>English &amp; Yorùbá</span><span>Offline reading</span><span>Free to use</span></div>
         </div>
-        <aside class="hero-showcase" aria-label="Changing previews of hymns, live audio, and church programs">
-          <div class="hero-image-stack" aria-hidden="true">
-            <img class="hero-image-slide" src="./assets/home-hero-hymns.svg" alt="">
-            <img class="hero-image-slide" src="./assets/home-hero-live.svg" alt="">
-            <img class="hero-image-slide" src="./assets/home-hero-programs.svg" alt="">
-          </div>
+        <aside class="hero-showcase" aria-label="A scripture for reflection">
           <div id="hero-scripture" class="hero-scripture" aria-label="Bible verse">
           <span class="quote-mark" aria-hidden="true">“</span>
           <blockquote><span id="hero-verse-visible" aria-hidden="true">For where two or three are gathered together in my name, there am I in the midst of them.</span><span id="hero-verse-accessible" class="sr-only">For where two or three are gathered together in my name, there am I in the midst of them.</span></blockquote>
@@ -112,13 +142,13 @@
           <p class="about-section-intro"><span id="about-intro-typewriter" aria-hidden="true">We worship together, give thanks for God’s goodness, pray for one another, and grow in faith as a community.</span><span id="about-intro-accessible" class="sr-only">We worship together, give thanks for God’s goodness, pray for one another, and grow in faith as a community.</span></p>
         </div>
         <div class="about-grid">
-          <article class="about-copy">
+          <div class="about-copy">
             <p class="section-kicker">Our heart</p>
             <h2><span id="about-heart-typewriter" aria-hidden="true">Faith, fellowship, and a life of prayer.</span><span id="about-heart-accessible" class="sr-only">Faith, fellowship, and a life of prayer.</span></h2>
-            <p>We are a church family gathered to praise God, study His Word, share encouragement, and serve our neighbours with love.</p>
-            <p>Where people gather in prayer, we believe God hears and answers. The Lord awaits you; we would be glad to welcome you at our next programme.</p>
-            <p class="about-typed"><span id="about-typewriter" class="typed-text" aria-hidden="true">A family of faith.</span><span class="sr-only">A family of faith. A home for worship. A place of prayer.</span></p>
-          </article>
+            <p>Consolation Evangelical and Revival Church is a welcoming church family gathered to praise God, study His Word, share encouragement, and serve our neighbours with love.</p>
+            <p>We cherish worship, thanksgiving, and prayer, and believe there is room for everyone to grow in faith and find fellowship. Join us at a programme or explore the hymnal and church resources here.</p>
+            <div class="actions" style="margin-top:22px"><a class="button button-primary" href="#sunday-service"><span class="button-label"><strong>Come worship with us</strong><small>Find out about our Sunday service</small></span></a><a class="button" href="#contact" style="border-color:rgba(133,43,77,.22);color:var(--wine);background:#fff"><span class="button-label"><strong>Get in touch</strong><small>We would love to hear from you</small></span></a></div>
+          </div>
           <aside class="scripture-card" aria-label="Bible verse about prayer">
             <div><span class="quote-mark" aria-hidden="true">“</span><blockquote>Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.</blockquote><cite>Philippians 4:6 · KJV</cite></div>
             <p>Bring your hopes, your questions, and your prayers.</p>
