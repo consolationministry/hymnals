@@ -1,4 +1,18 @@
 const audioPlayerControllers = new WeakMap();
+const AUDIO_NETWORK_RETRY_DELAY_MS = 500;
+
+export function getAudioMediaErrorMessage(error) {
+  switch (Number(error && error.code)) {
+    case 2:
+      return "Connection interrupted. Check your connection and try again.";
+    case 3:
+      return "Audio could not be decoded. Try another recording.";
+    case 4:
+      return "This audio format or source is unavailable.";
+    default:
+      return "Audio could not be played.";
+  }
+}
 
 function updateMediaSession(audio, controller) {
   if (typeof navigator === "undefined" || !navigator.mediaSession) return;
@@ -168,7 +182,12 @@ function getController(audio) {
     archiveAutoplay: false,
     segmentLoadToken: 0,
     timelineElement: null,
-    liveSeekPreview: null
+    liveSeekPreview: null,
+    networkRetryCount: 0,
+    networkRetryTimer: null,
+    networkRetrySource: "",
+    networkRetryPending: false,
+    networkRetryExhausted: false
   };
   audioPlayerControllers.set(audio, controller);
   return controller;
@@ -298,6 +317,9 @@ function loadLiveAudioSegment(audio, controller, index, offsetSeconds, shouldPla
   controller.currentSegmentIndex = index;
   controller.waitingForLiveSegment = false;
   const loadToken = ++controller.segmentLoadToken;
+  controller.networkRetryCount = 0;
+  controller.networkRetrySource = "";
+  clearAudioNetworkRetry(controller);
   audio.pause();
   audio.srcObject = null;
   audio.src = segment.url;
@@ -400,6 +422,18 @@ function attachLiveTimelineSeek(audio, controller) {
   });
 }
 
+function clearAudioNetworkRetry(controller) {
+  if (controller.networkRetryTimer !== null) {
+    clearTimeout(controller.networkRetryTimer);
+    controller.networkRetryTimer = null;
+  }
+  controller.networkRetryPending = false;
+}
+
+function audioMediaErrorCode(audio) {
+  return Number(audio && audio.error && audio.error.code) || 0;
+}
+
 function attachAudioEvents(audio, controller) {
   if (controller.handlersAttached) return;
   controller.handlersAttached = true;
@@ -410,12 +444,21 @@ function attachAudioEvents(audio, controller) {
   ["play", "pause", "ended", "loadedmetadata", "durationchange"].forEach(eventName => {
     audio.addEventListener(eventName, () => updateMediaSession(audio, controller));
   });
+  audio.addEventListener("loadedmetadata", () => {
+    controller.networkRetryCount = 0;
+    controller.networkRetrySource = "";
+    controller.networkRetryExhausted = false;
+    clearAudioNetworkRetry(controller);
+  });
   audio.addEventListener("ended", () => {
     updatePlayerControls(audio, controller);
     advanceLiveAudioSegment(audio, controller);
   });
   audio.addEventListener("play", () => {
     if (controller.livePlayback) controller.archiveAutoplay = true;
+    controller.networkRetryCount = 0;
+    controller.networkRetrySource = "";
+    clearAudioNetworkRetry(controller);
     updatePlayerControls(audio, controller);
     if (controller.analyser) animateWaveform(audio, controller);
   });
@@ -426,7 +469,34 @@ function attachAudioEvents(audio, controller) {
   });
   audio.addEventListener("error", () => {
     const status = controller.root && controller.root.querySelector("[data-audio-player-status]");
-    if (status) status.textContent = "This recording could not be loaded. Check your connection and try again.";
+    const code = audioMediaErrorCode(audio);
+    if (code === 2 && audio.currentSrc) {
+      const source = audio.currentSrc;
+      if (controller.networkRetrySource !== source) {
+        controller.networkRetrySource = source;
+        controller.networkRetryCount = 0;
+        controller.networkRetryExhausted = false;
+      }
+      if (!controller.networkRetryPending && !controller.networkRetryExhausted && controller.networkRetryCount < 1) {
+        controller.networkRetryCount += 1;
+        controller.networkRetryPending = true;
+        if (status) status.textContent = "Connection interrupted. Retrying audio…";
+        const retrySource = source;
+        controller.networkRetryTimer = setTimeout(() => {
+          controller.networkRetryTimer = null;
+          controller.networkRetryPending = false;
+          if (audio.currentSrc !== retrySource || audioMediaErrorCode(audio) !== 2) {
+            controller.networkRetryExhausted = false;
+            return;
+          }
+          controller.networkRetryExhausted = true;
+          audio.load();
+        }, AUDIO_NETWORK_RETRY_DELAY_MS);
+        return;
+      }
+    }
+    clearAudioNetworkRetry(controller);
+    if (status) status.textContent = getAudioMediaErrorMessage(audio.error);
   });
 }
 

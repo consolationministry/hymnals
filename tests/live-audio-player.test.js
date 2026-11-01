@@ -7,6 +7,7 @@ import {
   preserveRecordedAudioPlayer,
   prepareAudioPlayer,
   getAudioPlayerDuration,
+  getAudioMediaErrorMessage,
   getAudioWaveformHeights,
   getAudioWaveformPosition,
   getLiveAudioSeekTarget,
@@ -19,6 +20,13 @@ import {
   setLiveAudioStream
 } from "../js/live-audio-player.js";
 
+test("audio media errors have accurate, distinct messages", () => {
+  assert.match(getAudioMediaErrorMessage({ code: 2 }), /connection/i);
+  assert.match(getAudioMediaErrorMessage({ code: 3 }), /decoded/i);
+  assert.match(getAudioMediaErrorMessage({ code: 4 }), /format or source/i);
+  assert.equal(getAudioMediaErrorMessage({ code: 1 }), "Audio could not be played.");
+  assert.equal(getAudioMediaErrorMessage(null), "Audio could not be played.");
+});
 test("audio timestamps are formatted as minutes or hours", () => {
   assert.equal(formatAudioTime(0), "0:00");
   assert.equal(formatAudioTime(65.9), "1:05");
