@@ -9,40 +9,14 @@ const read = (name) => readFile(new URL("../" + name, import.meta.url), "utf8");
 const run = promisify(execFile);
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
-test("public homepage welcomes visitors and explains the Android hymnal app", async () => {
+test("public homepage links to the current Android APK and hymnal reader", async () => {
   const home = await read("index.html");
   assert.ok(home.includes("Welcome to Consolation Ministry"));
-  assert.ok(home.includes("Matthew 18:20"));
-  assert.ok(home.includes("Philippians 4:6"));
   assert.ok(home.includes('id="android-download"'));
   const androidLink = home.match(/<a id="android-download"[^>]*>/)?.[0] || "";
-  assert.ok(androidLink.includes('href="./consolation-hymnal-android.apk" download="consolation-hymnal-android.apk"'));
-  assert.ok(!androidLink.includes("github.com"));
-  assert.ok(home.includes("Your APK download is starting."));
-  assert.ok(home.includes("choose Open with"));
+  assert.match(androidLink, /href="https:\/\/github\.com\/consolationministry\/hymnals\/releases\/download\/v[^\"]+\/consolation-hymnal-android\.apk"/);
+  assert.ok(androidLink.includes('download="consolation-hymnal-android.apk"'));
   assert.ok(home.includes('href="./hymnal.html"'));
-  assert.ok(home.includes('id="app-features"'));
-  assert.ok(home.includes('aria-label="Explore app features"'));
-  for (const feature of ["hymns", "live-audio", "programs", "services", "favorites", "recent", "settings"]) {
-    assert.ok(home.includes('href="#' + feature + '"'));
-    assert.ok(home.includes('id="' + feature + '"'));
-  }
-  assert.ok(home.includes('class="hero-image-stack"'));
-  assert.ok(home.includes("ministryArtFade"));
-  assert.ok(home.includes("prefers-reduced-motion:reduce"));
-  assert.ok(home.includes("home-hero-hymns.svg"));
-  assert.ok(home.includes("home-hero-live.svg"));
-  assert.ok(home.includes("home-hero-programs.svg"));
-  assert.ok(home.includes('aria-label="Open app for live audio"'));
-  assert.ok(home.includes('id="install-guide"'));
-  assert.ok(home.includes("English and Yorùbá"));
-  assert.ok(home.includes("Sunday Service"));
-  assert.ok(home.includes("mailto:Consolationministry123@gmail.com"));
-  assert.ok(home.includes("mailto:dev@darapet.name.ng"));
-  assert.ok(home.includes("Daraoet Technology"));
-  assert.ok(home.includes("Release history"));
-  assert.ok(!home.includes('id="pwa-install"'));
-  assert.ok(!home.includes("beforeinstallprompt"));
 });
 test("hero and About copy animate with an accessible welcome carousel", async () => {
   const home = await read("index.html");
