@@ -166,9 +166,12 @@ export async function loadPublicLiveAudioData() {
   data.programs = programs;
   await Promise.all(programs.map(async program => {
     const [recordingUrl, liveSegments] = await Promise.all([
-      resolveRecordingUrl(program),
+      resolveRecordingUrl(program).catch(() => ""),
       resolveLiveAudioSegments(program)
     ]);
+    // A signed playback URL is optional metadata for the library. A temporary
+    // storage/Edge Function failure must not prevent published programmes from
+    // appearing in the public listing.
     program.recordingUrl = recordingUrl;
     program.liveSegments = liveSegments;
   }));
@@ -179,13 +182,20 @@ export async function loadPublicLiveAudioData() {
   if (!programs.length) return data;
 
   const visitorId = getLiveAudioVisitorId();
-  const summaryRows = await liveAudioRequest("rpc/get_live_audio_interactions", {
-    method: "POST",
-    body: {
-      p_program_ids: programs.map(program => program.id),
-      p_visitor_id: visitorId
-    }
-  });
+  let summaryRows = [];
+  try {
+    summaryRows = await liveAudioRequest("rpc/get_live_audio_interactions", {
+      method: "POST",
+      body: {
+        p_program_ids: programs.map(program => program.id),
+        p_visitor_id: visitorId
+      }
+    });
+  } catch (error) {
+    // Reactions, comments and listener counts enrich the listing but are not
+    // required to display published programmes.
+    return data;
+  }
 
   asArray(summaryRows).forEach(row => {
     const programId = String(row.program_id || "");
