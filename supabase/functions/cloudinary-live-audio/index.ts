@@ -23,11 +23,14 @@ class SafeCloudinaryError extends Error {
 }
 
 function getAllowedOrigins() {
-  const configured = Deno.env.get("CLOUDINARY_ALLOWED_ORIGINS");
-  const origins = configured
-    ? configured.split(",").map(origin => origin.trim()).filter(Boolean)
-    : DEFAULT_ALLOWED_ORIGINS;
-  return new Set([...origins, "https://consolationministry.com.ng"]);
+  const configured = Deno.env.get("CLOUDINARY_ALLOWED_ORIGINS") || "";
+  const configuredOrigins = configured.split(",").map(origin => origin.trim()).filter(Boolean);
+  // Keep native Capacitor origins enabled even when production adds a custom allowlist.
+  return new Set([
+    ...DEFAULT_ALLOWED_ORIGINS,
+    ...configuredOrigins,
+    "https://consolationministry.com.ng"
+  ]);
 }
 
 function responseHeaders(origin: string) {

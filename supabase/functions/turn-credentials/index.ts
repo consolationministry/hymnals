@@ -7,11 +7,10 @@ const DEFAULT_ALLOWED_ORIGINS = [
 ];
 
 function getAllowedOrigins() {
-  const configured = Deno.env.get("TURN_ALLOWED_ORIGINS");
-  const origins = configured
-    ? configured.split(",").map(origin => origin.trim()).filter(Boolean)
-    : DEFAULT_ALLOWED_ORIGINS;
-  return new Set(origins);
+  const configured = Deno.env.get("TURN_ALLOWED_ORIGINS") || "";
+  const configuredOrigins = configured.split(",").map(origin => origin.trim()).filter(Boolean);
+  // Keep native Capacitor origins enabled even when production adds a custom allowlist.
+  return new Set([...DEFAULT_ALLOWED_ORIGINS, ...configuredOrigins]);
 }
 
 function responseHeaders(origin) {
