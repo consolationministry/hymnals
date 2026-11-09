@@ -44,6 +44,16 @@ function installBackend(options) {
       method: options && options.method || "GET",
       body
     });
+    if (opts.failCloudinary && url.pathname.endsWith("/functions/v1/cloudinary-live-audio")) {
+      throw new TypeError("Failed to fetch");
+    }
+    if (opts.failInteractions && url.pathname.endsWith("/rpc/get_live_audio_interactions")) {
+      return {
+        ok: false,
+        status: 500,
+        async text() { return JSON.stringify({ message: "Interaction service unavailable" }); }
+      };
+    }
     if (opts.missingRecordingColumns && !recordingSchemaRejected &&
         url.pathname.endsWith("/live_audio_programs") &&
         url.searchParams.get("select").includes("recording_path")) {
@@ -165,6 +175,28 @@ test("public audio interactions call the anonymous RPCs with validated payloads"
   await assert.rejects(togglePublicLiveAudioReaction(PROGRAM_ID, "unknown"), /supported reaction/);
   await assert.rejects(recordPublicLiveAudioListen("not-a-uuid", SESSION_ID), /identified/);
   assert.equal(calls.length, callCount);
+});
+
+test("public programme listing survives a failed optional Cloudinary playback lookup", async () => {
+  const recordingPath = "cloudinary:video:authenticated:live-audio/" + PROGRAM_ID + "/" + SESSION_ID + "/recording:webm";
+  const calls = installBackend({ recordingPath, isLive: false, failCloudinary: true });
+  const data = await loadPublicLiveAudioData();
+
+  assert.equal(data.programs.length, 1);
+  assert.equal(data.programs[0].title, "Sunday Service");
+  assert.equal(data.programs[0].recordingUrl, "");
+  assert.ok(calls.some(call => call.path.endsWith("/functions/v1/cloudinary-live-audio")));
+});
+
+test("public programme listing survives unavailable optional engagement data", async () => {
+  const calls = installBackend({ failInteractions: true });
+  const data = await loadPublicLiveAudioData();
+
+  assert.equal(data.programs.length, 1);
+  assert.equal(data.programs[0].title, "Sunday Service");
+  assert.deepEqual(data.comments, []);
+  assert.deepEqual(data.reactions, {});
+  assert.ok(calls.some(call => call.path.endsWith("/rpc/get_live_audio_interactions")));
 });
 
 test("published recordings get temporary public playback URLs and an archive player", async () => {
