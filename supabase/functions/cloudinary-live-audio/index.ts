@@ -27,7 +27,7 @@ function getAllowedOrigins() {
   const origins = configured
     ? configured.split(",").map(origin => origin.trim()).filter(Boolean)
     : DEFAULT_ALLOWED_ORIGINS;
-  return new Set(origins);
+  return new Set([...origins, "https://consolationministry.com.ng"]);
 }
 
 function responseHeaders(origin: string) {
