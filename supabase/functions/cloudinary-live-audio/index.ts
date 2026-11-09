@@ -2,6 +2,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 const FORMAT_PATTERN = /^(webm|ogg|m4a)$/;
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://consolationministry.github.io",
+  "https://consolationministry.com.ng",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "https://localhost",
