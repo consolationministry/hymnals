@@ -1464,6 +1464,8 @@ document.addEventListener("click", function (event) {
     if (selectedFilter) selectedFilter.focus({ preventScroll: true });
   } else if (action === "open-live-audio") {
     void openLiveAudioProgram(target.dataset.programId);
+  } else if (action === "retry-live-audio-recording") {
+    void refreshLiveAudioData();
   } else if (action === "save-live-audio") {
     void saveLiveAudioForOffline(target.dataset.programId);
   } else if (action === "remove-saved-live-audio") {
