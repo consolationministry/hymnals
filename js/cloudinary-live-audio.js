@@ -42,7 +42,10 @@ async function requestPublicPlaybackUrl(payload) {
     catch (error) { result = null; }
   }
   if (!response.ok || !result || typeof result.url !== "string") {
-    throw new Error("This recording is not available for playback right now.");
+    const message = result && typeof result.error === "string" && result.error.trim()
+      ? result.error.trim()
+      : "This recording is not available for playback right now.";
+    throw new Error(message.slice(0, 240));
   }
   let url;
   try { url = new URL(result.url); }
