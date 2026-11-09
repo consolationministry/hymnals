@@ -328,7 +328,12 @@ export function renderLiveAudioListener(data, programId, options) {
         bigPlayButton("recorded", "Play recording", "▶") + skipButton("recorded", 1, "Next programme", skipForwardIcon) + '</div>' +
         '<div class="audio-listener-secondary">' + muteButton("recorded") + volumeControl("recorded", "Recording volume") + '</div>' +
         '</div><p class="audio-player-note" data-audio-player-status="recorded">' + (offlinePlayback ? "Saved on this device · available offline." : "This recording was published by the church.") + '</p></section>'
-      : '<section class="audio-player audio-listener-player"><p class="audio-player-note">This programme is not live right now. Return to the library to see when the next broadcast begins.</p></section>';
+      : '<section class="audio-player audio-listener-player"><p class="audio-player-note">' +
+        (program.recordingPath
+          ? escapeHtml(program.recordingError || "The recording could not be loaded right now.") +
+            ' <button class="audio-player-retry" type="button" data-action="retry-live-audio-recording" data-program-id="' + escapeHtml(program.id) + '">Try again</button>'
+          : "This programme is not live right now. Return to the library to see when the next broadcast begins.") +
+        '</p></section>';
   const pills = offlinePlayback
     ? ""
     : '<div class="audio-listener-pills" role="group" aria-label="Programme actions">' +
