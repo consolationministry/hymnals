@@ -170,9 +170,9 @@ export async function loadPublicLiveAudioData() {
         url => ({ url, error: "" }),
         error => ({
           url: "",
-          error: error && error.message
+          error: error && error.message && error.message !== "Failed to fetch"
             ? error.message
-            : "The recording could not be reached. Check your connection and try again."
+            : "Could not reach the audio service. Check your connection and try again."
         })
       ),
       resolveLiveAudioSegments(program)
