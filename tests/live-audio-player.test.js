@@ -173,6 +173,30 @@ test("Android live audio uses the native media output path", async () => {
   }
 });
 
+test("Android recorded audio bypasses Web Audio and removes cross-origin mode", async () => {
+  const originalWindow = globalThis.window;
+  let contextsCreated = 0;
+  const removedAttributes = [];
+  class FakeAudioContext { constructor() { contextsCreated += 1; } }
+  globalThis.window = {
+    AudioContext: FakeAudioContext,
+    Capacitor: { isNativePlatform() { return true; }, getPlatform() { return "android"; } }
+  };
+  try {
+    const audio = {
+      paused: true,
+      dataset: { audioPlayer: "recorded" },
+      removeAttribute(name) { removedAttributes.push(name); }
+    };
+    assert.equal(await prepareAudioPlayer(audio), false);
+    assert.deepEqual(removedAttributes, ["crossorigin"]);
+    assert.equal(contextsCreated, 0);
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
+
 function createLiveAudioReturnFixture(stream) {
   const status = { textContent: "" };
   const listeners = new Map();
