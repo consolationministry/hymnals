@@ -185,6 +185,10 @@ test("public programme listing survives a failed optional Cloudinary playback lo
   assert.equal(data.programs.length, 1);
   assert.equal(data.programs[0].title, "Sunday Service");
   assert.equal(data.programs[0].recordingUrl, "");
+  assert.match(data.programs[0].recordingError, /could not reach the audio service/i);
+  const listener = renderLiveAudioListener(data, PROGRAM_ID);
+  assert.match(listener, /data-action="retry-live-audio-recording"/);
+  assert.match(listener, /Try again/);
   assert.ok(calls.some(call => call.path.endsWith("/functions/v1/cloudinary-live-audio")));
 });
 

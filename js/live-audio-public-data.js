@@ -165,14 +165,23 @@ export async function loadPublicLiveAudioData() {
   const data = emptyLiveAudioData();
   data.programs = programs;
   await Promise.all(programs.map(async program => {
-    const [recordingUrl, liveSegments] = await Promise.all([
-      resolveRecordingUrl(program).catch(() => ""),
+    const [recordingResult, liveSegments] = await Promise.all([
+      resolveRecordingUrl(program).then(
+        url => ({ url, error: "" }),
+        error => ({
+          url: "",
+          error: error instanceof TypeError || !error || !error.message
+            ? "Could not reach the audio service. Check your connection and try again."
+            : error.message
+        })
+      ),
       resolveLiveAudioSegments(program)
     ]);
-    // A signed playback URL is optional metadata for the library. A temporary
-    // storage/Edge Function failure must not prevent published programmes from
-    // appearing in the public listing.
-    program.recordingUrl = recordingUrl;
+    // A temporary playback lookup failure must not hide the published
+    // programme. Keep the reason so the listener can retry instead of seeing
+    // a silent page with no player controls.
+    program.recordingUrl = recordingResult.url;
+    program.recordingError = recordingResult.error;
     program.liveSegments = liveSegments;
   }));
   data.categories = Array.from(new Set(programs.map(program => program.category)))

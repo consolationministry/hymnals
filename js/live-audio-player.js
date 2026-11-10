@@ -574,8 +574,8 @@ export function mountAudioPlayer(audio, root) {
   if (controller.analyser && !audio.paused) animateWaveform(audio, controller);
 }
 
-function usesNativeAndroidLiveAudio(audio) {
-  if (!audio || !audio.dataset || audio.dataset.audioPlayer !== "live" ||
+function usesNativeAndroidAudio(audio) {
+  if (!audio || !audio.dataset ||
       typeof window === "undefined" || !window.Capacitor) return false;
   try {
     return typeof window.Capacitor.isNativePlatform === "function" &&
@@ -588,7 +588,17 @@ function usesNativeAndroidLiveAudio(audio) {
 }
 export async function prepareAudioPlayer(audio) {
   if (!audio) return false;
-  if (usesNativeAndroidLiveAudio(audio)) return false;
+  if (usesNativeAndroidAudio(audio)) {
+    // Android WebView can reject cross-origin media in CORS mode when the
+    // remote host does not allow the Capacitor origin. Native media playback
+    // does not need Web Audio, so let the WebView load the audio element
+    // directly instead of routing it through MediaElementAudioSourceNode.
+    if (audio.dataset.audioPlayer === "recorded" &&
+        typeof audio.removeAttribute === "function") {
+      audio.removeAttribute("crossorigin");
+    }
+    return false;
+  }
   const controller = getController(audio);
   if (!controller.preparing) {
     controller.preparing = (async () => {
