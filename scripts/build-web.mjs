@@ -19,6 +19,8 @@ await copyFile(path.join(root, "assets/demo-church-mark.svg"), path.join(dist, "
 
 // GitHub Pages must include the separate static admin app and the source modules it imports.
 await cp(path.join(root, "admin"), path.join(dist, "admin"), { recursive: true });
+// The live audio WebRTC module loads this AudioWorklet at runtime; publish it beside the module.
+await cp(path.join(root, "js/worklets"), path.join(dist, "js/worklets"), { recursive: true });
 for (const [directory, filenames] of [
   ["js", ["hymnal-selection.js", "programme-interactions.js", "programme-feed-utils.js", "local-store.js", "cloudinary-live-audio.js", "live-audio-recording.js", "live-audio-realtime.js", "live-audio-webrtc.js"]],
   ["data", ["uploaded-hymns.js", "uploaded-yoruba-hymns.js"]]
